@@ -1,0 +1,39 @@
+{
+  "healthy": {
+    "metadata": { "timestamp": "2026-08-04T10:15:00Z", "sequence_number": 4211 },
+    "robot_id": "pennybot-abc123",
+    "robot_state": {
+      "connection": { "state": "STATE_CONNECTED" },
+      "battery": { "charge_percent": 82.5, "state": "STATE_DISCHARGING" },
+      "emergency_stop": { "software": "SOFTWARE_ESTOP_RELEASED", "physical": "PHYSICAL_ESTOP_RELEASED" },
+      "mission": { "state": "MISSION_STATE_ACTIVE", "mission_id": "m-889" },
+      "pose": { "x": 12.4, "y": 3.1, "theta": 1.57 },
+      "error_codes": [],
+      "navigation_state": { "stuck_state": "STUCK_STATE_NONE" },
+      "twist": { "linear": { "x": 0.42, "y": 0 }, "angular": { "z": 0.01 } }
+    }
+  },
+  "troubled": {
+    "metadata": { "timestamp": { "seconds": 1785842100, "nanos": 500000000 }, "sequence_number": 9977 },
+    "robot_id": "pennybot-def456",
+    "robot_state": {
+      "connection": { "state": "STATE_DISCONNECTED" },
+      "battery": { "charge_percent": 11, "state": "STATE_CHARGING" },
+      "emergency_stop": { "software": "SOFTWARE_ESTOP_PRESSED", "physical": "PHYSICAL_ESTOP_RELEASED" },
+      "mission": { "state": "MISSION_STATE_FAILED", "mission_id": "m-901" },
+      "error_codes": [
+        { "code": "E210", "severity": "SEVERITY_CRITICAL" },
+        { "code": "E105", "severity": "SEVERITY_WARNING" }
+      ],
+      "navigation_state": { "stuck_state": "STUCK_STATE_STUCK" },
+      "twist": { "linear": { "x": 0.0, "y": 0.0 }, "angular": { "z": 0.0 } }
+    }
+  },
+  "sparse": {
+    "metadata": { "timestamp": "2026-08-04T10:16:00Z", "sequence_number": 1 },
+    "robot_id": "pennybot-xyz789",
+    "robot_state": {
+      "connection": { "state": "STATE_UNKNOWN" }
+    }
+  }
+}
