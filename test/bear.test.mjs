@@ -4,7 +4,8 @@ import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createBearConnector } from "../src/connectors/bear.mjs";
+import { existsSync } from "node:fs";
+import { createBearConnector, createGrpcStreamFactory } from "../src/connectors/bear.mjs";
 
 const fixtures = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fixtures", "bear-status.json"), "utf8")
@@ -135,6 +136,16 @@ test("token refresh: re-auths when expiry minus margin passes", async () => {
   assert.equal(authCalls.length, 1, "token still fresh");
   await c.tick(NOW + 26 * MIN); // inside the 5-minute refresh margin
   assert.equal(authCalls.length, 2, "re-authenticated before expiry");
+});
+
+test("vendored protos load and expose SubscribeRobotStatus", async (t) => {
+  const protoDir = join(dirname(fileURLToPath(import.meta.url)), "..", "proto", "bear");
+  if (!existsSync(join(protoDir, "bearrobotics"))) {
+    t.skip("protos not vendored");
+    return;
+  }
+  const factory = await createGrpcStreamFactory(CFG, { protoDir });
+  assert.equal(typeof factory, "function", "factory built: protos parsed and APIService found");
 });
 
 test("events buffered before a heartbeat-down tick are still delivered", async () => {

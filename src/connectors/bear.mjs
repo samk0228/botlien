@@ -168,9 +168,11 @@ export async function createGrpcStreamFactory(bearCfg, { protoDir }) {
   const { readdirSync } = await import("node:fs");
   const { join } = await import("node:path");
 
-  const protoFiles = readdirSync(protoDir)
-    .filter((f) => f.endsWith(".proto"))
-    .map((f) => join(protoDir, f));
+  const walk = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith(".proto") ? [join(dir, e.name)] : []
+    );
+  const protoFiles = walk(protoDir);
   if (protoFiles.length === 0) {
     throw new Error(`no .proto files in ${protoDir} — see proto/bear/README.md for how to vendor Bear's protos`);
   }

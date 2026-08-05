@@ -1,18 +1,28 @@
 # Vendored Bear Robotics protos
 
-The Bear connector loads any `.proto` files in this directory at runtime
-(`createGrpcStreamFactory` in `src/connectors/bear.mjs`) and finds the service
-exposing `SubscribeRobotStatus` automatically, so exact package names don't
-matter.
+**Already vendored** (see `VENDORED.txt` for the exact upstream commit):
+`bearrobotics/api/v1/**` plus the `google/api` annotation dependencies, taken
+from the public repo https://github.com/bearrobotics-public/cloud (MPL-2.0,
+license preserved in `BEAR-PROTOS-LICENSE`).
 
-To vendor the protos:
+The connector (`createGrpcStreamFactory` in `src/connectors/bear.mjs`) walks
+this directory recursively at runtime and finds the service exposing
+`SubscribeRobotStatus` (`bearrobotics.api.v1.services.cloud.APIService`), so
+package renames upstream won't break the loader. `test/bear.test.mjs` includes
+a smoke test that the vendored protos parse and the service resolves.
 
-1. Bear's public API artifacts live at https://gitlab.com/bearrobotics-public
-   (the `api-client` repo and the API docs at
-   https://cloud.api.bearrobotics.ai/guides/getting-started/).
-2. Copy the `.proto` files for the Cloud API (RobotStatus, Mission, and their
-   dependencies) into this directory, preserving any relative import paths.
-3. `npm start` will pick them up once `.claude/secrets.local.json` contains:
+## Refreshing
+
+```bash
+git clone --depth 1 https://github.com/bearrobotics-public/cloud /tmp/bear-cloud
+rm -rf proto/bear/bearrobotics/api/v1
+cp -R /tmp/bear-cloud/bearrobotics/api/v1 proto/bear/bearrobotics/api/v1
+# update VENDORED.txt with the new commit hash
+```
+
+## Going live
+
+Create `.claude/secrets.local.json` (gitignored):
 
 ```json
 {
@@ -22,6 +32,5 @@ To vendor the protos:
 }
 ```
 
-Until real credentials exist, everything runs against the simulator
-(`npm run demo`) and the Bear connector is exercised in tests via a fake
-stream (`test/bear.test.mjs`).
+Then `npm start`. Auth is JWT via `https://api-auth.bearrobotics.ai/authorizeApiAccess`;
+robot listing is REST; status streaming is gRPC server-streaming.

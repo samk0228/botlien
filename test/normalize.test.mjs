@@ -15,7 +15,7 @@ test("healthy Bear status maps to exact BotStatus", () => {
   assert.equal(s.at, Date.parse("2026-08-04T10:15:00Z"));
   assert.equal(s.seq, 4211);
   assert.equal(s.connectionState, "online");
-  assert.equal(s.batteryPct, 82.5);
+  assert.equal(s.batteryPct, 82);
   assert.equal(s.charging, false);
   assert.equal(s.eStop, false);
   assert.equal(s.missionState, "active");
@@ -27,20 +27,29 @@ test("healthy Bear status maps to exact BotStatus", () => {
   assert.deepEqual(validateStatus(s), []);
 });
 
-test("troubled Bear status: proto-style timestamp, estop, critical errors, stuck, not moving", () => {
+test("troubled Bear status: proto timestamp, engaged e-stop, HIGH errors in wrapper, stuck message", () => {
   const s = normalizeBearStatus(fixtures.troubled);
   assert.equal(s.at, 1785842100500);
   assert.equal(s.connectionState, "offline");
   assert.equal(s.charging, true);
+  // emergency: ENGAGED must win even though button_pressed is DISENGAGED
   assert.equal(s.eStop, true);
   assert.equal(s.missionState, "failed");
+  assert.equal(s.missionId, "m-901");
   assert.equal(s.stuck, true);
   assert.equal(s.moving, false);
   assert.deepEqual(s.errors, [
-    { code: "bear:E210", severity: "CRITICAL" },
-    { code: "bear:E105", severity: "WARNING" },
+    { code: "bear:210", severity: "HIGH" },
+    { code: "bear:105", severity: "MEDIUM" },
   ]);
   assert.deepEqual(validateStatus(s), []);
+});
+
+test("e-stop DISENGAGED never reads as engaged (substring trap)", () => {
+  const s = normalizeBearStatus(fixtures.healthy);
+  assert.equal(s.eStop, false);
+  assert.equal(s.stuck, false); // STATE_NOT_STUCK contains "STUCK"
+  assert.equal(s.missionState, "active"); // STATE_RUNNING
 });
 
 test("sparse status: unknowns stay null, never guessed", () => {

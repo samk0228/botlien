@@ -4,12 +4,12 @@
     "robot_id": "pennybot-abc123",
     "robot_state": {
       "connection": { "state": "STATE_CONNECTED" },
-      "battery": { "charge_percent": 82.5, "state": "STATE_DISCHARGING" },
-      "emergency_stop": { "software": "SOFTWARE_ESTOP_RELEASED", "physical": "PHYSICAL_ESTOP_RELEASED" },
-      "mission": { "state": "MISSION_STATE_ACTIVE", "mission_id": "m-889" },
+      "battery": { "charge_percent": 82, "state": "STATE_DISCHARGING", "charge_method": "CHARGE_METHOD_NONE" },
+      "emergency_stop": { "emergency": "EMERGENCY_DISENGAGED", "button_pressed": "EMERGENCY_DISENGAGED" },
+      "mission": { "mission_id": "m-889", "state": "STATE_RUNNING" },
       "pose": { "x": 12.4, "y": 3.1, "theta": 1.57 },
-      "error_codes": [],
-      "navigation_state": { "stuck_state": "STUCK_STATE_NONE" },
+      "error_codes": { "codes": [] },
+      "navigation_state": { "stuck_state": { "state": "STATE_NOT_STUCK", "reason": "REASON_UNKNOWN" } },
       "twist": { "linear": { "x": 0.42, "y": 0 }, "angular": { "z": 0.01 } }
     }
   },
@@ -18,14 +18,16 @@
     "robot_id": "pennybot-def456",
     "robot_state": {
       "connection": { "state": "STATE_DISCONNECTED" },
-      "battery": { "charge_percent": 11, "state": "STATE_CHARGING" },
-      "emergency_stop": { "software": "SOFTWARE_ESTOP_PRESSED", "physical": "PHYSICAL_ESTOP_RELEASED" },
-      "mission": { "state": "MISSION_STATE_FAILED", "mission_id": "m-901" },
-      "error_codes": [
-        { "code": "E210", "severity": "SEVERITY_CRITICAL" },
-        { "code": "E105", "severity": "SEVERITY_WARNING" }
-      ],
-      "navigation_state": { "stuck_state": "STUCK_STATE_STUCK" },
+      "battery": { "charge_percent": 11, "state": "STATE_CHARGING", "charge_method": "CHARGE_METHOD_CONTACT" },
+      "emergency_stop": { "emergency": "EMERGENCY_ENGAGED", "button_pressed": "EMERGENCY_DISENGAGED" },
+      "mission": { "mission_id": "m-901", "state": "STATE_FAILED" },
+      "error_codes": {
+        "codes": [
+          { "code": 210, "severity": "SEVERITY_HIGH", "message": "Up camera process error." },
+          { "code": 105, "severity": "SEVERITY_MEDIUM", "message": "Tray load cell drift." }
+        ]
+      },
+      "navigation_state": { "stuck_state": { "state": "STATE_STUCK", "reason": "REASON_PATH_BLOCKED" } },
       "twist": { "linear": { "x": 0.0, "y": 0.0 }, "angular": { "z": 0.0 } }
     }
   },

@@ -37,7 +37,9 @@ export const RULES = [
     defaults: { recur_count_24h: 5 },
     eval(ctx, p) {
       const latestErrors = parseErrors(ctx.latest?.errors);
-      const critical = latestErrors.find((e) => e.severity === "CRITICAL");
+      // Bear's real severity scale tops out at SEVERITY_HIGH ("blocks
+      // operation"); sim/import data may say CRITICAL. Both count.
+      const critical = latestErrors.find((e) => e.severity === "CRITICAL" || e.severity === "HIGH");
       if (critical) return { severity: "crit", evidence: { code: critical.code } };
       const errorSnapshots = ctx.window24h.filter((s) => parseErrors(s.errors).length > 0).length;
       if (errorSnapshots >= p.recur_count_24h) {

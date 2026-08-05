@@ -41,15 +41,20 @@ function mapMissionState(s) {
   if (v.includes("PAUSE")) return "paused";
   if (v.includes("FAIL") || v.includes("CANCEL") || v.includes("ABORT")) return "failed";
   if (v.includes("CHARG") || v.includes("DOCK")) return "charging";
-  if (v.includes("IDLE") || v.includes("NONE") || v.includes("COMPLETE") || v.includes("SUCCEED")) return "idle";
+  // Bear v1: STATE_DEFAULT = no mission running; SUCCEEDED = finished.
+  if (v.includes("IDLE") || v.includes("NONE") || v.includes("COMPLETE") || v.includes("SUCCEED") || v.includes("DEFAULT")) return "idle";
   return null;
 }
 
 function mapStuck(navState) {
-  const s = navState?.stuck_state ?? navState;
+  // Bear v1: navigation_state.stuck_state is a message { state, reason }.
+  let s = navState?.stuck_state ?? navState;
+  if (s && typeof s === "object") s = s.state;
   if (s === null || s === undefined) return null;
   const v = String(s).toUpperCase();
-  if (v.includes("NONE") || v.includes("NOT_STUCK") || v.includes("UNSTUCK") || v === "FALSE") return false;
+  if (v.includes("UNKNOWN")) return null;
+  // NOT_STUCK before STUCK: the former contains the latter as a substring.
+  if (v.includes("NOT_STUCK") || v.includes("NONE") || v.includes("UNSTUCK") || v === "FALSE") return false;
   if (v.includes("STUCK")) return true;
   return null;
 }
@@ -62,8 +67,13 @@ function mapEStop(e) {
   let sawKnown = false;
   for (const v of values) {
     const s = String(v).toUpperCase();
+    // Negatives FIRST: Bear's EMERGENCY_DISENGAGED contains "ENGAGED", and
+    // INACTIVE contains "ACTIVE" — matching positives first misreads both.
+    if (s.includes("DISENGAGED") || s.includes("RELEASED") || s.includes("INACTIVE") || s === "FALSE" || s.includes("NONE")) {
+      sawKnown = true;
+      continue;
+    }
     if (s.includes("PRESSED") || s.includes("ENGAGED") || s.includes("ACTIVE") || s === "TRUE") return true;
-    if (s.includes("RELEASED") || s.includes("DISENGAGED") || s.includes("INACTIVE") || s === "FALSE" || s.includes("NONE")) sawKnown = true;
   }
   return sawKnown ? false : null;
 }
@@ -78,6 +88,8 @@ function mapMoving(twist) {
 
 function mapErrors(codes, brand) {
   if (codes === null || codes === undefined) return null;
+  // Bear v1 wraps the list: error_codes is ErrorCodes { codes: ErrorCode[] }.
+  if (!Array.isArray(codes) && Array.isArray(codes.codes)) codes = codes.codes;
   if (!Array.isArray(codes)) return null;
   return codes.map((c) => {
     if (typeof c === "object" && c !== null) {

@@ -1,0 +1,1 @@
+vendored-from: github.com/bearrobotics-public/cloud @ 0e5becd278109e30325d17bba2880ff5eba9db7e on 2026-08-04

@@ -215,6 +215,11 @@ export class Store {
     );
   }
 
+  snapshotTimeRange() {
+    const r = this.db.prepare(`SELECT MIN(at) AS min_at, MAX(at) AS max_at FROM status_snapshots`).get();
+    return r?.min_at ? { minAt: r.min_at, maxAt: r.max_at } : null;
+  }
+
   latestOnlineAt(robotId) {
     return (
       this.db
