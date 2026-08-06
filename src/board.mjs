@@ -196,21 +196,82 @@ ${flagSection("infra")}
 </body></html>`;
 }
 
-export function startBoard(port, { getState }) {
+// Form bodies are read with a hard cap: this server is a dashboard, not an
+// upload endpoint, and an unbounded body would buffer straight into memory.
+export const MAX_BODY_BYTES = 64 * 1024;
+
+export function readBody(req, limitBytes = MAX_BODY_BYTES) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > limitBytes) {
+        reject(new Error("body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+export function startBoard(port, { getState, getOwnerState = null, saveEconomics = null }) {
   const server = createServer(async (req, res) => {
     try {
-      if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
+      const path = (req.url ?? "/").split("?")[0];
+
+      if (req.method === "GET" && (path === "/" || path === "/index.html")) {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(renderBoardHTML(model));
         return;
       }
-      if (req.method === "GET" && req.url === "/api/state") {
+      if (req.method === "GET" && path === "/api/state") {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(model));
         return;
       }
+
+      // ---- owner views (only mounted when the callbacks are supplied) ----
+      if (getOwnerState) {
+        const owner = await import("./owner.mjs");
+        if (req.method === "GET" && path === "/owner") {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderOwnerHTML(await getOwnerState()));
+          return;
+        }
+        if (req.method === "GET" && path === "/api/owner") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(await getOwnerState()));
+          return;
+        }
+        if (req.method === "GET" && path === "/owner/setup") {
+          const saved = (req.url ?? "").includes("saved=1");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderSetupHTML(await getOwnerState(), { saved }));
+          return;
+        }
+        if (req.method === "POST" && path === "/owner/setup" && saveEconomics) {
+          let body;
+          try {
+            body = await readBody(req);
+          } catch {
+            res.writeHead(413, { "Content-Type": "text/plain" });
+            res.end("form too large");
+            return;
+          }
+          await saveEconomics(new URLSearchParams(body));
+          // 303 so a refresh of the board does not repost the form
+          res.writeHead(303, { Location: "/owner/setup?saved=1" });
+          res.end();
+          return;
+        }
+      }
+
       res.writeHead(404);
       res.end("not found");
     } catch (err) {

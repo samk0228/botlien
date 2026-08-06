@@ -8,6 +8,12 @@ operator, or eventually a lender. PD signals (borrower distress read through
 asset behavior) and LGD signals (collateral condition) are kept strictly
 separate.
 
+There are two boards over one pipeline, for two different buyers:
+
+- `/` **risk board**, for whoever holds the financial risk: PD/LGD/infra flags.
+- `/owner` **owner board**, for the business owner leasing the robots: what the
+  work was worth against what the lease costs.
+
 ## Quick start
 
 ```bash
@@ -15,7 +21,40 @@ npm test          # full deterministic suite (no network, no credentials)
 npm run demo      # simulated 5-robot fleet at 60x speed → http://127.0.0.1:3230
 npm run e2e       # end-to-end pipeline check, exits 0/1
 npm start         # live mode; uses Bear if credentials exist, else demo fleet
+
+node scripts/rebuild-rollups.mjs [--dry-run]   # recompute rollups from snapshots
 ```
+
+## The owner board
+
+Four figures, each shown with the arithmetic that produced it:
+
+| Figure | Computed as |
+|---|---|
+| Coverage | work serviced ÷ lease invoice, prorated to the period measured |
+| Cost per task | invoice ÷ tasks, **per kind of work** (units differ across task types) |
+| Work serviced | tasks x replacement rate, the price of buying that work elsewhere |
+| Utilization | duty time ÷ the operating hours the owner declared |
+
+What it values is the **service performed**, never the revenue touched. A robot
+that runs a $40 order contributed the fulfillment step, worth what a runner or
+3PL charges for it, not $40. Claims that need payroll or POS data (labor
+actually saved, profit, what the business would look like without the robots)
+are out of scope by design, because that is the line between an independent
+reading and vendor ROI marketing.
+
+Two counting caveats, stated in the UI as well as here:
+
+- `mission_count` counts idle→active transitions, which are mission **starts**,
+  not completions. Telemetry cannot show that a run finished, so the label reads
+  "runs started" everywhere. It is also sensitive to polling cadence; counting
+  `DISTINCT mission_id` would be cadence-independent and is the next upgrade.
+- Robots whose category has no benchmark rate are left out of the totals rather
+  than counted as zero, and the board says so.
+
+Economics live in `robot_economics` (one row per robot, set on `/owner/setup`).
+Absent a row, the board falls back to the category benchmarks in `src/rates.mjs`
+and marks the figure as a default.
 
 The demo is the sales prop: within ~2 real minutes the board shows
 utilization-drop and battery-degradation flags accumulating, and a scripted

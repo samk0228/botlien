@@ -129,6 +129,20 @@ CREATE TABLE IF NOT EXISTS outcomes (
   imported_at INTEGER
 );
 
+-- What the owner pays for a robot and what its work is worth. One current row
+-- per robot; rate history is a later concern (the backtest reads telemetry, not
+-- prices). Absent row = fall back to the category benchmark in rates.mjs.
+CREATE TABLE IF NOT EXISTS robot_economics (
+  robot_id INTEGER NOT NULL UNIQUE,
+  task_type TEXT NOT NULL,
+  task_basis TEXT NOT NULL,
+  rate_cents INTEGER NOT NULL,
+  invoice_cents_month INTEGER,
+  wage_cents_hour INTEGER,
+  operating_hours_day REAL,
+  updated_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 `;
 
@@ -253,6 +267,60 @@ export class Store {
         `SELECT * FROM utilization_rollups WHERE robot_id=? AND bucket_start_at>=? AND bucket_start_at<=? ORDER BY bucket_start_at`
       )
       .all(robotId, sinceMs, untilMs);
+  }
+
+  // Span of the aggregates the owner board actually prices. Distinct from
+  // snapshotTimeRange: the board reads rollups, so the period it can honestly
+  // report on is the period rollups exist for.
+  rollupTimeRange() {
+    const r = this.db
+      .prepare(`SELECT MIN(bucket_start_at) AS min_at, MAX(bucket_start_at + bucket_ms) AS max_at FROM utilization_rollups`)
+      .get();
+    return r?.min_at === null || r?.min_at === undefined ? null : { minAt: r.min_at, maxAt: r.max_at };
+  }
+
+  // Every robot's rollups in one query. The owner board needs a fleet-wide
+  // number, and per-robot reads would be one query per robot per page load.
+  rollupsBetweenAll(sinceMs, untilMs) {
+    return this.db
+      .prepare(
+        `SELECT * FROM utilization_rollups WHERE bucket_start_at>=? AND bucket_start_at<=? ORDER BY robot_id, bucket_start_at`
+      )
+      .all(sinceMs, untilMs);
+  }
+
+  // ---- economics ----
+  upsertRobotEconomics(robotId, e, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO robot_economics (robot_id, task_type, task_basis, rate_cents, invoice_cents_month,
+           wage_cents_hour, operating_hours_day, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(robot_id) DO UPDATE SET
+           task_type=excluded.task_type, task_basis=excluded.task_basis, rate_cents=excluded.rate_cents,
+           invoice_cents_month=excluded.invoice_cents_month, wage_cents_hour=excluded.wage_cents_hour,
+           operating_hours_day=excluded.operating_hours_day, updated_at=excluded.updated_at`
+      )
+      .run(
+        robotId, e.taskType, e.taskBasis, e.rateCents,
+        e.invoiceCentsMonth ?? null, e.wageCentsHour ?? null, e.operatingHoursDay ?? null, nowMs
+      );
+  }
+
+  getRobotEconomics(robotId) {
+    return this.db.prepare(`SELECT * FROM robot_economics WHERE robot_id=?`).get(robotId) ?? null;
+  }
+
+  listRobotEconomics() {
+    return this.db.prepare(`SELECT * FROM robot_economics`).all();
+  }
+
+  setRobotFleet(robotId, fleetId) {
+    this.db.prepare(`UPDATE robots SET fleet_id=? WHERE id=?`).run(fleetId, robotId);
+  }
+
+  listFleets() {
+    return this.db.prepare(`SELECT * FROM fleets ORDER BY id`).all();
   }
 
   // ---- heartbeats ----

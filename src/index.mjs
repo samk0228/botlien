@@ -8,6 +8,7 @@ import { openStore } from "./store.mjs";
 import { createEngine, createClock } from "./engine.mjs";
 import { createSimConnector } from "./connectors/sim.mjs";
 import { boardModel, startBoard } from "./board.mjs";
+import { ownerModel, parseSetupForm } from "./owner.mjs";
 import { ROOT } from "./infra.mjs";
 import { join } from "node:path";
 
@@ -51,9 +52,21 @@ async function main() {
     }
   }, tickRealMs);
 
-  const server = startBoard(config.board.port, { getState: () => boardModel(store, clock.now()) });
+  const server = startBoard(config.board.port, {
+    getState: () => boardModel(store, clock.now()),
+    getOwnerState: () => ownerModel(store, clock.now(), config),
+    saveEconomics: (params) => {
+      const { updates, errors } = parseSetupForm(params, store.listRobots());
+      const nowMs = clock.now();
+      for (const u of updates) store.upsertRobotEconomics(u.robotId, u.econ, nowMs);
+      if (updates.length > 0) genesisLog(`owner economics updated for ${updates.length} robot(s)`);
+      if (errors.length > 0) {
+        genesisLog(`owner setup rejected ${errors.length} field(s): ${errors.map((e) => e.field).join(",")}`, "warning");
+      }
+    },
+  });
   const mode = demo ? `demo (${config.demo.clock_scale}x clock)` : "live";
-  console.log(`botlien ${mode} — board on http://127.0.0.1:${config.board.port}`);
+  console.log(`botlien ${mode} — risk board http://127.0.0.1:${config.board.port}/ · owner board /owner`);
   genesisLog(`botlien engine online (${mode}, connectors: ${connectors.map((c) => c.name).join(",")})`);
 
   const shutdown = async () => {

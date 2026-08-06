@@ -8,6 +8,7 @@
     "rollup_bucket_ms": 3600000
   },
   "demo": { "scenario": "demo-fleet", "clock_scale": 60, "tick_real_ms": 1000 },
+  "owner": { "window_days": 30 },
   "rules": {
     "offline_duration": { "warn_min": 30, "crit_min": 240, "clear_after_min": 10 },
     "error_severity": { "recur_count_24h": 5, "clear_after_min": 60 },
