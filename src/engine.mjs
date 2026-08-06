@@ -102,9 +102,18 @@ export function createEngine({ store, connectors, config, log = () => {} }) {
     const robots = store.listRobots();
     const results = [];
 
+    // The recompute window MUST start on a bucket boundary. upsertRollup
+    // overwrites a bucket wholesale, so a window starting mid-bucket recomputes
+    // that bucket from only the snapshots after the cut and clobbers the
+    // complete row with a partial one. Left unaligned, the trailing edge sweeps
+    // forward an eval at a time and grinds every historical bucket down to a
+    // single sample, which is exactly what happened to 93% of the rows in the
+    // demo database before this line existed.
+    const from = Math.floor((nowMs - recomputeWindowMs) / bucketMs) * bucketMs;
+
     for (const robot of robots) {
       // Refresh the buckets that can still change.
-      const recent = store.snapshotsBetween(robot.id, nowMs - recomputeWindowMs, nowMs);
+      const recent = store.snapshotsBetween(robot.id, from, nowMs);
       for (const b of computeRollups(recent, bucketMs)) store.upsertRollup({ robotId: robot.id, ...b });
 
       const ctx = {
