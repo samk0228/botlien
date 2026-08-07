@@ -1,0 +1,5 @@
+kind,date,robot_id,amount,detail
+payment_late,2026-05-15,unit-7,1499.00,15 days past due
+payment_missed,2026-06-01,unit-7,1499.00,
+churn,2026-06-20,unit-9,,customer returned unit
+default,2026-07-01,,44970.00,account-level default

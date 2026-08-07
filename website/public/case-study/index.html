@@ -1,0 +1,449 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case Study (Illustrative) · Botlien</title>
+<meta name="description" content="An illustrative case study: how Botlien would turn a mid-tail RaaS operator's Pudu telemetry into per-account cash flow and default risk visibility.">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="canonical" href="https://botlien.com/case-study/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest.json">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Botlien">
+<meta property="og:title" content="Case Study (Illustrative) · Botlien">
+<meta property="og:description" content="An illustrative case study: how Botlien would turn a mid-tail RaaS operator's Pudu telemetry into per-account cash flow and default risk visibility.">
+<meta property="og:url" content="https://botlien.com/case-study/">
+<meta property="og:image" content="https://botlien.com/og-mark.png">
+<style>
+:root {
+  color-scheme: light;
+  --ink: #0A0A0A;
+  --gray-1: #58585F;
+  --gray-2: #8B8B93;
+  --gray-3: #EFEFF1;
+  --gray-4: #F7F7F8;
+  --border: #E4E4E8;
+}
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #ffffff; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--ink); }
+button { font-family: inherit; }
+img { max-width: 100%; }
+::selection { background: var(--ink); color: #fff; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+.topbar { background: var(--ink); color: #fff; font-size: 13.5px; }
+.topbar .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; padding: 10px 28px; text-align: center; }
+.topbar a { color: #fff; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+@media (max-width: 760px) {
+  .topbar { font-size: 12px; }
+  .topbar .wrap { flex-wrap: nowrap; gap: 6px; padding: 9px 12px; }
+  .hero-sub { font-size: 16px; }
+}
+.hero-sub { font-size: 19px; }
+
+.nav-shell { position: sticky; top: 0; z-index: 20; background: #fff; border-bottom: 1px solid var(--border); }
+.nav-shell .wrap { display: flex; align-items: center; height: 72px; gap: 28px; }
+.brand { display: inline-flex; align-items: center; text-decoration: none; }
+.brand img { height: 26px; width: auto; display: block; }
+.brand .icon-only { display: none; }
+.navlinks { display: flex; align-items: center; gap: 30px; font-size: 14px; font-weight: 400; margin-left: 8px; }
+.navlinks a { color: var(--ink); text-decoration: none; }
+.navlinks a:hover { color: var(--gray-1); }
+.nav-cta { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+
+.mobile-menu-btn { display: none; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 0; margin-right: 2px; cursor: pointer; color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
+.mobile-menu-btn:hover { background: var(--gray-4); border-color: var(--gray-2); }
+.mobile-menu-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.mobile-menu-btn svg { width: 20px; height: 20px; display: block; }
+.mobile-menu-btn .icon-close { display: none; }
+.mobile-menu-btn[aria-expanded="true"] .icon-bars { display: none; }
+.mobile-menu-btn[aria-expanded="true"] .icon-close { display: block; }
+.mobile-nav-panel { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--border); padding: 4px 28px 12px; box-shadow: 0 8px 20px rgba(10,10,10,0.06); }
+.mobile-nav-panel.open { display: block; }
+.mobile-nav-panel a { display: block; padding: 13px 0; font-size: 15.5px; color: var(--ink); text-decoration: none; border-top: 1px solid var(--border); }
+.mobile-nav-panel a:first-child { border-top: none; }
+
+.btn-ink, button.btn-ink { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--ink); color: #fff; font-weight: 600; font-size: 15px; padding: 13px 22px; border-radius: 6px; border: none; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.btn-ink:hover, button.btn-ink:hover { background: #2A2A2A; }
+
+h1.hero-h { font-size: clamp(30px, 4.2vw, 48px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.14; margin: 0 0 18px; color: var(--ink); }
+
+.section { padding: 72px 0; border-top: 1px solid var(--border); }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-1); margin: 0 0 14px; }
+h2.section-h { font-size: clamp(22px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin: 0 0 14px; max-width: 30ch; }
+p.section-p { font-size: 16px; line-height: 1.6; color: var(--gray-1); max-width: 62ch; margin: 0 0 20px; }
+p.section-p:last-child { margin-bottom: 0; }
+
+.quote-block { border-left: 2px solid var(--ink); padding: 2px 0 2px 22px; margin: 8px 0 24px; max-width: 58ch; }
+.quote-block p { font-size: 17px; line-height: 1.55; color: var(--ink); margin: 0; font-weight: 500; letter-spacing: -0.005em; }
+
+.hero-photos { display: grid; grid-template-columns: 1.1fr 1.1fr 0.9fr; gap: 16px; margin-bottom: 16px; }
+.hero-photo { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: var(--gray-3); }
+.hero-photo img { width: 100%; height: 320px; object-fit: cover; display: block; }
+.hero-photo .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 34px 18px 14px; background: linear-gradient(to top, rgba(10,10,10,0.75), rgba(10,10,10,0)); color: #fff; font-size: 13px; font-weight: 600; }
+@media (max-width: 900px) {
+  .hero-photos { grid-template-columns: 1fr 1fr; }
+  .hero-photos .hero-photo:nth-child(3) { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .hero-photos { display: flex; grid-template-columns: none; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; gap: 12px; margin: 0 -18px 16px; padding: 0 18px; scrollbar-width: none; }
+  .hero-photos::-webkit-scrollbar { display: none; }
+  .hero-photos .hero-photo { flex: 0 0 86%; scroll-snap-align: center; }
+  .hero-photos .hero-photo:nth-child(3) { grid-column: auto; }
+  .hero-photo img { height: 260px; }
+}
+
+.steps { position: relative; }
+.step { position: relative; padding: 0 0 30px 44px; }
+.step:last-child { padding-bottom: 0; }
+.step::before { content: ""; position: absolute; left: 13px; top: 26px; bottom: -4px; width: 1px; background: var(--border); }
+.step:last-child::before { display: none; }
+.step .n { position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--gray-3); color: var(--gray-1); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.step.on .n { background: var(--ink); color: #fff; }
+.step h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+.step p { font-size: 14.5px; color: var(--gray-1); margin: 0; line-height: 1.55; }
+
+.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0; margin-bottom: 22px; }
+.statgrid > div { padding: 4px 24px; border-left: 1px solid var(--border); }
+.statgrid > div:first-child { border-left: none; padding-left: 0; }
+@media (max-width: 640px) {
+  .statgrid { grid-template-columns: 1fr; }
+  .statgrid > div { border-left: none; border-top: 1px solid var(--border); padding: 20px 0; }
+  .statgrid > div:first-child { border-top: none; padding-top: 0; }
+}
+.statgrid .num { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.statgrid .lbl { font-size: 13px; color: var(--gray-1); margin-top: 8px; line-height: 1.5; }
+.statgrid .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray-2); margin-top: 10px; }
+
+.accordion { border-top: 1px solid var(--border); }
+.accordion details { border-bottom: 1px solid var(--border); }
+.accordion summary { list-style: none; cursor: pointer; padding: 16px 0; display: flex; align-items: center; gap: 14px; font-weight: 500; font-size: 15.5px; color: var(--ink); }
+.accordion summary::-webkit-details-marker { display: none; }
+.accordion summary span.label { flex: 1; }
+.accordion summary .chev { position: relative; width: 16px; height: 14px; flex: none; }
+.accordion summary .chev i { position: absolute; top: 6px; width: 8px; height: 2px; background: var(--gray-2); border-radius: 1px; transition: transform 0.25s ease; }
+.accordion summary .chev i:first-child { left: 0; transform-origin: 100% 50%; transform: rotate(45deg); }
+.accordion summary .chev i:last-child { right: 0; transform-origin: 0% 50%; transform: rotate(-45deg); }
+.accordion details[open] summary .chev i:first-child { transform: rotate(0deg); }
+.accordion details[open] summary .chev i:last-child { transform: rotate(0deg); }
+.accordion .accordion-body { padding: 0 0 18px; font-size: 15px; line-height: 1.6; color: var(--gray-1); max-width: 560px; }
+
+footer.site-footer { padding: 56px 0 60px; border-top: 1px solid var(--border); background: var(--ink); color: #fff; }
+footer.site-footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 24px; }
+footer.site-footer .brand { color: #fff; }
+footer.site-footer a.foot-link { color: #B9B9BE; text-decoration: none; font-size: 13.5px; }
+footer.site-footer a.foot-link:hover { color: #fff; }
+footer.site-footer a.foot-icon { display: inline-flex; align-items: center; }
+footer.site-footer a.foot-icon svg { width: 20px; height: 20px; }
+
+@media (max-width: 760px) {
+  .navlinks { display: none; }
+  .nav-shell .wrap { gap: 18px; justify-content: flex-start; }
+  .brand .full-lockup { display: none; }
+  .brand .icon-only { display: block; height: 30px; width: auto; }
+  .btn-ink, button.btn-ink { padding: 10px 16px; font-size: 14px; }
+  .section { padding: 60px 0; }
+  .tick { padding: 13px 18px; font-size: 13px; }
+  .tick b { font-size: 14.5px; }
+  .ticker-track { animation-duration: 22s; }
+  .nav-shell { padding-bottom: 14px; }
+  .mobile-menu-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%);
+    width: 60px; height: 20px; background: none; border: none; border-radius: 0; padding: 0; margin: 0; cursor: pointer;
+  }
+  .mobile-menu-btn:hover { background: none; border-color: transparent; }
+  .mobile-menu-btn[aria-expanded="true"] { background: none; border-color: transparent; color: var(--ink); }
+  .mobile-menu-btn::before {
+    content: ""; width: 44px; height: 3px; border-radius: 2px; background: var(--ink);
+    transition: background 0.15s ease, width 0.15s ease;
+  }
+  .mobile-menu-btn[aria-expanded="true"]::before { background: var(--gray-1); width: 30px; }
+  .mobile-menu-btn svg,
+  .mobile-menu-btn[aria-expanded="true"] .icon-close,
+  .mobile-menu-btn[aria-expanded="true"] .icon-bars { display: none; }
+}
+@media (max-width: 420px) {
+  .wrap { padding: 0 18px; }
+  .hero-photos { margin: 0 -18px 16px; padding: 0 18px; }
+}
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(10,10,10,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal { position: relative; background: #fff; border-radius: 12px; padding: 32px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; transform: translateY(8px); transition: transform 0.2s ease; }
+.modal-backdrop.open .modal { transform: translateY(0); }
+.modal-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: none; background: none; font-size: 22px; line-height: 1; color: var(--gray-2); cursor: pointer; padding: 0; }
+.modal-close:hover { color: var(--ink); }
+.modal h3 { font-size: 20px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+.modal-sub { font-size: 14px; color: var(--gray-1); margin: 0 0 22px; line-height: 1.5; }
+.modal .field { margin-bottom: 14px; }
+.modal .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--gray-1); margin-bottom: 6px; }
+.modal .field input { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; color: var(--ink); }
+.modal .field input:focus { outline: none; border-color: var(--ink); }
+.modal .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.modal-submit { width: 100%; margin-top: 6px; }
+.modal-submit[disabled] { opacity: 0.6; cursor: default; }
+.modal-error { font-size: 13px; color: #C0392B; margin-top: 10px; display: none; }
+.modal-error.show { display: block; }
+.modal-success h3 { margin-bottom: 8px; }
+
+.draft-note { background: var(--gray-4); color: var(--gray-1); font-size: 12.5px; text-align: center; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+</style>
+
+<div class="topbar">
+  <div class="wrap">
+    <span>Illustrative scenario. Botlien has not completed a paid deployment, this models how the platform would apply to a real operator.</span>
+  </div>
+</div>
+
+<div class="nav-shell">
+  <div class="wrap">
+    <a href="/" class="brand" aria-label="Botlien home">
+      <img class="full-lockup" src="/logo-lockup.png" alt="Botlien">
+      <img class="icon-only" src="/logo-mark.png" alt="Botlien">
+    </a>
+    <nav class="navlinks">
+      <a href="/">Home</a>
+    </nav>
+    <div class="nav-cta">
+      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu" aria-expanded="false">
+        <svg class="icon-bars" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <button class="btn-ink js-demo-open" type="button">Let's talk</button>
+    </div>
+    <div class="mobile-nav-panel" id="mobileNavPanel">
+      <a href="/">Home</a>
+    </div>
+  </div>
+</div>
+
+<section class="wrap" style="padding-top: 56px; padding-bottom: 8px;">
+  <div class="eyebrow">Case study, illustrative</div>
+  <h1 class="hero-h">What it looks like when robot telemetry becomes financial telemetry.</h1>
+  <p class="hero-sub" style="line-height: 1.55; color: var(--gray-1); max-width: 640px; margin: 0 0 4px;">A modeled scenario, built from real Pudu telemetry data and realistic RaaS market assumptions, following a mid-tail delivery robot operator from first search to the dashboard she'd actually use.</p>
+</section>
+
+<section id="meet-maya" class="section">
+  <div class="wrap">
+    <div class="eyebrow">The operator</div>
+    <h2 class="section-h">Meet Maya.</h2>
+    <p class="section-p">Maya has run her company's delivery robot fleet for three years. Forty-five Pudu delivery robots, deployed across fourteen restaurant and retail accounts, each on a revenue-share agreement. Her company financed the fleet through an equipment loan, one fixed payment due every month no matter what her accounts do. On paper, revenue-share income is supposed to cover it with room to spare. In practice, she doesn't find out an account's volume slipped until the books close and her bookkeeper flags a margin she can't explain, and by then that month's equipment payment has already gone out fixed, while the revenue behind it came in short.</p>
+    <p class="section-p">She'd tried tracking it herself in a spreadsheet. It worked for about a month, then fell behind the moment she added a fifteenth account, Pudu's raw exports don't map to her contract terms on their own, someone has to translate delivery counts into dollars by hand, every account, every month. That someone was her, on top of everything else running the fleet actually requires.</p>
+    <div class="quote-block"><p>"The equipment payment doesn't care if an account had a slow month. I don't find out my margin's off until the books are already closed. By then there's nothing to do about that month, only the next one."</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="eyebrow">Finding Botlien</div>
+    <h2 class="section-h">She wasn't looking for another fleet dashboard.</h2>
+    <p class="section-p">Maya wasn't looking for a robotics vendor, she already had one, and she wasn't looking for another fleet dashboard either, Pudu's told her plenty about the robots themselves for years. She was searching for something narrower: a way to see her own margin clearly, account by account, without doing the math herself every month. Botlien showed up because that's the specific gap it fills, not fleet monitoring, not generic accounting software, the translation layer between the two.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="eyebrow">Demo, onboarding, connecting the fleet</div>
+    <h2 class="section-h">From first call to a live dashboard.</h2>
+    <div class="steps">
+      <div class="step on">
+        <div class="n">1</div>
+        <div><h3>A short call</h3><p>Fleet size, contract structure, a look at what the dashboard shows on an operation like hers.</p></div>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <div><h3>Connect the fleet</h3><p>She authenticates her Pudu account through Pudu's own application credential system. No new hardware, no new robot software.</p></div>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <div><h3>Telemetry becomes financial data</h3><p>Botlien pulls task counts, plates delivered, mileage, and runtime per robot and per account, then maps it against her actual revenue-share terms.</p></div>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <div><h3>Her data stays hers</h3><p>Botlien reads only what Pudu already exposes, under a signed data access agreement. Nothing is sold or shared, and access can be revoked at any time.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="what-she-sees" class="section">
+  <div class="wrap">
+    <div class="eyebrow">What she sees</div>
+    <h2 class="section-h">Per-account margin, not just delivery counts.</h2>
+    <p class="section-p">Revenue-share income measured against the fixed cost it has to cover, with a rolling ninety-day projection instead of a monthly surprise. Modeled below the way it would actually appear on her dashboard, not live data.</p>
+    <div class="statgrid">
+      <div>
+        <div class="num">+6%</div>
+        <div class="lbl">Account 04, ahead of committed volume on a 90-day trend. On pace, no action needed.</div>
+      </div>
+      <div>
+        <div class="num">&minus;5 to &minus;10%</div>
+        <div class="lbl">Account 09, under committed volume for three straight weeks. Suggested next step: hold expansion, or open a renegotiation conversation before the next invoice.</div>
+      </div>
+      <div>
+        <div class="num">$2,000&ndash;$4,000</div>
+        <div class="lbl">Account 12, modeled gap flagged three weeks before the invoice. The difference between renegotiating on her terms and eating the shortfall with no warning.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="eyebrow">What it's worth to her</div>
+    <h2 class="section-h">The math she was already doing by hand, done for her.</h2>
+    <p class="section-p">She doesn't call it a robotics tool. She calls it the thing that tells her, in dollars, what she'd already been told in delivery counts, and it means the fifteenth account, and the twentieth, don't require her to do the math herself anymore. Her situation isn't unique, most mid-tail operators are running the same fixed-financing-against-variable-revenue math on a spreadsheet or from memory, which is part of why an operator like her represents a real slice of the market, not an edge case.</p>
+    <p class="section-p">Whether that turns into the kind of referral operators give each other at the next industry meetup is the kind of thing only a real deployment will prove, but it's the obvious next channel to test.</p>
+  </div>
+</section>
+
+<section id="investors" class="section">
+  <div class="wrap">
+    <div class="eyebrow">See it on a real fleet</div>
+    <h2 class="section-h">This scenario, run on your own telemetry.</h2>
+    <p class="section-p">We're pre-revenue today, not overselling where we are. This case study is illustrative, the mechanics behind it, the Pudu integration, the contract-term mapping, are real.</p>
+    <button class="btn-ink js-demo-open" type="button">Book a call</button>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <a href="/" class="brand" aria-label="Botlien home">
+        <img class="full-lockup" src="/logo-lockup-white.png" alt="Botlien">
+        <img class="icon-only" src="/logo-mark-white.png" alt="Botlien">
+      </a>
+      <div style="font-size: 13px; color: #9A9AA3; margin-top: 10px;">Robot telemetry only. Never bank data or financial statements.</div>
+    </div>
+    <div style="display: flex; gap: 24px; align-items: center;">
+      <a class="foot-link" href="mailto:info@botlien.com">info@botlien.com</a>
+      <a class="foot-link foot-icon" href="https://www.linkedin.com/company/botlien" target="_blank" rel="noopener noreferrer" aria-label="Botlien on LinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.03-1.85-3.03-1.85 0-2.14 1.45-2.14 2.94v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.61 0 4.28 2.38 4.28 5.47v6.27zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+      </a>
+      <span style="font-size: 12.5px; color: #6E6E76;">&copy; 2026 Botlien</span>
+    </div>
+  </div>
+</footer>
+
+<div class="modal-backdrop" id="demoBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+    <button class="modal-close" id="demoClose" type="button" aria-label="Close">&times;</button>
+    <div id="demoFormWrap">
+      <h3 id="demoModalTitle">Let's talk</h3>
+      <p class="modal-sub">Tell us a bit about your team, we'll follow up to set up a time.</p>
+      <form id="demoForm" novalidate>
+        <div class="field">
+          <label for="demoName">Name</label>
+          <input type="text" id="demoName" name="name" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="demoCompany">Company name</label>
+          <input type="text" id="demoCompany" name="company" autocomplete="organization" required>
+        </div>
+        <div class="field">
+          <label for="demoEmail">Company email</label>
+          <input type="email" id="demoEmail" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="demoPhone">Number</label>
+          <input type="tel" id="demoPhone" name="phone" autocomplete="tel" required>
+        </div>
+        <input type="text" name="company_site" id="demoHoneypot" class="hp" tabindex="-1" autocomplete="off">
+        <button class="btn-ink modal-submit" type="submit">Submit</button>
+        <div class="modal-error" id="demoError"></div>
+      </form>
+    </div>
+    <div id="demoSuccess" class="modal-success" hidden>
+      <h3>Thanks, that's in.</h3>
+      <p class="modal-sub">We'll be in touch shortly.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('mobileMenuBtn');
+  var panel = document.getElementById('mobileNavPanel');
+  if (!btn || !panel) return;
+  function closeMenu() {
+    panel.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  btn.addEventListener('click', function () {
+    var open = panel.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  panel.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', closeMenu); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+})();
+
+(function () {
+  var backdrop = document.getElementById('demoBackdrop');
+  if (!backdrop) return;
+  var openBtns = document.querySelectorAll('.js-demo-open');
+  var closeBtn = document.getElementById('demoClose');
+  var form = document.getElementById('demoForm');
+  var formWrap = document.getElementById('demoFormWrap');
+  var success = document.getElementById('demoSuccess');
+  var errorEl = document.getElementById('demoError');
+  var submitBtn = form.querySelector('.modal-submit');
+  var lastFocus = null;
+
+  function openModal() {
+    lastFocus = document.activeElement;
+    formWrap.hidden = false;
+    success.hidden = true;
+    errorEl.classList.remove('show');
+    form.reset();
+    backdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('demoName').focus();
+  }
+  function closeModal() {
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+    if (lastFocus) lastFocus.focus();
+  }
+
+  openBtns.forEach(function (btn) { btn.addEventListener('click', openModal); });
+  closeBtn.addEventListener('click', closeModal);
+  backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && backdrop.classList.contains('open')) closeModal(); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    errorEl.classList.remove('show');
+    if (document.getElementById('demoHoneypot').value) return;
+    var payload = {
+      name: document.getElementById('demoName').value.trim(),
+      company: document.getElementById('demoCompany').value.trim(),
+      email: document.getElementById('demoEmail').value.trim(),
+      phone: document.getElementById('demoPhone').value.trim()
+    };
+    if (!payload.name || !payload.company || !payload.email || !payload.phone) {
+      errorEl.textContent = 'Fill in every field to continue.';
+      errorEl.classList.add('show');
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+    fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      if (!res.ok) throw new Error('request failed');
+      formWrap.hidden = true;
+      success.hidden = false;
+    }).catch(function () {
+      errorEl.textContent = "Preview only, this endpoint goes live once pushed to botlien.com.";
+      errorEl.classList.add('show');
+    }).finally(function () {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit';
+    });
+  });
+})();
+</script>

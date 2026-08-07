@@ -1,0 +1,41 @@
+{
+  "healthy": {
+    "metadata": { "timestamp": "2026-08-04T10:15:00Z", "sequence_number": 4211 },
+    "robot_id": "pennybot-abc123",
+    "robot_state": {
+      "connection": { "state": "STATE_CONNECTED" },
+      "battery": { "charge_percent": 82, "state": "STATE_DISCHARGING", "charge_method": "CHARGE_METHOD_NONE" },
+      "emergency_stop": { "emergency": "EMERGENCY_DISENGAGED", "button_pressed": "EMERGENCY_DISENGAGED" },
+      "mission": { "mission_id": "m-889", "state": "STATE_RUNNING" },
+      "pose": { "x": 12.4, "y": 3.1, "theta": 1.57 },
+      "error_codes": { "codes": [] },
+      "navigation_state": { "stuck_state": { "state": "STATE_NOT_STUCK", "reason": "REASON_UNKNOWN" } },
+      "twist": { "linear": { "x": 0.42, "y": 0 }, "angular": { "z": 0.01 } }
+    }
+  },
+  "troubled": {
+    "metadata": { "timestamp": { "seconds": 1785842100, "nanos": 500000000 }, "sequence_number": 9977 },
+    "robot_id": "pennybot-def456",
+    "robot_state": {
+      "connection": { "state": "STATE_DISCONNECTED" },
+      "battery": { "charge_percent": 11, "state": "STATE_CHARGING", "charge_method": "CHARGE_METHOD_CONTACT" },
+      "emergency_stop": { "emergency": "EMERGENCY_ENGAGED", "button_pressed": "EMERGENCY_DISENGAGED" },
+      "mission": { "mission_id": "m-901", "state": "STATE_FAILED" },
+      "error_codes": {
+        "codes": [
+          { "code": 210, "severity": "SEVERITY_HIGH", "message": "Up camera process error." },
+          { "code": 105, "severity": "SEVERITY_MEDIUM", "message": "Tray load cell drift." }
+        ]
+      },
+      "navigation_state": { "stuck_state": { "state": "STATE_STUCK", "reason": "REASON_PATH_BLOCKED" } },
+      "twist": { "linear": { "x": 0.0, "y": 0.0 }, "angular": { "z": 0.0 } }
+    }
+  },
+  "sparse": {
+    "metadata": { "timestamp": "2026-08-04T10:16:00Z", "sequence_number": 1 },
+    "robot_id": "pennybot-xyz789",
+    "robot_state": {
+      "connection": { "state": "STATE_UNKNOWN" }
+    }
+  }
+}

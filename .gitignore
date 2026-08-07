@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+data/
+logs/
+.env
+.env.*
+*.local.json
+.claude/secrets.local.json
+.DS_Store
+Thumbs.db

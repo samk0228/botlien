@@ -1,0 +1,6 @@
+robot_id,timestamp,connection_state,battery_pct,mission_state,stuck,errors
+unit-7,2026-05-01T09:00:00Z,online,88,active,false,
+unit-7,2026-05-01T09:05:00Z,online,86,active,false,E210;E105
+unit-7,2026-05-01T09:10:00Z,offline,85,idle,false,
+unit-9,"2026-05-01T09:00:00Z",online,64,"idle, mostly",true,"[{""code"":""bear:E900"",""severity"":""CRITICAL""}]"
+badrow,,online,50,idle,false,

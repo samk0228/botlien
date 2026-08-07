@@ -1,0 +1,211 @@
+// File: mission.proto
+//
+// Copyright 2026 Bear Robotics, Inc. All rights reserved.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+syntax = "proto3";
+
+package bearrobotics.api.v1.servi;
+
+import "bearrobotics/api/v1/core/annotation.proto";
+
+// Feedback provides status updates on mission progress,
+// specific to Servi Family robot missions.
+message Feedback {
+  // Current status of the robot.
+  enum Status {
+    STATUS_UNKNOWN = 0;
+
+    // The robot is navigating to a goal.
+    STATUS_NAVIGATING = 1;
+
+    // The robot has arrived at a goal.
+    STATUS_ARRIVED = 2;
+
+    // The robot is performing a docking maneuver.
+    STATUS_DOCKING = 3;
+
+    // The robot is performing an undocking maneuver.
+    STATUS_UNDOCKING = 4;
+  }
+  Status status = 1;
+}
+
+// Parameters for a bussing mission.
+message BussingParams {}
+
+// A bussing mission that navigates to one or more goals,
+// stopping at each for a time limit or until weight is added.
+message BussingMission {
+  repeated core.Goal goals = 1;
+  BussingParams params = 2;
+}
+
+// Parameters for a bussing patrol mission.
+message BussingPatrolParams {}
+
+// A bussing patrol mission that continuously loops through goals,
+// stopping at each for a time limit until weight exceeds a threshold.
+message BussingPatrolMission {
+  repeated core.Goal goals = 1;
+  BussingPatrolParams params = 2;
+}
+
+// Parameters for a delivery mission.
+message DeliveryParams {
+  // Tray mappings for the delivery mission. Only supported for Servi+ robots.
+  repeated TrayMapping tray_mappings = 1;
+}
+
+// A delivery mission that navigates to one or more goals,
+// stopping at each for a time limit or until weight is removed.
+message DeliveryMission {
+  repeated core.Goal goals = 1;
+  DeliveryParams params = 2;
+}
+
+// Parameters for a delivery patrol mission.
+message DeliveryPatrolParams {}
+
+// A delivery patrol mission that continuously loops through goals,
+// stopping at each for a time limit until all weight is removed.
+message DeliveryPatrolMission {
+  repeated core.Goal goals = 1;
+  DeliveryPatrolParams params = 2;
+}
+
+// Mapping between a given tray to a goal.
+// Note: Tray mapping is only supported for Servi+ robots.
+message TrayMapping {
+  string tray_name = 1;
+  core.Goal goal = 2;
+}
+
+// A mission consisting of a single, explicitly defined goal.
+message NavigateMission {
+  core.Goal goal = 1;
+}
+
+// A mission that automatically selects the first unoccupied and unclaimed goal
+// from the provided list, preferring goals with lower index values.
+// For example, when sending a robot to one of several possible goals [T1, T2, T3],
+// it will first check if T1 is unoccupied and unclaimed, then T2, and finally T3.
+// If all goals are occupied or claimed, the mission will fail.
+message NavigateAutoMission {
+  repeated core.Goal goals = 1;
+}
+
+// ServiType defines the mission types from servi mission API.
+enum ServiType {
+  // Default value for servi type.
+  SERVI_TYPE_UNKNOWN = 0;
+
+  // A serving mission that navigates to goals, stopping until weight is removed.
+  SERVI_TYPE_SERVING = 1;
+
+  // A serving patrol mission that continuously loops until all weight is removed.
+  SERVI_TYPE_SERVING_PATROL = 2;
+
+  // A bussing mission that navigates to goals, stopping until weight is added.
+  SERVI_TYPE_BUSSING = 3;
+
+  // A bussing patrol mission that continuously loops until weight exceeds threshold.
+  SERVI_TYPE_BUSSING_PATROL = 4;
+
+  // A single navigation mission with a predefined goal.
+  SERVI_TYPE_NAVIGATE = 5;
+
+  // An automated navigation mission that selects the best available goal from a list.
+  SERVI_TYPE_NAVIGATE_AUTO = 6;
+}
+
+// Servi missions are specific to the Servi robot family.
+// Attempting to run a Servi mission on a non Servi robot
+// will result in an INVALID_ARGUMENT error.
+message Mission {
+  oneof mission {
+    // A delivery mission with stop conditions based on time or weight removal.
+    DeliveryMission delivery_mission = 1;
+
+    // A bussing mission with stop conditions based on time or weight addition.
+    BussingMission bussing_mission = 2;
+
+    // A delivery patrol mission that loops until all weight is removed.
+    DeliveryPatrolMission delivery_patrol_mission = 3;
+
+    // A bussing patrol mission that loops until weight exceeds a threshold.
+    BussingPatrolMission bussing_patrol_mission = 4;
+
+    // A single navigation mission with a predefined goal.
+    NavigateMission navigate_mission = 5;
+
+    // An automated navigation mission that selects the best available goal from a list.
+    NavigateAutoMission navigate_auto_mission = 6;
+  }
+}
+
+message DeliveryWorkflow {
+  // Workflow for delivery missions.
+  // Corresponds to Touchscreen UI:
+  // - Serving, Table option
+  repeated core.Goal goals = 1;
+}
+
+message DeliveryPatrolWorkflow {
+  // Workflow for delivery patrol missions.
+  // Corresponds to Touchscreen UI:
+  // - Serving, Patrol option
+  repeated core.Goal goals = 1;
+}
+
+message BussingWorkflow {
+  // Workflow for bussing missions.
+  // Corresponds to Touchscreen UI:
+  // - Bussing, Table option
+  repeated core.Goal goals = 1;
+}
+
+message BussingPatrolWorkflow {
+  // Workflow for bussing patrol missions.
+  // Corresponds to Touchscreen UI:
+  // - Bussing, Patrol option
+  repeated core.Goal goals = 1;
+}
+
+message BirthdayWorkflow {
+  // Workflow for Birthday Mission.
+  // Corresponds to Touchscreen UI:
+  // Birthday Mode
+  core.Goal goal = 1;
+}
+
+// Workflow for hosting missions.
+// Corresponds to Touchscreen UI:
+// - Hosting, Restaurant option
+message HostingWorkflow {
+  repeated core.Goal goals = 1;
+}
+
+// Workflow for hosting patrol missions.
+// Corresponds to Touchscreen UI:
+// - Hosting, Patrol option
+message HostingPatrolWorkflow {
+  repeated core.Goal goals = 1;
+}
+
+// Servi workflows are specific to the Servi family and mirror touchscreen
+// behavior.
+message MissionWorkflow {
+  oneof workflow {
+    DeliveryWorkflow delivery = 1;
+    DeliveryPatrolWorkflow delivery_patrol = 2;
+    BussingWorkflow bussing = 3;
+    BussingPatrolWorkflow bussing_patrol = 4;
+    BirthdayWorkflow birthday = 5;
+    HostingWorkflow hosting = 6;
+    HostingPatrolWorkflow hosting_patrol = 7;
+  }
+}

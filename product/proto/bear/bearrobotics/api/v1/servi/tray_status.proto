@@ -1,0 +1,75 @@
+// File: tray_status.proto
+//
+// Copyright 2026 Bear Robotics, Inc. All rights reserved.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+syntax = "proto3";
+
+package bearrobotics.api.v1.servi;
+
+import "bearrobotics/api/v1/core/metadata.proto";
+
+// TraySelector defines a filter for selecting specific trays.
+// It supports selection by a list of tray names.
+// The valid tray names are (case-sensitive):
+// - "roof"
+// - "top"
+// - "upper_middle"
+// - "middle"
+// - "lower_middle"
+// - "bottom"
+//
+// If no tray names are provided, all trays will be selected.
+message TraySelector {
+  repeated string tray_names = 1;
+}
+
+// Represents the state of a single tray.
+message TrayState {
+  // Unique string name for the given tray. e.g. "top", "middle", "bottom"
+  string tray_name = 1;
+
+  // Current load state of the tray.
+  enum LoadState {
+    LOAD_STATE_UNKNOWN = 0;
+
+    // The tray has a valid load.
+    LOAD_STATE_LOADED = 1;
+
+    // The tray is empty.
+    LOAD_STATE_EMPTY = 2;
+
+    // The tray is carrying more than its maximum capacity.
+    LOAD_STATE_OVERLOADED = 3;
+  }
+  LoadState load_state = 2;
+
+  // Weight on the tray in kilograms. Minimum precision is 10g.
+  float weight_kg = 3;
+
+  // Ratio of the current load to the tray’s maximum load capacity.
+  // This value may exceed 1.0 if the tray is overloaded.
+  //
+  // Caveats:
+  // - If the maximum load is misconfigured (e.g., set to 0.0),
+  //   this value may return NaN.
+  float load_ratio = 4;
+}
+
+// A list of tray states reported by individual trays.
+message TrayStates {
+  // State of enabled trays, ordered from the top-most tray on the robot to the
+  // bottom.
+  repeated TrayState tray_states = 1;
+}
+
+message TrayStatesWithMetadata {
+  // Metadata associated with the tray states.
+  core.EventMetadata metadata = 1;
+
+  // The tray states reported by the robot.
+  TrayStates tray_states = 2;
+}

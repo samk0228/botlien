@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<template id="__bundler_thumbnail" data-bg-color="#0A0A0A">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0A0A0A"/>
+    <path d="M420 260 L420 420 L500 470 L580 420 L580 340 L500 300 Z" fill="#FFFFFF"/>
+    <text x="620" y="420" font-family="Helvetica, Arial, sans-serif" font-size="70" fill="#FFFFFF">botlien</text>
+  </svg>
+</template>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #0A0A0A; }
+  a { color: #0A0A0A; text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: #0A0A0A; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+<section data-label="Cover" data-screen-label="00" data-speaker-notes="Botlien turns robot telemetry into financial telemetry. Pre-seed, raising 500K." style="background:#0A0A0A;color:#FFFFFF;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;position:relative;overflow:hidden;">
+  <img src="assets/cover-robot.png" alt="" style="position:absolute;top:0;right:0;height:100%;width:56%;object-fit:cover;object-position:48% 30%;filter:grayscale(1) brightness(0.44) contrast(1.1);z-index:0;">
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,#0A0A0A 32%,rgba(10,10,10,0.8) 56%,rgba(10,10,10,0.48) 100%);z-index:1;"></div>
+  <div style="position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo-white.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+  <div style="position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;">
+    <div style="display:flex;flex-direction:column;gap:44px;max-width:1500px;">
+      <h1 style="margin:0;font-size:76px;font-weight:500;line-height:1.02;letter-spacing:-0.03em;text-wrap:balance;">Your robots are working. Is your business?</h1>
+      <p style="margin:0;font-size:36px;line-height:1.4;color:#8A8A87;max-width:1200px;text-wrap:pretty;">Robot telemetry, turned into financial telemetry, cash flow, and default risk, weeks before it hits a bank statement.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="Two different clocks" data-screen-label="01" data-speaker-notes="The robot reports continuously. The business reports monthly, in arrears. That gap is where defaults hide." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;max-width:1400px;">Two different clocks</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;">
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid #0A0A0A;padding-top:20px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">The robot's clock</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Continuous. Every trip, fault, charge cycle and idle hour is logged the moment it happens.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid #0A0A0A;padding-top:20px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">The business's clock</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Monthly, in arrears. The operator and the lender learn about a shortfall after the money has already moved.</p>
+      </div>
+      <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;border-top:1px solid #0A0A0A;padding-top:20px;text-wrap:pretty;">Every hardware-financed category eventually grows an underwriting layer. Robotics is the last large category still without one.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:28px;border-top:1px solid rgba(10,10,10,0.12);padding-top:20px;">
+      <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Why now</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:48px;font-weight:500;letter-spacing:-0.03em;line-height:1;">Nov 2025</div>
+        <div style="font-size:22px;line-height:1.4;color:#0A0A0A;">ISO standard for service robot data published, the interoperable schema this category never had</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:48px;font-weight:500;letter-spacing:-0.03em;line-height:1;">~20%</div>
+        <div style="font-size:22px;line-height:1.4;color:#0A0A0A;">RaaS market CAGR through 2030, growing faster than the underwriting layer for it</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:48px;font-weight:500;letter-spacing:-0.03em;line-height:1;">85%+</div>
+        <div style="font-size:22px;line-height:1.4;color:#0A0A0A;">Telematics adoption in lender-financed vehicle fleets, the same covenant playbook, one asset class earlier</div>
+      </div>
+      <p style="margin:0;font-size:18px;line-height:1.4;color:#8A8A87;border-top:1px solid rgba(10,10,10,0.15);padding-top:16px;">A standardized data schema plus a fast-growing, still-unmonitored asset class: the window for a neutral collateral layer just opened.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="Solution" data-screen-label="02" data-speaker-notes="Four steps: telemetry in, financial telemetry out. Be explicit that v1 is directional, not audited." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;max-width:1400px;">Telemetry, translated into cash flow</h2>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;">
+    <div style="display:flex;gap:30px;">
+      <div style="width:390px;height:390px;flex:0 0 390px;display:flex;flex-direction:column;justify-content:center;gap:20px;background:rgba(10,10,10,0.04);padding:40px;box-sizing:border-box;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;color:#8A8A87;">01</div>
+        <div style="font-size:26px;font-weight:500;line-height:1.2;letter-spacing:-0.01em;color:#0A0A0A;">Robot telemetry</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Utilization, uptime, fault codes and location, pulled by API from the fleet the operator already runs.</p>
+      </div>
+      <div style="width:390px;height:390px;flex:0 0 390px;display:flex;flex-direction:column;justify-content:center;gap:20px;background:rgba(10,10,10,0.16);padding:40px;box-sizing:border-box;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;color:#6E6E6B;">02</div>
+        <div style="font-size:26px;font-weight:500;line-height:1.2;letter-spacing:-0.01em;color:#0A0A0A;">Financial telemetry</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Each unit's activity converted into a leading signal of financial health: falling utilization today is churn, an SLA credit, or a missed renewal tomorrow.</p>
+      </div>
+      <div style="width:390px;height:390px;flex:0 0 390px;display:flex;flex-direction:column;justify-content:center;gap:20px;background:rgba(10,10,10,0.42);padding:40px;box-sizing:border-box;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;color:#D6D6D3;">03</div>
+        <div style="font-size:26px;font-weight:500;line-height:1.2;letter-spacing:-0.01em;color:#FFFFFF;">Cash flow analysis &amp; projection</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#F0F0EF;text-wrap:pretty;">Fleet-level inflow and outflow, projected forward from live utilization rather than last month's close.</p>
+      </div>
+      <div style="width:390px;height:390px;flex:0 0 390px;display:flex;flex-direction:column;justify-content:center;gap:20px;background:#6E6E6B;color:#FFFFFF;padding:40px;box-sizing:border-box;">
+        <div style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.1em;color:#D6D6D3;">04</div>
+        <div style="font-size:26px;font-weight:500;line-height:1.2;letter-spacing:-0.01em;">Default &amp; credit risk</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#E4E4E2;text-wrap:pretty;">A shortfall surfaced weeks early, for the operator making payroll and the lender holding the paper.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-label="Market sizing" data-screen-label="03" data-speaker-notes="TAM 290M, SAM 70-75M, SOM 0.7-2.25M. Inputs are public and directional, not audited." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">A small, reachable wedge inside a large financed base</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:72px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="background:#0A0A0A;color:#FFFFFF;padding:20px 32px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;width:100%;">
+        <span style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.12em;">TAM</span>
+        <span style="font-size:48px;font-weight:500;letter-spacing:-0.02em;line-height:1;">~$290M</span>
+      </div>
+      <div style="background:#8A8A87;color:#FFFFFF;padding:20px 32px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;width:78%;">
+        <span style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.12em;">SAM</span>
+        <span style="font-size:40px;font-weight:500;letter-spacing:-0.02em;line-height:1;">$70–75M</span>
+      </div>
+      <div style="background:rgba(10,10,10,0.12);color:#0A0A0A;padding:20px 32px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;width:72%;">
+        <span style="font-family:'Manrope',sans-serif;font-size:20px;letter-spacing:0.12em;">SOM</span>
+        <span style="font-size:40px;font-weight:500;letter-spacing:-0.02em;line-height:1;white-space:nowrap;">$0.7–2.25M</span>
+      </div>
+      <p style="margin:12px 0 0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">SOM is the three-year reachable band, deliberately narrow: first customers are named accounts, not a funnel. Two sizing approaches, sharing some inputs, land in the same ~$280–300M range.</p>
+      <p style="margin:8px 0 0;font-size:16px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Under the elevated-adoption case (~32% CAGR), this ceiling scales toward ~$1.97M ARR by Year 3, page 5.</p>
+    </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;padding:0 20px 18px 0;border-bottom:1px solid #0A0A0A;">Sourced input</th>
+          <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;padding:0 0 18px 20px;border-bottom:1px solid #0A0A0A;">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">Global service robot installed base</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">475K–710K</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">RaaS market size, 2025 (high-cluster est.)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">$26.7–33.6B</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">RaaS market CAGR through 2030 (base · elevated-adoption, Barclays physical-AI)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">~18–21% · ~32%</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">RaaS share of installed base (assumption, informed by Seegrid's 70% RaaS-structured 2025 contracts)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">30–50%</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">Software / analytics attach rate (assumption)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">~1% of RaaS rev.</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">Fee per robot / yr, blended across tiers (page 5)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">$1,200</td>
+        </tr>
+        <tr>
+          <td style="font-size:18px;line-height:1.35;padding:11px 20px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">TAM, bottom-up (robots × fee) · top-down (market $ × attach rate)</td>
+          <td style="font-size:18px;text-align:right;padding:11px 0 11px 20px;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">~$283M · ~$300M</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section data-label="Business model" data-screen-label="04" data-speaker-notes="Three tiers, one formula: 12% of financed value, 5% of owned value, annually. $25/robot/month floor." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">One formula, three ways to buy</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:64px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <div style="font-size:26px;font-weight:500;letter-spacing:-0.01em;">Individual operator</div>
+          <div style="font-size:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8A8A87;">Self-serve</div>
+        </div>
+        <div style="height:6px;background:rgba(10,10,10,0.1);border-radius:4px;overflow:hidden;"><div style="width:18%;height:100%;background:#0A0A0A;"></div></div>
+        <div style="font-size:18px;color:#8A8A87;">1–2 robots, single location · $25/mo floor</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <div style="font-size:26px;font-weight:500;letter-spacing:-0.01em;">RaaS operator</div>
+          <div style="font-size:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8A8A87;">Sales-assisted</div>
+        </div>
+        <div style="height:6px;background:rgba(10,10,10,0.1);border-radius:4px;overflow:hidden;"><div style="width:55%;height:100%;background:#0A0A0A;"></div></div>
+        <div style="font-size:18px;color:#8A8A87;">Fleet across one or more sites · ~12% financed / ~5% owned</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;">
+          <div style="font-size:26px;font-weight:500;letter-spacing:-0.01em;">Enterprise</div>
+          <div style="font-size:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#8A8A87;">Direct, negotiated</div>
+        </div>
+        <div style="height:6px;background:rgba(10,10,10,0.1);border-radius:4px;overflow:hidden;"><div style="width:100%;height:100%;background:#0A0A0A;"></div></div>
+        <div style="font-size:18px;color:#8A8A87;">Thousands of robots, multi-site chains · graduates to ~$200–300/mo</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.2);">Formula</th>
+            <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.2);">Rate</th>
+            <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 0 8px 0;border-bottom:1px solid rgba(10,10,10,0.2);">Worked example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-size:18px;padding:8px 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Financed / leased / on a loan</td>
+            <td style="font-size:18px;text-align:right;padding:8px 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">~12% of pmt.</td>
+            <td style="font-size:18px;text-align:right;padding:8px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$399/mo → ~$48/mo</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:8px 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Owned outright</td>
+            <td style="font-size:18px;text-align:right;padding:8px 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">~5% / yr of value</td>
+            <td style="font-size:18px;text-align:right;padding:8px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$11,990 → ~$50/mo</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:8px 12px 8px 0;">Enterprise, financed</td>
+            <td style="font-size:18px;text-align:right;padding:8px 12px 8px 0;font-family:'Manrope',sans-serif;">~12% of pmt.</td>
+            <td style="font-size:18px;text-align:right;padding:8px 0;font-family:'Manrope',sans-serif;">$2,000/mo → ~$240/mo</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;height:100%;justify-content:center;">
+      <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Modeled revenue ramp (ARR), bootstrap vs. funded pace</div>
+      <div style="display:flex;gap:22px;">
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:20px;height:2px;background:#ADADA9;flex-shrink:0;"></div><span style="font-size:15px;color:#0A0A0A;">Bootstrap · part-time founders</span></div>
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:20px;height:2.5px;background:#0A0A0A;flex-shrink:0;"></div><span style="font-size:15px;color:#0A0A0A;">Funded · full-time + 1 engineer + 2 interns</span></div>
+      </div>
+      <div style="position:relative;margin-top:32px;">
+        <svg viewBox="-52 -46 692 306" style="width:100%;height:326px;display:block;" preserveAspectRatio="none">
+          <path d="M0,256 L25,219.4 L50,182.9 L75,146.3 L100,124 L175,92.9 L250,76.1 L325,59.4 L400,42.5 L450,34.9 L500,27.3 L550,19.7 L600,12.0 L600,256 Z" fill="rgba(10,10,10,0.045)"></path>
+          <path d="M0,256 L12.5,219.4 L25,182.9 L37.5,146.3 L50,124 L87.5,92.9 L125,76.1 L162.5,59.4 L200,42.5 L250,34.9 L300,27.3 L350,19.7 L400,12.0 L600,12.0 L550,19.7 L500,27.3 L450,34.9 L400,42.5 L325,59.4 L250,76.1 L175,92.9 L100,124 L75,146.3 L50,182.9 L25,219.4 Z" fill="rgba(10,10,10,0.08)"></path>
+          <line x1="0" y1="256" x2="600" y2="256" stroke="#0A0A0A" stroke-width="1"></line>
+          <path d="M0,256 L25,219.4 L50,182.9 L75,146.3 L100,124 L175,92.9 L250,76.1 L325,59.4 L400,42.5 L450,34.9 L500,27.3 L550,19.7 L600,12.0" fill="none" stroke="#ADADA9" stroke-width="2.5" stroke-dasharray="7,5" stroke-linejoin="round" stroke-linecap="round"></path>
+          <path d="M0,256 L12.5,219.4 L25,182.9 L37.5,146.3 L50,124 L87.5,92.9 L125,76.1 L162.5,59.4 L200,42.5 L250,34.9 L300,27.3 L350,19.7 L400,12.0" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>
+          <path d="M400,12.0 L600,12.0" fill="none" stroke="#0A0A0A" stroke-width="1.5" stroke-dasharray="1,4" stroke-linecap="round"></path>
+          <line x1="50" y1="88" x2="50" y2="118" stroke="rgba(10,10,10,0.45)" stroke-width="1.2" stroke-dasharray="1,3" stroke-linecap="round"></line>
+          <line x1="200" y1="15" x2="200" y2="37" stroke="rgba(10,10,10,0.45)" stroke-width="1.2" stroke-dasharray="1,3" stroke-linecap="round"></line>
+          <line x1="400" y1="-15" x2="400" y2="7" stroke="rgba(10,10,10,0.45)" stroke-width="1.2" stroke-dasharray="1,3" stroke-linecap="round"></line>
+          <circle cx="100" cy="124" r="5" fill="#FFFFFF" stroke="#ADADA9" stroke-width="2.5"></circle>
+          <circle cx="400" cy="42.5" r="5" fill="#FFFFFF" stroke="#ADADA9" stroke-width="2.5"></circle>
+          <circle cx="600" cy="12.0" r="5" fill="#FFFFFF" stroke="#ADADA9" stroke-width="2.5"></circle>
+          <circle cx="50" cy="124" r="5" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="2.5"></circle>
+          <circle cx="200" cy="42.5" r="5" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="2.5"></circle>
+          <circle cx="400" cy="12.0" r="5.5" fill="#0A0A0A"></circle>
+        </svg>
+        <div style="position:absolute;left:1.4%;top:47.0%;transform:translateY(-50%);font-size:13px;color:#8A8A87;white-space:nowrap;">$10K</div>
+        <div style="position:absolute;left:1.4%;top:34.1%;transform:translateY(-50%);font-size:13px;color:#8A8A87;white-space:nowrap;">$100K</div>
+        <div style="position:absolute;left:1.4%;top:21.2%;transform:translateY(-50%);font-size:13px;color:#8A8A87;white-space:nowrap;">$1M</div>
+        <div style="position:absolute;left:14.7%;top:39.9%;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;">
+          <div style="font-size:15px;font-weight:700;color:#0A0A0A;">~$5K</div>
+        </div>
+        <div style="position:absolute;left:36.4%;top:18.5%;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;">
+          <div style="font-size:15px;font-weight:700;color:#0A0A0A;">~$250K</div>
+        </div>
+        <div style="position:absolute;left:65.3%;top:8.2%;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;">
+          <div style="font-size:19px;font-weight:700;color:#0A0A0A;">~$1.48M ARR</div>
+          <div style="font-size:12px;color:#8A8A87;">funded reaches SOM ceiling by Mo 24 · page 4</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:16px;color:#8A8A87;letter-spacing:0.02em;">
+        <span>Mo 0</span><span>Mo 6</span><span>Mo 12</span><span>Mo 18</span><span>Mo 24</span><span>Mo 30</span><span>Mo 36</span>
+      </div>
+      <p style="margin:0;font-size:16px;line-height:1.35;color:#8A8A87;text-wrap:pretty;">Bootstrap: two founders, part-time around school and jobs, the deck's original pace, reaching the $0.7–2.25M SOM ceiling (page 4) by month 36. Funded: full-time founders plus one below-market engineer hire and two paid interns (page 12), same milestones at roughly 2x the pace, reaching the ceiling by month 24. Both assumption-driven, not committed revenue or a forecast.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="Moat" data-screen-label="05" data-speaker-notes="Contractual access, cross-brand normalization, covenant lock-in, financial layer. Findustrial and Formant stop at operations." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">Why this is hard to copy</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:64px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:22px;">
+      <div style="position:relative;width:100%;aspect-ratio:1/0.55;border-left:1px solid #0A0A0A;border-bottom:1px solid #0A0A0A;margin-top:8px;">
+        <div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed rgba(10,10,10,0.22);"></div>
+        <div style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed rgba(10,10,10,0.22);"></div>
+        <div style="position:absolute;top:14%;left:86%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:#0A0A0A;"></div>
+          <div style="font-size:20px;font-weight:600;white-space:nowrap;color:#0A0A0A;">Botlien</div>
+        </div>
+        <div style="position:absolute;top:58%;left:22%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#6E6E6B;"></div>
+          <div style="font-size:18px;font-weight:400;white-space:nowrap;color:#6E6E6B;">Findustrial</div>
+        </div>
+        <div style="position:absolute;top:80%;left:80%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:#6E6E6B;"></div>
+          <div style="font-size:18px;font-weight:400;white-space:nowrap;color:#6E6E6B;">Formant</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:0 4px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:17px;letter-spacing:0.06em;text-transform:uppercase;color:#6E6E6B;">↑ Financial &amp; credit depth</div>
+        <div style="font-family:'Manrope',sans-serif;font-size:17px;letter-spacing:0.06em;text-transform:uppercase;color:#6E6E6B;">RaaS / robotics specificity →</div>
+      </div>
+      <p style="margin:0;font-size:17px;line-height:1.35;color:#8A8A87;text-wrap:pretty;">Directional positioning from public product pages, not a formal analyst matrix.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #0A0A0A;padding-top:12px;">
+          <div style="font-size:20px;font-weight:500;line-height:1.2;">Contractual, not scraped</div>
+          <p style="margin:0;font-size:16px;line-height:1.28;color:#0A0A0A;text-wrap:pretty;">Access comes from a loan or lease covenant. A dashboard clone still needs the relationship.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #0A0A0A;padding-top:12px;">
+          <div style="font-size:20px;font-weight:500;line-height:1.2;">Cross-brand normalization</div>
+          <p style="margin:0;font-size:16px;line-height:1.28;color:#0A0A0A;text-wrap:pretty;">No OEM will show a lender how its failure rate compares to a rival's.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #0A0A0A;padding-top:12px;">
+          <div style="font-size:20px;font-weight:500;line-height:1.2;">Written into the paperwork</div>
+          <p style="margin:0;font-size:16px;line-height:1.28;color:#0A0A0A;text-wrap:pretty;">Once it sits in a borrowing base formula, removing it means renegotiating a portfolio.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid #0A0A0A;padding-top:12px;">
+          <div style="font-size:20px;font-weight:500;line-height:1.2;">Financial, not operational</div>
+          <p style="margin:0;font-size:16px;line-height:1.28;color:#0A0A0A;text-wrap:pretty;">Incumbents stop at fleet health, not cash flow and credit risk.</p>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-family:'Manrope',sans-serif;font-size:18px;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;padding:0 16px 10px 0;border-bottom:1px solid #0A0A0A;">Regulatory grounding</th>
+            <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:18px;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;padding:0 0 10px 0;border-bottom:1px solid #0A0A0A;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-size:19px;line-height:1.3;padding:11px 16px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">ISO standard for service robot data</td>
+            <td style="font-size:19px;text-align:right;padding:11px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">Nov 2025</td>
+          </tr>
+          <tr>
+            <td style="font-size:19px;line-height:1.3;padding:11px 16px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">Lender-financed vehicle telematics precedent</td>
+            <td style="font-size:19px;text-align:right;padding:11px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">85%+</td>
+          </tr>
+          <tr>
+            <td style="font-size:19px;line-height:1.3;padding:11px 16px 11px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;">Equipment-finance covenant practice</td>
+            <td style="font-size:19px;text-align:right;padding:11px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;">Established</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section data-label="Real hurdles" data-screen-label="06" data-speaker-notes="Four hard questions, honest answers, each one also foreshadows a real Botlien expansion path." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">Real hurdles, and what each one opens up</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px 64px;">
+    <div style="display:flex;flex-direction:column;gap:16px;border-top:1px solid #0A0A0A;padding-top:22px;">
+      <div style="font-size:17px;font-weight:500;color:#8A8A87;">Is robot adoption growing fast enough to matter?</div>
+      <div style="font-size:52px;font-weight:500;letter-spacing:-0.03em;line-height:1;">$16.7B</div>
+      <p style="margin:0;font-size:16px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Global robot install value, an all-time high. RaaS growing ~18–21% CAGR, already accelerating toward ~32% under an elevated-adoption case (page 4).</p>
+      <p style="margin:0;font-size:14px;line-height:1.4;color:#8A8A87;font-style:italic;">→ Pulls the lender-expansion product forward sooner than modeled.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;border-top:1px solid #0A0A0A;padding-top:22px;">
+      <div style="font-size:17px;font-weight:500;color:#8A8A87;">What if manufacturers never grant real access?</div>
+      <div style="font-size:52px;font-weight:500;letter-spacing:-0.03em;line-height:1;">85%+</div>
+      <p style="margin:0;font-size:16px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Vehicle telematics adoption once lenders required it, the exact mechanism this is built on. Phase 0 proves it first (page 10), before anything else is built.</p>
+      <p style="margin:0;font-size:14px;line-height:1.4;color:#8A8A87;font-style:italic;">→ One access relationship becomes the template for manufacturer partnerships.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;border-top:1px solid #0A0A0A;padding-top:22px;">
+      <div style="font-size:17px;font-weight:500;color:#8A8A87;">Will operators actually pay for this?</div>
+      <div style="font-size:52px;font-weight:500;letter-spacing:-0.03em;line-height:1;">~12%</div>
+      <p style="margin:0;font-size:16px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Of financing payment, not a flat SaaS fee (page 5). One caught at-risk robot covers years of it at these prices.</p>
+      <p style="margin:0;font-size:14px;line-height:1.4;color:#8A8A87;font-style:italic;">→ Paying usage history is what makes the lender-data product credible later.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;border-top:1px solid #0A0A0A;padding-top:22px;">
+      <div style="font-size:17px;font-weight:500;color:#8A8A87;">Can a two-person team execute this?</div>
+      <div style="font-size:52px;font-weight:500;letter-spacing:-0.03em;line-height:1;">2 → 5</div>
+      <p style="margin:0;font-size:16px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Founders today. Funded pace adds one below-market engineer and two paid interns (page 12), a staged build, not a stretch.</p>
+      <p style="margin:0;font-size:14px;line-height:1.4;color:#8A8A87;font-style:italic;">→ Same lean, staged model scales the team again at seed.</p>
+    </div>
+  </div>
+</section>
+
+<section data-label="Traction" data-screen-label="07" data-speaker-notes="Three tracks in flight. Be straight about what is signed versus in conversation." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">Three tracks in flight</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;">
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="border:1px solid #0A0A0A;padding:18px 22px;">
+        <p style="margin:0;font-size:19px;line-height:1.35;color:#0A0A0A;text-wrap:pretty;"><b>No businesses signed today.</b> Working demo built on sample data, live telemetry access still unproven (page 10), pilot actively being sourced, no signed pilot, customers, or revenue yet.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid #0A0A0A;padding-top:16px;">
+        <div style="font-size:19px;font-weight:500;">RaaS operators <span style="font-size:17px;font-weight:400;color:#8A8A87;">· primary</span></div>
+        <div style="display:flex;align-items:center;">
+          <div style="width:10px;height:10px;border-radius:50%;background:#0A0A0A;flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:#0A0A0A;margin:0 4px;"></div>
+          <div style="width:14px;height:14px;border-radius:50%;background:#0A0A0A;flex-shrink:0;box-shadow:0 0 0 3px rgba(10,10,10,0.12);"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:13px;color:#0A0A0A;white-space:nowrap;">List built</span>
+          <span style="font-size:13px;color:#0A0A0A;white-space:nowrap;">Outreach queued</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Outreach sent</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Pilot signed</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid #0A0A0A;padding-top:16px;">
+        <div style="font-size:19px;font-weight:500;">Manufacturers</div>
+        <div style="display:flex;align-items:center;">
+          <div style="width:10px;height:10px;border-radius:50%;background:#0A0A0A;flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:#0A0A0A;margin:0 4px;"></div>
+          <div style="width:14px;height:14px;border-radius:50%;background:#0A0A0A;flex-shrink:0;box-shadow:0 0 0 3px rgba(10,10,10,0.12);"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:13px;color:#0A0A0A;white-space:nowrap;">List built</span>
+          <span style="font-size:13px;color:#0A0A0A;white-space:nowrap;">Outreach sent</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">API access</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Integrated</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid #0A0A0A;padding-top:16px;">
+        <div style="font-size:19px;font-weight:500;">Lenders <span style="font-size:17px;font-weight:400;color:#8A8A87;">· secondary</span></div>
+        <div style="display:flex;align-items:center;">
+          <div style="width:14px;height:14px;border-radius:50%;background:#0A0A0A;flex-shrink:0;box-shadow:0 0 0 3px rgba(10,10,10,0.12);"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+          <div style="flex:1;height:2px;background:rgba(10,10,10,0.15);margin:0 4px;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FFFFFF;border:1.5px solid rgba(10,10,10,0.28);flex-shrink:0;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:13px;color:#0A0A0A;white-space:nowrap;">List built</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Contact confirmed</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Term sheet</span>
+          <span style="font-size:13px;color:#8A8A87;white-space:nowrap;">Signed</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-family:'Manrope',sans-serif;font-size:17px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 16px 10px 0;border-bottom:1px solid #0A0A0A;">Where it stands</th>
+            <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:17px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 0 10px 0;border-bottom:1px solid #0A0A0A;">Next step</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-size:17px;line-height:1.35;padding:14px 16px 14px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;"><b>RaaS operators.</b> Karl Barry, Formic Technologies, email drafted. Their upstream lender, Mitsubishi HC Capital, also confirmed.</td>
+            <td style="font-size:17px;text-align:right;padding:14px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;color:#0A0A0A;white-space:nowrap;">Send, close pilot</td>
+          </tr>
+          <tr>
+            <td style="font-size:17px;line-height:1.35;padding:14px 16px 14px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;"><b>Manufacturers.</b> Lei Yang, CEO &amp; Co-Founder, IntBot, met in person, first outreach sent.</td>
+            <td style="font-size:17px;text-align:right;padding:14px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;color:#0A0A0A;white-space:nowrap;">API access, one brand</td>
+          </tr>
+          <tr>
+            <td style="font-size:17px;line-height:1.35;padding:14px 16px 14px 0;border-bottom:1px solid rgba(10,10,10,0.12);color:#0A0A0A;"><b>Lenders.</b> Stephen Leege, Chief Credit Officer, Financial Pacific Leasing, confirmed strongest contact.</td>
+            <td style="font-size:17px;text-align:right;padding:14px 0;border-bottom:1px solid rgba(10,10,10,0.12);font-family:'Manrope',sans-serif;color:#0A0A0A;white-space:nowrap;">Held, expansion layer</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section data-label="Team" data-screen-label="08" data-speaker-notes="Two founders. Keep it short and let the bios do the work." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;max-width:1500px;">Two founders, one thesis</h2>
+    <p style="margin:0;font-size:22px;line-height:1.4;color:#8A8A87;max-width:1400px;text-wrap:pretty;">Credit risk on one side, hands-on GTM building on the other: the two instincts a product sitting between a robot's API and a lender's borrowing base actually needs.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:80px;">
+    <div style="display:flex;flex-direction:column;gap:18px;border-top:1px solid #0A0A0A;padding-top:28px;">
+      <div style="display:flex;gap:24px;align-items:center;">
+        <img src="assets/antonio-headshot-crop.png" alt="Antonio D'Angelo" style="width:140px;height:140px;object-fit:cover;border-radius:50%;filter:grayscale(1);">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:28px;font-weight:500;letter-spacing:-0.01em;">Antonio D'Angelo</div>
+          <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Co-founder · CEO</div>
+        </div>
+      </div>
+      <p style="margin:0;font-size:26px;line-height:1.45;color:#0A0A0A;text-wrap:pretty;">Builds LLM-based go-to-market automation as a RevOps &amp; GTM analyst at Parsec Automation, with prior VC experience evaluating early-stage deals at Sunset Ventures. Covers credit and rate risk as a fixed income analyst at Titan Capital Management. Brings the GTM and underwriting instincts Botlien sells to.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;border-top:1px solid #0A0A0A;padding-top:28px;">
+      <div style="display:flex;gap:24px;align-items:center;">
+        <img src="assets/samuel-headshot-final.png" alt="Samuel Kim" style="width:140px;height:140px;object-fit:cover;border-radius:50%;filter:grayscale(1);">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:28px;font-weight:500;letter-spacing:-0.01em;">Samuel Kim</div>
+          <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Co-founder · CTO</div>
+        </div>
+      </div>
+      <p style="margin:0;font-size:26px;line-height:1.45;color:#0A0A0A;text-wrap:pretty;">Currently implementing AI algorithms in a financial context at Metro City Bank. Studies finance at Cal State Fullerton, fixed income analyst at Titan Capital Management, pursuing CFA Level I. Prior computer science background.</p>
+    </div>
+  </div>
+  <p style="margin:0;font-size:19px;line-height:1.4;color:#8A8A87;border-top:1px solid rgba(10,10,10,0.15);padding-top:20px;">This round hires our first team member: a founding engineer, below-market salary plus equity, full breakdown on page 12.</p>
+</section>
+
+<section data-label="Roadmap" data-screen-label="09" data-speaker-notes="Four phases, roughly six months to a real design-partner pilot. Phase 0 is the riskiest: confirming real telemetry access." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">Six months bootstrap, three months funded, four phases</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.7fr 1fr;gap:72px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:48px;">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:96px;flex-shrink:0;font-size:15px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#8A8A87;">Bootstrap</div>
+          <div style="display:flex;width:100%;gap:6px;">
+            <div style="width:12%;height:40px;border-radius:5px;background:#D6D6D3;display:flex;align-items:center;justify-content:center;color:#0A0A0A;font-size:14px;font-weight:600;letter-spacing:0.02em;">Wk 1–3</div>
+            <div style="width:23%;height:40px;border-radius:5px;background:#ADADA9;display:flex;align-items:center;justify-content:center;color:#0A0A0A;font-size:14px;font-weight:600;letter-spacing:0.02em;">Wk 4–9</div>
+            <div style="width:35%;height:40px;border-radius:5px;background:#6E6E6B;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:14px;font-weight:600;letter-spacing:0.02em;">Wk 10–18</div>
+            <div style="width:30%;height:40px;border-radius:5px;background:#0A0A0A;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:14px;font-weight:600;letter-spacing:0.02em;">Wk 19–26</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:96px;flex-shrink:0;font-size:15px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#8A8A87;">Funded</div>
+          <div style="display:flex;width:53.8%;gap:6px;">
+            <div style="width:14.3%;height:40px;border-radius:5px;background:#D6D6D3;display:flex;align-items:center;justify-content:center;color:#0A0A0A;font-size:12px;font-weight:600;letter-spacing:0.01em;white-space:nowrap;">Wk 1–2</div>
+            <div style="width:28.6%;height:40px;border-radius:5px;background:#ADADA9;display:flex;align-items:center;justify-content:center;color:#0A0A0A;font-size:12px;font-weight:600;letter-spacing:0.01em;white-space:nowrap;">Wk 3–6</div>
+            <div style="width:35.7%;height:40px;border-radius:5px;background:#6E6E6B;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:12px;font-weight:600;letter-spacing:0.01em;white-space:nowrap;">Wk 7–11</div>
+            <div style="width:21.4%;height:40px;border-radius:5px;background:#0A0A0A;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:12px;font-weight:600;letter-spacing:0.01em;white-space:nowrap;">Wk 12–14</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
+        <div style="display:flex;flex-direction:column;gap:14px;padding-right:16px;border-top:4px solid #D6D6D3;padding-top:20px;">
+          <div style="font-size:20px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:#8A8A87;">Phase 0</div>
+          <p style="margin:0;font-size:20px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Confirm a robot brand's API exposes usable telemetry.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding-right:16px;border-top:4px solid #ADADA9;padding-top:20px;">
+          <div style="font-size:20px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:#8A8A87;">Phase 1</div>
+          <p style="margin:0;font-size:20px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">One robot, one dashboard screen. Connector, schema, rules-based risk flags.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding-right:16px;border-top:4px solid #6E6E6B;padding-top:20px;">
+          <div style="font-size:20px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:#8A8A87;">Phase 2</div>
+          <p style="margin:0;font-size:20px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">One real RaaS operator running the product, even informally and unpaid.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;border-top:4px solid #0A0A0A;padding-top:20px;">
+          <div style="font-size:20px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;color:#0A0A0A;">Phase 3</div>
+          <p style="margin:0;font-size:20px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Second robot brand, pilot data replaces this deck's projections, fund outreach begins.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid rgba(10,10,10,0.12);padding-top:24px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Pace, stated honestly</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#0A0A0A;text-wrap:pretty;">Bootstrap is two founders, part-time around school and existing jobs, weeks as sequencing, not hard deadlines. Funded is both founders full-time plus one below-market engineer hire and two paid interns, funding buys pace, not a different plan. Full team and cost breakdown on page 12.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px;border-top:1px solid rgba(10,10,10,0.12);padding-top:24px;">
+      <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Why this order</div>
+      <div style="display:flex;flex-direction:column;gap:24px;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:26px;font-weight:500;">Access before product</div>
+          <p style="margin:0;font-size:19px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Telemetry access is the riskiest unknown, so it gets proven first, before more is built on top of it.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:26px;font-weight:500;">Real use before scale</div>
+          <p style="margin:0;font-size:19px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">One operator running it for real outweighs a second brand or a bigger fleet at this stage.</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:26px;font-weight:500;">Raise on data, not deck</div>
+          <p style="margin:0;font-size:19px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Fund outreach starts once pilot data exists to replace the projections in this deck.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-label="The ask" data-screen-label="10" data-speaker-notes="500K pre-seed on a post-money SAFE, valuation cap, no discount, YC standard form. Cap and minimum check intentionally not yet set, pending incorporation and market signal. ~34.6 months of real runway at this team's true burn, milestone-framed. Full breakdown on the next slide." style="background:#0A0A0A;color:#FFFFFF;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <img src="assets/botlien-logo-white.png" alt="Botlien" style="height:44px;width:auto;">
+    </div>
+    <div style="display:flex;align-items:baseline;gap:44px;">
+      <div style="font-size:110px;font-weight:500;letter-spacing:-0.04em;line-height:1;">$500K</div>
+      <div style="font-size:32px;color:#8A8A87;">pre-seed · ~34.6 months of runway at real burn</div>
+    </div>
+    <div style="display:flex;gap:64px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Instrument</div>
+        <div style="font-size:22px;color:#FFFFFF;">Post-money SAFE, valuation cap, no discount, YC standard form</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Cap &amp; minimum check</div>
+        <div style="font-size:22px;color:#8A8A87;">Set once incorporation closes and early conversations calibrate the market</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:64px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Milestones this round funds</div>
+      <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+        <div style="font-size:30px;font-weight:500;">Live telemetry feed</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Contractual access works in practice, not just on paper.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+        <div style="font-size:30px;font-weight:500;">Paying pilots</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Operators will pay for early warning at the stated price.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+        <div style="font-size:30px;font-weight:500;">One lender commitment, in writing</div>
+        <p style="margin:0;font-size:22px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">A lender agrees, even informally, to use telemetry in a covenant or borrowing base on a pilot.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:32px;">
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Why sized this way</div>
+        <p style="margin:0;font-size:20px;line-height:1.4;color:#FFFFFF;text-wrap:pretty;">The round is sized to reach one lender's written commitment, not to build a category. The extended runway is a deliberate safety margin, not overraising, telemetry access is a genuinely unproven relationship, and the real milestone could take longer than a best-case guess.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid rgba(255,255,255,0.15);padding-top:20px;">
+        <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Runway, real math</div>
+        <div style="display:flex;width:100%;height:14px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,0.12);">
+          <div style="width:96.1%;height:100%;background:linear-gradient(90deg,#FFFFFF,#6E6E6B);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:18px;color:#8A8A87;">
+          <span>Month 0</span><span>Month 12</span><span>Month 24</span><span>Month 34.6, $500K runs out</span><span>Mo 36</span>
+        </div>
+        <p style="margin:6px 0 0;font-size:18px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Full team plan, cost breakdown, and the runway at every check size from $100K to $500K, page 12.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-label="Use of funds & runway" data-screen-label="11" data-speaker-notes="The real math behind the ask. Team plan, cost breakdown, and runway at every check size from 100K to 500K, no salary for either founder." style="background:#FFFFFF;color:#0A0A0A;font-family:'Manrope',sans-serif;padding:96px 100px 56px;display:flex;flex-direction:column;gap:80px;">
+  <div style="display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+    <img src="assets/botlien-logo.png" alt="Botlien" style="height:44px;width:auto;">
+  </div>
+    <h2 style="margin:0;font-size:64px;font-weight:500;line-height:1.06;letter-spacing:-0.02em;">Use of funds &amp; runway, the real math</h2>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1.05fr;gap:72px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">The team this funds</div>
+      <p style="margin:0 0 4px;font-size:19px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Neither founder takes salary today. Funding buys full-time focus, not a payroll line, plus one below-market engineer hire and two paid interns, real wages, not free labor, California minimum wage applies to real productive work.</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 12px 8px 0;border-bottom:1px solid rgba(10,10,10,0.2);">Line item</th>
+            <th style="text-align:right;font-family:'Manrope',sans-serif;font-size:16px;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;color:#8A8A87;padding:0 0 8px 0;border-bottom:1px solid rgba(10,10,10,0.2);">Monthly</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Antonio, living draw</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$2,900</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Samuel, living draw</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$2,900</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Founding engineer, below-market + equity</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$5,833</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Interns × 2, ~17.5 hrs/wk @ $18/hr</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$2,730</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Tools, Hostinger + domain + Claude Max ×2</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$204</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;border-bottom:1px solid rgba(10,10,10,0.1);">Infra, Cloudflare + Supabase, $0 through Phase 2</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;border-bottom:1px solid rgba(10,10,10,0.1);font-family:'Manrope',sans-serif;">$0–$30</td>
+          </tr>
+          <tr>
+            <td style="font-size:18px;padding:9px 12px 9px 0;">Legal / incorporation, one-time</td>
+            <td style="font-size:18px;text-align:right;padding:9px 0;font-family:'Manrope',sans-serif;">$500 + $450 + $100</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #0A0A0A;padding-top:14px;margin-top:4px;">
+        <span style="font-size:20px;font-weight:600;">Steady-state total</span>
+        <span style="font-size:26px;font-weight:700;font-family:'Manrope',sans-serif;">~$14.4K/mo</span>
+      </div>
+      <p style="margin:0;font-size:15px;line-height:1.4;color:#8A8A87;">No contractor spend beyond the engineer above. Travel is personal, not company burn. Robot/API telemetry access modeled at $0, matches the deck's own "informal, unpaid" pilot framing, flagged as an open assumption.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div style="font-family:'Manrope',sans-serif;font-size:22px;letter-spacing:0.1em;text-transform:uppercase;color:#8A8A87;">Runway at every check size</div>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$100K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:19.9%;height:100%;background:#D6D6D3;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~6.9 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$150K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:30.1%;height:100%;background:#D6D6D3;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~10.4 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$200K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:39.9%;height:100%;background:#ADADA9;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~13.8 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$250K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:50.0%;height:100%;background:#ADADA9;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~17.3 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$300K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:59.8%;height:100%;background:#6E6E6B;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~20.7 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:22px;font-weight:500;">$400K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:80.1%;height:100%;background:#6E6E6B;"></div></div>
+          <div style="font-size:19px;font-weight:600;min-width:80px;text-align:right;">~27.7 mo</div>
+        </div>
+        <div style="display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;">
+          <div style="font-size:19px;font-weight:700;">$500K</div>
+          <div style="height:40px;background:#F0F0EE;border-radius:7px;overflow:hidden;"><div style="width:100%;height:100%;background:#0A0A0A;"></div></div>
+          <div style="font-size:19px;font-weight:700;min-width:80px;text-align:right;">~34.6 mo</div>
+        </div>
+      </div>
+      <p style="margin:8px 0 0;font-size:16px;line-height:1.4;color:#8A8A87;text-wrap:pretty;">Roughly linear, about 3.5 months of runway per additional $50K, since burn is nearly flat month to month. Two open numbers still to confirm: exact engineer base ($60K–80K range, $70K modeled) and exact intern hourly rate ($16.90–20/hr range, $18 modeled).</p>
+    </div>
+  </div>
+</section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

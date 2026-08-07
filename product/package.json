@@ -1,0 +1,17 @@
+{
+  "name": "botlien",
+  "version": "0.1.0",
+  "description": "Collateral risk monitoring for financed and leased commercial service robots",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "BOTLIEN_NO_GENESIS=1 node --test test/*.test.mjs",
+    "start": "node src/index.mjs",
+    "demo": "node src/index.mjs --demo",
+    "e2e": "BOTLIEN_NO_GENESIS=1 node scripts/e2e-check.mjs"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1"
+  }
+}

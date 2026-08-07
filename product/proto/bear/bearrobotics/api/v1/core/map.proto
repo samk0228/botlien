@@ -1,0 +1,90 @@
+// File: map.proto
+//
+// Copyright 2026 Bear Robotics, Inc. All rights reserved.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+syntax = "proto3";
+
+package bearrobotics.api.v1.core;
+
+import "bearrobotics/api/v1/core/annotation.proto";
+import "google/protobuf/timestamp.proto";
+
+// Origin represents the starting point of the map in terms of its coordinates and orientation.
+message Origin {
+  // X-coordinate of the map origin in meters.
+  float x_m = 1;
+
+  // Y-coordinate of the map origin in meters.
+  float y_m = 2;
+
+  // Orientation (yaw) of the map origin in radians.
+  float yaw_radians = 3;
+}
+
+// MapImageFileInfo contains metadata about the map image file for integrity verification.
+message MapImageFileInfo {
+  // [Deprecated] CRC32C checksum. Use md5_checksum instead.
+  uint32 checksum = 1;
+  // Size of the map image file in bytes.
+  int64 size = 2;
+  // MD5 checksum represented as a 32-character lowercase hexadecimal string.
+  string md5_checksum = 3;
+}
+
+// SignedURL represents a signed URL for file access with expiration.
+message SignedURL {
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+// MapImageDownloadInfo contains the information needed to download a map image.
+message MapImageDownloadInfo {
+  // Information about the map image file for integrity verification.
+  MapImageFileInfo file_info = 1;
+  // The signed URL for downloading the map image.
+  SignedURL download_url = 2;
+}
+
+// Map represents a navigable map used by robots, including metadata and associated annotations.
+message Map {
+  // Unique identifier for the map.
+  // Example: "9578"
+  string map_id = 1;
+
+  // Timestamp indicating when the map was created.
+  google.protobuf.Timestamp created_time = 2;
+
+  // Timestamp indicating the last time the map was modified.
+  google.protobuf.Timestamp modified_time = 3;
+
+  // Display name of the map, matching the name used in Bear Universe.
+  // Example: "ITCT SEOUL"
+  string display_name = 4;
+
+  // Annotation associated with this map, defining specific areas and destinations.
+  Annotation annotation = 5;
+
+  // Information for downloading the map image, including signed URL and file metadata.
+  // This field is typically populated by the cloud service.
+  // When retrieving map data directly from the robot (e.g., via GetCurrentMap),
+  // this value may be empty.
+  MapImageDownloadInfo image_download_info = 6;
+
+  // Origin of the map relative to the map frame.
+  Origin origin = 7;
+
+  // Resolution of the map in meters per pixel.
+  float resolution = 8;
+}
+
+// MapSelector contains the indices used to select a specific map on a robot.
+message MapSelector {
+  // Positive integer floor_level begins at 1.
+  int32 floor_level = 1;
+  // Non-negative integer section_index begins at 0.
+  int32 section_index = 2;
+}
