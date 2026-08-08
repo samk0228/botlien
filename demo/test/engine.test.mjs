@@ -13,6 +13,42 @@ const START = Date.parse("2026-08-04T08:00:00-07:00");
 const MIN = 60_000;
 const DAY = 86_400_000;
 
+test("historical rollups survive the recompute window sweeping past them", async () => {
+  // Regression: upsertRollup overwrites a bucket wholesale, so an unaligned
+  // recompute window recomputed the boundary bucket from only the snapshots
+  // after the cut and clobbered a complete row with a partial one. Every
+  // historical bucket was ground down to sample_count=1 as the trailing edge
+  // advanced. This test runs long enough for that edge to sweep well past the
+  // early buckets, then checks they are still whole.
+  const store = openStore(join(mkdtempSync(join(tmpdir(), "botlien-")), "sweep.db"));
+  const config = loadConfig();
+  // one robot on a 5-minute emit cadence: enough to expose the sweep, cheap
+  // enough to keep the suite fast (the bug clobbers buckets to 1 sample at any
+  // cadence, so 12 samples/hour proves it as well as 60 does)
+  const scenario = { ...demoFleet, emitEveryMs: 5 * MIN, robots: [demoFleet.robots[0]], connectorOutage: null };
+  const engine = createEngine({ store, connectors: [createSimConnector(scenario)], config, log: () => {} });
+  await engine.init(START);
+
+  // 3 sim-days: the 2-day recompute window passes entirely over day one
+  for (let t = START; t <= START + 3 * DAY; t += 5 * MIN) await engine.runOnce(t);
+
+  const robot = store.getRobotByKey("sim:sim-001");
+  const early = store.rollupsBetween(robot.id, START, START + DAY);
+  assert.ok(early.length > 20, `early buckets exist: ${early.length}`);
+
+  // every complete hour must hold its full sample set
+  const starved = early.filter((b) => b.sample_count <= 2);
+  assert.equal(starved.length, 0, `${starved.length} of ${early.length} historical buckets were clobbered to <=2 samples`);
+
+  const median = early.map((b) => b.sample_count).sort((a, b) => a - b)[Math.floor(early.length / 2)];
+  assert.equal(median, 12, `expected 12 samples per hour at a 5-minute cadence, got ${median}`);
+
+  // and the derived work figures must be non-zero, since that is what the
+  // owner board prices
+  assert.ok(early.some((b) => b.active_ms > 0), "historical buckets retain duty time");
+  assert.ok(early.some((b) => b.mission_count > 0), "historical buckets retain mission counts");
+});
+
 test("full scenario: sim + engine produce snapshots, rollups, heartbeats, and the expected flags", async () => {
   const store = openStore(join(mkdtempSync(join(tmpdir(), "botlien-")), "engine.db"));
   const config = loadConfig();
@@ -25,7 +61,9 @@ test("full scenario: sim + engine produce snapshots, rollups, heartbeats, and th
   });
 
   await engine.init(START);
-  assert.equal(store.listRobots().length, 5, "fleet registered at init");
+  // Derived from the scenario, not hard-coded: adding a demo robot is a routine
+  // change and should not fail an engine test that is not about fleet size.
+  assert.equal(store.listRobots().length, demoFleet.robots.length, "fleet registered at init");
 
   // First 2 hours in 5-minute steps so the 12-minute outage is observed live,
   // then 5 sim-days in hourly steps for the slow-burn profiles.

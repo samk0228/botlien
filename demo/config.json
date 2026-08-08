@@ -8,18 +8,26 @@
     "rollup_bucket_ms": 3600000
   },
   "demo": { "scenario": "demo-fleet", "clock_scale": 60, "tick_real_ms": 1000 },
+  "owner": { "window_days": 30 },
   "rules": {
     "offline_duration": { "warn_min": 30, "crit_min": 240, "clear_after_min": 10 },
     "error_severity": { "recur_count_24h": 5, "clear_after_min": 60 },
     "stuck_state": { "continuous_min": 10, "episodes_24h": 6, "clear_after_min": 30 },
     "utilization_drop": { "drop_pct": 40, "crit_drop_pct": 70, "baseline_floor_active_ms_per_day": 3600000, "clear_after_min": 720 },
     "battery_degradation": { "fade_pct": 15, "clear_after_min": 1440 },
+    "consumable_exhaustion": { "warn_remaining_pct": 15, "clear_after_min": 1440 },
+    "deferred_maintenance": { "spent_parts": 2, "crit_spent_parts": 3, "min_active_ms_24h": 1800000, "clear_after_min": 1440 },
+    "manual_operation": { "share_pct": 30, "crit_share_pct": 60, "min_samples": 20, "clear_after_min": 720 },
     "connector_down": { "warn_min": 5, "crit_min": 30, "clear_after_min": 5 }
   },
   "bear": {
     "auth_url": "https://api-auth.bearrobotics.ai/authorizeApiAccess",
     "grpc_host": "api.bearrobotics.ai:443",
     "rest_base": "https://api.bearrobotics.ai/v1",
+    "token_refresh_margin_min": 5
+  },
+  "gausium": {
+    "base": "https://openapi.gs-robot.com",
     "token_refresh_margin_min": 5
   }
 }

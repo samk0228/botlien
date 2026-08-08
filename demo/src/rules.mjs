@@ -140,6 +140,79 @@ export const RULES = [
     },
   },
   {
+    id: "consumable_exhaustion",
+    dimension: "lgd",
+    scope: "robot",
+    defaults: { warn_remaining_pct: 15 },
+    eval(ctx, p) {
+      // Collateral condition, measured directly. A scrubber whose squeegee and
+      // filter are spent is not worth its book value at repossession: it is
+      // worth that minus the parts and the labour to fit them.
+      const rated = (ctx.wear ?? []).filter((w) => w.remaining_pct !== null && w.remaining_pct !== undefined);
+      if (rated.length === 0) return null;
+      const worst = rated.reduce((a, b) => (b.remaining_pct < a.remaining_pct ? b : a));
+      const evidence = {
+        component: worst.component,
+        remaining_pct: Math.round(worst.remaining_pct),
+        parts_tracked: rated.length,
+      };
+      // Past rated life is not "nearly worn" — it is a part running on borrowed
+      // time that can take the surface it cleans with it when it fails.
+      if (worst.remaining_pct <= 0) return { severity: "crit", evidence };
+      if (worst.remaining_pct <= p.warn_remaining_pct) return { severity: "warn", evidence };
+      return null;
+    },
+  },
+  {
+    id: "deferred_maintenance",
+    dimension: "pd",
+    scope: "robot",
+    defaults: { spent_parts: 2, crit_spent_parts: 3, min_active_ms_24h: 1_800_000 },
+    eval(ctx, p) {
+      // Distinct from consumable_exhaustion, and deliberately so. That rule asks
+      // "what is this machine worth." This one asks "what does the owner's
+      // spending say about the owner." An operator who keeps running a machine
+      // on several dead parts has chosen output over upkeep, which is what
+      // happens when the parts budget is gone — and it shows up months before a
+      // payment is missed. The still-running condition is load-bearing: a parked
+      // robot with spent parts is a storage decision, not distress.
+      const spent = (ctx.wear ?? []).filter((w) => w.remaining_pct !== null && w.remaining_pct <= 0);
+      if (spent.length < p.spent_parts) return null;
+      const recentActive = ctx.rollups
+        .filter((r) => r.bucket_start_at >= ctx.nowMs - DAY)
+        .reduce((sum, r) => sum + r.active_ms, 0);
+      if (recentActive < p.min_active_ms_24h) return null;
+      const evidence = {
+        spent_parts: spent.length,
+        components: spent.map((w) => w.component).join(","),
+        active_min_24h: Math.round(recentActive / MIN),
+      };
+      if (spent.length >= p.crit_spent_parts) return { severity: "crit", evidence };
+      return { severity: "warn", evidence };
+    },
+  },
+  {
+    id: "manual_operation",
+    dimension: "pd",
+    scope: "robot",
+    defaults: { share_pct: 30, crit_share_pct: 60, min_samples: 20 },
+    eval(ctx, p) {
+      // A robot being driven by hand is not replacing labour, it is consuming
+      // it. Utilization looks healthy either way, so without this the coverage
+      // statement prices work that no robot actually did.
+      const samples = (ctx.conditions24h ?? []).filter(
+        (c) => c.manual_controlling !== null && c.manual_controlling !== undefined
+      );
+      if (samples.length < p.min_samples) return null;
+      const manual = samples.filter((c) => c.manual_controlling === 1).length;
+      const sharePct = (manual / samples.length) * 100;
+      const evidence = { manual_share_pct: Math.round(sharePct), samples: samples.length };
+      if (sharePct >= p.crit_share_pct) return { severity: "crit", evidence };
+      if (sharePct >= p.share_pct) return { severity: "warn", evidence };
+      return null;
+    },
+  },
+  {
     id: "connector_down",
     dimension: "infra",
     scope: "connector",

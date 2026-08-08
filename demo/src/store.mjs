@@ -129,6 +129,66 @@ CREATE TABLE IF NOT EXISTS outcomes (
   imported_at INTEGER
 );
 
+-- What the owner pays for a robot and what its work is worth. One current row
+-- per robot; rate history is a later concern (the backtest reads telemetry, not
+-- prices). Absent row = fall back to the category benchmark in rates.mjs.
+CREATE TABLE IF NOT EXISTS robot_economics (
+  robot_id INTEGER NOT NULL UNIQUE,
+  task_type TEXT NOT NULL,
+  task_basis TEXT NOT NULL,
+  rate_cents INTEGER NOT NULL,
+  invoice_cents_month INTEGER,
+  wage_cents_hour INTEGER,
+  operating_hours_day REAL,
+  updated_at INTEGER NOT NULL
+);
+
+-- Robots the owner says they no longer lease. A separate table because robots
+-- cannot take new columns: CREATE TABLE IF NOT EXISTS will not add one to an
+-- existing database, and there is no migration system. Renames and category
+-- corrections need no storage here, since display_name and category already
+-- exist on robots and are updated in place.
+CREATE TABLE IF NOT EXISTS robot_exclusions (
+  robot_id INTEGER PRIMARY KEY,
+  excluded_at INTEGER NOT NULL
+);
+
+-- Vendor status fields that arrive with a snapshot but do not fit
+-- status_snapshots, which cannot take new columns for the reason spelled out
+-- above robot_exclusions. One row per snapshot, every column nullable: Bear
+-- sends none of this and imported CSVs send none of it either.
+CREATE TABLE IF NOT EXISTS snapshot_conditions (
+  snapshot_id INTEGER PRIMARY KEY,
+  robot_id INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  manual_controlling INTEGER,
+  nav_status TEXT,
+  localization_state TEXT,
+  battery_voltage_v REAL,
+  battery_current_a REAL,
+  battery_temp_c REAL,
+  charger_current_a REAL,
+  vendor_report_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_conditions_robot_at ON snapshot_conditions(robot_id, at);
+
+-- Consumable and wear-part condition: brushes, squeegees, filters, tanks.
+-- The collateral-value table. remaining_pct is stored rather than derived at
+-- read time because life_span_hours changes between firmware versions, and a
+-- reading has to stay interpretable against the spec it was taken under.
+CREATE TABLE IF NOT EXISTS component_wear (
+  robot_id INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  component TEXT NOT NULL,
+  level_pct REAL,
+  enabled INTEGER,
+  life_span_hours REAL,
+  used_life_hours REAL,
+  remaining_pct REAL,
+  UNIQUE(robot_id, at, component)
+);
+CREATE INDEX IF NOT EXISTS idx_wear_robot_at ON component_wear(robot_id, at);
+
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 `;
 
@@ -147,6 +207,22 @@ export class Store {
 
   close() {
     this.db.close();
+  }
+
+  /** Run fn inside one transaction. Only worth reaching for on bulk paths: the
+   * demo backfill lands ~150k snapshots, and committing each one separately
+   * turns a two-second seed into a two-minute one. Rolls back and rethrows on
+   * failure so a half-written history never survives to be read as real. */
+  transaction(fn) {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const out = fn();
+      this.db.exec("COMMIT");
+      return out;
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
   }
 
   // ---- robots ----
@@ -255,6 +331,155 @@ export class Store {
       .all(robotId, sinceMs, untilMs);
   }
 
+  // Span of the aggregates the owner board actually prices. Distinct from
+  // snapshotTimeRange: the board reads rollups, so the period it can honestly
+  // report on is the period rollups exist for.
+  rollupTimeRange() {
+    const r = this.db
+      .prepare(`SELECT MIN(bucket_start_at) AS min_at, MAX(bucket_start_at + bucket_ms) AS max_at FROM utilization_rollups`)
+      .get();
+    return r?.min_at === null || r?.min_at === undefined ? null : { minAt: r.min_at, maxAt: r.max_at };
+  }
+
+  // Every robot's rollups in one query. The owner board needs a fleet-wide
+  // number, and per-robot reads would be one query per robot per page load.
+  rollupsBetweenAll(sinceMs, untilMs) {
+    return this.db
+      .prepare(
+        `SELECT * FROM utilization_rollups WHERE bucket_start_at>=? AND bucket_start_at<=? ORDER BY robot_id, bucket_start_at`
+      )
+      .all(sinceMs, untilMs);
+  }
+
+  // ---- behavioral reads for the tips engine ----
+  // These aggregate in SQL rather than returning snapshots. A 30-day window at
+  // one sample a minute is ~43k rows per robot, and the board computes tips for
+  // every robot on every page load, so pulling raw rows would put a six-figure
+  // row count through the renderer to produce five sentences.
+
+  /** Charging behavior per clock hour. Rollups do not carry charging, so this is
+   * the one thing tips need that has to come from snapshots. Returned per
+   * absolute hour (~720 rows for a 30-day window) and folded to hour-of-day by
+   * the caller, which owns the timezone question: SQLite would apply UTC and a
+   * dinner rush is a local-time idea. */
+  chargingByHour(robotId, sinceMs, untilMs) {
+    return this.db
+      .prepare(
+        `SELECT (at / 3600000) * 3600000 AS hour_start,
+                SUM(CASE WHEN charging=1 THEN 1 ELSE 0 END) AS charging_samples,
+                COUNT(*) AS samples
+         FROM status_snapshots
+         WHERE robot_id=? AND at>=? AND at<=?
+         GROUP BY hour_start ORDER BY hour_start`
+      )
+      .all(robotId, sinceMs, untilMs);
+  }
+
+  /** Where a robot stalls, clustered onto a metre grid. Counts SAMPLES, not
+   * episodes: samples are near-evenly spaced, so a cell's share of samples is a
+   * fair reading of its share of stall TIME, which is the quantity the tip
+   * prices. Episode counting would answer a different question (how often) and
+   * would need an ordered scan of every row.
+   *
+   * ROUND rather than FLOOR because ROUND is core SQLite everywhere; snapping
+   * to the nearest cell instead of the lower one shifts the grid by half a cell
+   * and changes nothing about which spot comes out on top. */
+  stallHotspots(robotId, sinceMs, untilMs, { gridMeters = 2, limit = 12 } = {}) {
+    return this.db
+      .prepare(
+        `SELECT ROUND(pose_x / ?) * ? AS gx, ROUND(pose_y / ?) * ? AS gy, COUNT(*) AS samples
+         FROM status_snapshots
+         WHERE robot_id=? AND at>=? AND at<=? AND stuck=1 AND pose_x IS NOT NULL AND pose_y IS NOT NULL
+         GROUP BY gx, gy ORDER BY samples DESC LIMIT ?`
+      )
+      .all(gridMeters, gridMeters, gridMeters, gridMeters, robotId, sinceMs, untilMs, limit);
+  }
+
+  /** Total stall samples in the window, the denominator for hotspot share.
+   * Counted separately because the hotspot query is LIMITed and its rows
+   * therefore do not sum to the whole. */
+  stallSampleCount(robotId, sinceMs, untilMs) {
+    return (
+      this.db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM status_snapshots
+           WHERE robot_id=? AND at>=? AND at<=? AND stuck=1 AND pose_x IS NOT NULL AND pose_y IS NOT NULL`
+        )
+        .get(robotId, sinceMs, untilMs)?.n ?? 0
+    );
+  }
+
+  // ---- economics ----
+  upsertRobotEconomics(robotId, e, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO robot_economics (robot_id, task_type, task_basis, rate_cents, invoice_cents_month,
+           wage_cents_hour, operating_hours_day, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(robot_id) DO UPDATE SET
+           task_type=excluded.task_type, task_basis=excluded.task_basis, rate_cents=excluded.rate_cents,
+           invoice_cents_month=excluded.invoice_cents_month, wage_cents_hour=excluded.wage_cents_hour,
+           operating_hours_day=excluded.operating_hours_day, updated_at=excluded.updated_at`
+      )
+      .run(
+        robotId, e.taskType, e.taskBasis, e.rateCents,
+        e.invoiceCentsMonth ?? null, e.wageCentsHour ?? null, e.operatingHoursDay ?? null, nowMs
+      );
+  }
+
+  getRobotEconomics(robotId) {
+    return this.db.prepare(`SELECT * FROM robot_economics WHERE robot_id=?`).get(robotId) ?? null;
+  }
+
+  listRobotEconomics() {
+    return this.db.prepare(`SELECT * FROM robot_economics`).all();
+  }
+
+  setRobotFleet(robotId, fleetId) {
+    this.db.prepare(`UPDATE robots SET fleet_id=? WHERE id=?`).run(fleetId, robotId);
+  }
+
+  // ---- fleet confirmation ----
+  renameRobot(robotId, displayName) {
+    this.db.prepare(`UPDATE robots SET display_name=? WHERE id=?`).run(displayName, robotId);
+  }
+
+  // The correction that makes the arithmetic right: an import cannot tell a
+  // scrubber from a food runner, and pricing a scrubber per run instead of per
+  // hour is wrong by an order of magnitude.
+  setRobotCategory(robotId, category) {
+    this.db.prepare(`UPDATE robots SET category=? WHERE id=?`).run(category, robotId);
+  }
+
+  excludeRobot(robotId, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO robot_exclusions (robot_id, excluded_at) VALUES (?, ?)
+         ON CONFLICT(robot_id) DO UPDATE SET excluded_at=excluded.excluded_at`
+      )
+      .run(robotId, nowMs);
+  }
+
+  includeRobot(robotId) {
+    this.db.prepare(`DELETE FROM robot_exclusions WHERE robot_id=?`).run(robotId);
+  }
+
+  listExclusions() {
+    return this.db.prepare(`SELECT robot_id FROM robot_exclusions`).all().map((r) => r.robot_id);
+  }
+
+  /** Earliest and latest telemetry for one robot, for the confirm screen. */
+  robotTimeRange(robotId) {
+    const r = this.db
+      .prepare(`SELECT MIN(at) AS min_at, MAX(at) AS max_at FROM status_snapshots WHERE robot_id=?`)
+      .get(robotId);
+    return r?.min_at ? { minAt: r.min_at, maxAt: r.max_at } : null;
+  }
+
+  listFleets() {
+    return this.db.prepare(`SELECT * FROM fleets ORDER BY id`).all();
+  }
+
   // ---- heartbeats ----
   insertHeartbeat({ connector, at, state, detail = null }) {
     this.db.prepare(`INSERT INTO heartbeats (connector, at, state, detail) VALUES (?, ?, ?, ?)`).run(connector, at, state, detail);
@@ -324,6 +549,68 @@ export class Store {
 
   listOutcomes() {
     return this.db.prepare(`SELECT * FROM outcomes ORDER BY at`).all();
+  }
+
+  // ---- condition + wear ----
+  insertCondition(c) {
+    this.db
+      .prepare(
+        `INSERT INTO snapshot_conditions (snapshot_id, robot_id, at, manual_controlling, nav_status,
+           localization_state, battery_voltage_v, battery_current_a, battery_temp_c, charger_current_a, vendor_report_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(snapshot_id) DO NOTHING`
+      )
+      .run(
+        c.snapshotId, c.robotId, c.at, boolInt(c.manualControlling), c.navStatus ?? null,
+        c.localizationState ?? null, c.batteryVoltageV ?? null, c.batteryCurrentA ?? null,
+        c.batteryTempC ?? null, c.chargerCurrentA ?? null, c.vendorReportAt ?? null
+      );
+  }
+
+  latestCondition(robotId) {
+    return (
+      this.db.prepare(`SELECT * FROM snapshot_conditions WHERE robot_id=? ORDER BY at DESC LIMIT 1`).get(robotId) ?? null
+    );
+  }
+
+  conditionsBetween(robotId, sinceMs, untilMs) {
+    return this.db
+      .prepare(`SELECT * FROM snapshot_conditions WHERE robot_id=? AND at>=? AND at<=? ORDER BY at`)
+      .all(robotId, sinceMs, untilMs);
+  }
+
+  /** One reading = many components. Re-reading the same instant is idempotent. */
+  insertComponentWear(robotId, at, components) {
+    const stmt = this.db.prepare(
+      `INSERT INTO component_wear (robot_id, at, component, level_pct, enabled, life_span_hours, used_life_hours, remaining_pct)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(robot_id, at, component) DO UPDATE SET
+         level_pct=excluded.level_pct, enabled=excluded.enabled, life_span_hours=excluded.life_span_hours,
+         used_life_hours=excluded.used_life_hours, remaining_pct=excluded.remaining_pct`
+    );
+    for (const c of components) {
+      stmt.run(
+        robotId, at, c.component, c.levelPct ?? null, boolInt(c.enabled),
+        c.lifeSpanHours ?? null, c.usedLifeHours ?? null, c.remainingPct ?? null
+      );
+    }
+  }
+
+  /** The current condition of every tracked part, from the most recent reading. */
+  latestComponentWear(robotId) {
+    return this.db
+      .prepare(
+        `SELECT * FROM component_wear WHERE robot_id=?
+           AND at=(SELECT MAX(at) FROM component_wear WHERE robot_id=?)
+         ORDER BY component`
+      )
+      .all(robotId, robotId);
+  }
+
+  componentWearBetween(robotId, sinceMs, untilMs) {
+    return this.db
+      .prepare(`SELECT * FROM component_wear WHERE robot_id=? AND at>=? AND at<=? ORDER BY at, component`)
+      .all(robotId, sinceMs, untilMs);
   }
 
   // ---- kv ----

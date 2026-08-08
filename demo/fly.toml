@@ -1,0 +1,49 @@
+# Fly.io deployment. `fly launch --no-deploy` will offer to generate this file;
+# it is checked in deliberately so the single-machine constraint below is a
+# reviewed decision rather than a dashboard toggle someone flips later.
+
+app = "botlien"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BOTLIEN_BASE_URL = "https://app.botlien.com"
+  BOTLIEN_SECURE_COOKIES = "1"
+
+# Every account is its own SQLite file on this volume. A Fly volume attaches to
+# exactly one machine, so this is also the reason for the hard limit below.
+[[mounts]]
+  source = "botlien_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+  # THE constraint. Two machines cannot share a volume, and two processes
+  # writing the same SQLite files corrupt them. Never raise these, and never
+  # turn on autoscaling: the failure is silent data corruption, not an error.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  max_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+  # Answered before the session check, so it returns 200 without a cookie
+  # rather than a 303 to /signin that would read as a dead machine.
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "3s"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

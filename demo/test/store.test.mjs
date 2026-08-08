@@ -68,6 +68,66 @@ test("rollup upsert is idempotent per (robot, bucket)", () => {
   assert.equal(rows[0].online_ms, 3_600_000);
 });
 
+test("rollupsBetweenAll returns every robot's buckets in one read", () => {
+  const s = tempStore();
+  const a = s.upsertRobot({ connector: "sim", externalId: "ra" }, NOW);
+  const b = s.upsertRobot({ connector: "sim", externalId: "rb" }, NOW);
+  const base = { bucketMs: 3_600_000, sampleCount: 1, onlineMs: 0, activeMs: 0, missionCount: 1, errorCount: 0, stuckEpisodes: 0 };
+  s.upsertRollup({ ...base, robotId: a, bucketStartAt: NOW });
+  s.upsertRollup({ ...base, robotId: a, bucketStartAt: NOW + 3_600_000 });
+  s.upsertRollup({ ...base, robotId: b, bucketStartAt: NOW });
+
+  const all = s.rollupsBetweenAll(NOW - 1, NOW + 7_200_000);
+  assert.equal(all.length, 3);
+  assert.equal(all.filter((r) => r.robot_id === a).length, 2);
+  assert.equal(all.filter((r) => r.robot_id === b).length, 1);
+
+  // window still bounds the read
+  assert.equal(s.rollupsBetweenAll(NOW - 1, NOW + 1).length, 2);
+});
+
+test("robot economics upsert is idempotent and absent means null", () => {
+  const s = tempStore();
+  const robotId = s.upsertRobot({ connector: "sim", externalId: "r-econ", category: "delivery" }, NOW);
+  assert.equal(s.getRobotEconomics(robotId), null);
+
+  const econ = {
+    taskType: "tray_delivery",
+    taskBasis: "mission",
+    rateCents: 125,
+    invoiceCentsMonth: 99_900,
+    wageCentsHour: 2_000,
+    operatingHoursDay: 12,
+  };
+  s.upsertRobotEconomics(robotId, econ, NOW);
+  s.upsertRobotEconomics(robotId, { ...econ, rateCents: 200, invoiceCentsMonth: 50_000 }, NOW + 1000);
+
+  assert.equal(s.listRobotEconomics().length, 1);
+  const row = s.getRobotEconomics(robotId);
+  assert.equal(row.rate_cents, 200);
+  assert.equal(row.invoice_cents_month, 50_000);
+  assert.equal(row.updated_at, NOW + 1000);
+});
+
+test("optional economics fields persist as null, not zero", () => {
+  const s = tempStore();
+  const robotId = s.upsertRobot({ connector: "sim", externalId: "r-sparse" }, NOW);
+  s.upsertRobotEconomics(robotId, { taskType: "cleaning_hour", taskBasis: "active_hour", rateCents: 3_800 }, NOW);
+  const row = s.getRobotEconomics(robotId);
+  assert.equal(row.invoice_cents_month, null);
+  assert.equal(row.wage_cents_hour, null);
+  assert.equal(row.operating_hours_day, null);
+});
+
+test("robots can be assigned to a site so multi-site rollups drop in later", () => {
+  const s = tempStore();
+  const fleetId = s.insertFleet({ name: "Main site" }, NOW);
+  const robotId = s.upsertRobot({ connector: "sim", externalId: "r-site" }, NOW);
+  s.setRobotFleet(robotId, fleetId);
+  assert.equal(s.listRobots()[0].fleet_id, fleetId);
+  assert.equal(s.listFleets()[0].name, "Main site");
+});
+
 test("heartbeats, outcomes, kv", () => {
   const s = tempStore();
   s.insertHeartbeat({ connector: "sim", at: NOW, state: "ok" });

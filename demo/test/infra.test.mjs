@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadConfig, genesisLog } from "../src/infra.mjs";
+import { loadConfig, genesisLog, resolvePath, ROOT } from "../src/infra.mjs";
 
 test("loadConfig parses config.json with expected sections", () => {
   const cfg = loadConfig();
@@ -33,4 +33,15 @@ test("genesisLog invokes genesis-log with source botlien when enabled", () => {
   } finally {
     process.env.BOTLIEN_NO_GENESIS = "1";
   }
+});
+
+// Regression: join(ROOT, "/data/x.db") yields "<root>/data/x.db", not
+// "/data/x.db". On a container that is a directory inside the image rather than
+// the mounted volume, so every uploaded byte is discarded on the next deploy
+// with no error anywhere. Absolute paths must survive untouched.
+test("resolvePath leaves absolute paths alone and roots relative ones", () => {
+  assert.equal(resolvePath("/data/botlien.db"), "/data/botlien.db");
+  assert.equal(resolvePath("/data/tenants"), "/data/tenants");
+  assert.equal(resolvePath("data/botlien.db"), `${ROOT}/data/botlien.db`);
+  assert.equal(resolvePath("data/tenants"), `${ROOT}/data/tenants`);
 });

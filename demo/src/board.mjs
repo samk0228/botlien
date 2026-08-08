@@ -50,6 +50,8 @@ export function boardModel(store, nowMs) {
     const latest = store.latestSnapshot(r.id);
     const robotFlags = active.filter((f) => f.robot_id === r.id);
     const worst = robotFlags.reduce((w, f) => (SEVERITY_RANK[f.severity] > SEVERITY_RANK[w] ? f.severity : w), "info");
+    const wear = store.latestComponentWear(r.id);
+    const condition = store.latestCondition(r.id);
     return {
       key: r.robot_key,
       name: r.display_name ?? r.robot_key,
@@ -64,6 +66,18 @@ export function boardModel(store, nowMs) {
       source: latest?.source ?? null,
       flagCount: robotFlags.length,
       worstSeverity: robotFlags.length ? worst : null,
+      // Vendor extras — null everywhere except Gausium, so every consumer of
+      // this model has to tolerate their absence.
+      manualControlling: condition?.manual_controlling === 1,
+      batteryTempC: condition?.battery_temp_c ?? null,
+      localizationState: condition?.localization_state ?? null,
+      wearAt: wear.length ? wear[0].at : null,
+      wear: wear.map((w) => ({
+        component: w.component,
+        remainingPct: w.remaining_pct,
+        levelPct: w.level_pct,
+        enabled: w.enabled === 1,
+      })),
     };
   });
 
@@ -82,6 +96,14 @@ export function boardModel(store, nowMs) {
       onlineCount: robotViews.filter((r) => r.connection === "online").length,
       activeFlags: active.length,
       critFlags: active.filter((f) => f.severity === "crit").length,
+      // Fleet-wide count of parts past rated life. Zero is a real answer and is
+      // shown as such; null would mean "no robot reports wear at all".
+      spentParts: robotViews.some((r) => r.wear.length)
+        ? robotViews.reduce(
+            (n, r) => n + r.wear.filter((w) => w.remainingPct !== null && w.remainingPct <= 0).length,
+            0
+          )
+        : null,
     },
     robots: robotViews,
     flags,
@@ -122,8 +144,43 @@ export function renderBoardHTML(m) {
         <span>${r.batteryPct !== null ? esc(Math.round(r.batteryPct)) + "%" : "–"}</span>
         <span>${esc(r.missionState ?? "–")}${r.stuck ? " ⚠stuck" : ""}</span>
       </div>
+      ${r.manualControlling || r.batteryTempC !== null || r.localizationState ? `<div class="row sub2">
+        ${r.manualControlling ? '<span class="tag manual">manual</span>' : ""}
+        ${r.batteryTempC !== null ? `<span>${esc(Math.round(r.batteryTempC))}°C</span>` : ""}
+        ${r.localizationState ? `<span>${esc(String(r.localizationState).toLowerCase())}</span>` : ""}
+      </div>` : ""}
       <div class="last">last: ${esc(ago(r.lastAt, m.nowMs))}${r.flagCount ? ` · ${r.flagCount} flag${r.flagCount > 1 ? "s" : ""}` : ""}</div>
     </div>`;
+
+  // Wear bars read left-to-right as life remaining. Overrun (a part past its
+  // rated life) is shown as an empty bar labelled with how far past it is,
+  // because "0%" and "40% over" are different conversations with a borrower.
+  const wearRow = (r) => {
+    const part = (w) => {
+      if (w.remainingPct === null) {
+        return `<div class="part"><span class="pname">${esc(w.component)}</span>
+          <span class="bar"><i class="unknown" style="width:100%"></i></span>
+          <span class="pct dim">n/a</span></div>`;
+      }
+      const pct = w.remainingPct;
+      const cls = pct <= 0 ? "crit" : pct <= 15 ? "warn" : "ok";
+      const width = Math.round(Math.max(0, Math.min(100, pct)) * 10) / 10;
+      // A part at 0.4% remaining must not round to a bare "0%": that reads as
+      // spent while the summary count correctly excludes it, and the two
+      // disagreeing on screen is worse than either being imprecise.
+      const label = pct <= 0 ? `${Math.round(-pct)}% over` : pct < 1 ? "<1%" : `${Math.round(pct)}%`;
+      return `<div class="part"><span class="pname">${esc(w.component)}</span>
+        <span class="bar"><i class="${cls}" style="width:${width}%"></i></span>
+        <span class="pct ${cls}">${esc(label)}</span></div>`;
+    };
+    return `
+    <div class="wearrow">
+      <div class="wearhead">${esc(r.name)} <span class="t">read ${esc(ago(r.wearAt, m.nowMs))}</span></div>
+      <div class="parts">${r.wear.map(part).join("")}</div>
+    </div>`;
+  };
+
+  const withWear = m.robots.filter((r) => r.wear.length > 0);
 
   const hbStrip = (h) => `
     <div class="hb">
@@ -175,6 +232,23 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7;marg
 .summary{display:flex;gap:18px;margin-top:14px;font-size:13px;color:#aab1c2}
 .summary b{color:#d5d9e2}
 .summary .critn{color:#ff7b7b}
+.card .sub2{color:#8b93a7;font-size:11px;margin-top:4px}
+.tag{font-size:9px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:3px;text-transform:uppercase}
+.tag.manual{background:#3d2f00;color:#e8b93e}
+.wearrow{padding:8px 4px;border-bottom:1px solid #1d212b}
+.wearrow:last-child{border-bottom:0}
+.wearhead{font-size:12px;color:#aab1c2;margin-bottom:6px}
+.wearhead .t{color:#5b6272;font-size:11px;margin-left:6px}
+.parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 16px}
+.part{display:flex;align-items:center;gap:8px;font-size:11px}
+.part .pname{color:#8b93a7;width:96px;flex:none;font-family:ui-monospace,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.part .bar{flex:1;height:6px;background:#232733;border-radius:3px;overflow:hidden}
+.part .bar i{display:block;height:100%;border-radius:3px}
+.part .bar i.ok{background:#37c26a}.part .bar i.warn{background:#b08900}
+.part .bar i.crit{background:#c23737}.part .bar i.unknown{background:#2a2f3d}
+.part .pct{width:56px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
+.part .pct.ok{color:#8b93a7}.part .pct.warn{color:#e8b93e}.part .pct.crit{color:#ff7b7b}
+.part .pct.dim{color:#5b6272}
 </style></head>
 <body>
 <h1>BOTLIEN${m.demo ? '<span class="badge">DEMO — simulated fleet</span>' : ""}</h1>
@@ -184,9 +258,13 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7;marg
   <span><b>${m.summary.onlineCount}</b> online</span>
   <span><b>${m.summary.activeFlags}</b> active flags</span>
   <span class="critn"><b>${m.summary.critFlags}</b> critical</span>
+  ${m.summary.spentParts !== null ? `<span${m.summary.spentParts > 0 ? ' class="critn"' : ""}><b>${m.summary.spentParts}</b> parts past life</span>` : ""}
 </div>
 <h2>Fleet</h2>
 <div class="cards">${m.robots.map(robotCard).join("")}</div>
+${withWear.length > 0 ? `
+<h2>Asset condition — consumable life remaining, the collateral's real state</h2>
+<div class="panel">${withWear.map(wearRow).join("")}</div>` : ""}
 ${flagSection("pd")}
 ${flagSection("lgd")}
 ${flagSection("infra")}
@@ -196,21 +274,227 @@ ${flagSection("infra")}
 </body></html>`;
 }
 
-export function startBoard(port, { getState }) {
+// Form bodies are read with a hard cap: this server is a dashboard, not an
+// upload endpoint, and an unbounded body would buffer straight into memory.
+export const MAX_BODY_BYTES = 64 * 1024;
+
+export function readBody(req, limitBytes = MAX_BODY_BYTES) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > limitBytes) {
+        reject(new Error("body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
+// Telemetry exports are megabytes, not form fields. Kept separate from the
+// 64KB default so a stray POST elsewhere still cannot balloon memory.
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+/**
+ * `tenancy`, when supplied, turns this from a single-fleet board into the
+ * multi-tenant product: the front door moves to `/`, the ops board to `/ops`,
+ * and every `/owner` route resolves the signed-in account's own store before
+ * any of the handlers below run. Omit it and behaviour is exactly as before,
+ * which is what `npm run demo` and the existing tests rely on.
+ */
+export function startBoard(port, {
+  getState,
+  getOwnerState: baseGetOwnerState = null,
+  saveEconomics: baseSaveEconomics = null,
+  onboarding: baseOnboarding = null,
+  tenancy = null,
+  host = process.env.BOTLIEN_HOST ?? "127.0.0.1",
+}) {
   const server = createServer(async (req, res) => {
     try {
-      if (req.method === "GET" && (req.url === "/" || req.url === "/index.html")) {
+      const path = (req.url ?? "/").split("?")[0];
+
+      // Answered before anything else, and deliberately before the session
+      // check, because a health probe carries no cookie: routed any later it
+      // would 303 to /signin and the platform would read a redirect as a dead
+      // machine and restart a perfectly healthy one, forever.
+      if (path === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ ok: true, uptime_s: Math.round(process.uptime()) }));
+        return;
+      }
+
+      // Per-request bindings. Without tenancy these are the single store the
+      // process was started with; with it, they are the account's own.
+      let getOwnerState = baseGetOwnerState;
+      let saveEconomics = baseSaveEconomics;
+      let onboarding = baseOnboarding;
+
+      if (tenancy) {
+        const { handlePublicRoute, requiresSession } = await import("./gate.mjs");
+        if (await handlePublicRoute(req, res, path, tenancy.ctx)) return;
+
+        if (requiresSession(path)) {
+          const { currentAccount } = await import("./auth.mjs");
+          const account = currentAccount(tenancy.ctx.control, req.headers.cookie, tenancy.ctx.now());
+          if (!account) {
+            res.writeHead(303, { Location: "/signin" });
+            res.end();
+            return;
+          }
+          const bound = tenancy.forAccount(account);
+          getOwnerState = bound.getOwnerState;
+          saveEconomics = bound.saveEconomics;
+          onboarding = bound.onboarding;
+        }
+      }
+
+      // The ops board is ours, not a customer's. It keeps `/` only when there
+      // is no public site in front of it.
+      const opsPath = tenancy ? path === "/ops" : path === "/" || path === "/index.html";
+      if (req.method === "GET" && opsPath) {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(renderBoardHTML(model));
         return;
       }
-      if (req.method === "GET" && req.url === "/api/state") {
+      if (req.method === "GET" && path === "/api/state") {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(model));
         return;
       }
+
+      // ---- owner views (only mounted when the callbacks are supplied) ----
+      if (getOwnerState) {
+        const owner = await import("./owner.mjs");
+
+        // ---- onboarding flow ----
+        if (onboarding) {
+          if (req.method === "GET" && path === "/owner/business") {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(owner.renderBusinessHTML(onboarding.getBusiness()));
+            return;
+          }
+          if (req.method === "POST" && path === "/owner/business") {
+            let body;
+            try {
+              body = await readBody(req);
+            } catch {
+              res.writeHead(413, { "Content-Type": "text/plain" });
+              res.end("form too large");
+              return;
+            }
+            const picked = new URLSearchParams(body).get("business");
+            if (!onboarding.saveBusiness(picked)) {
+              // Re-render WITH a reason. A 400 that silently repaints the same
+              // page leaves the owner clicking the same button again.
+              res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+              res.end(
+                owner.renderBusinessHTML(onboarding.getBusiness(), {
+                  error: picked
+                    ? "That is not one of the options. Pick the closest match, you can change it later."
+                    : "Choose the kind of business this is so we know what your robots' work is worth.",
+                })
+              );
+              return;
+            }
+            res.writeHead(303, { Location: "/owner/import" });
+            res.end();
+            return;
+          }
+          if (req.method === "GET" && path === "/owner/import") {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(owner.renderImportHTML({ business: onboarding.getBusiness() }));
+            return;
+          }
+          if (req.method === "POST" && path === "/owner/import") {
+            let body;
+            try {
+              body = await readBody(req, MAX_UPLOAD_BYTES);
+            } catch {
+              res.writeHead(413, { "Content-Type": "text/plain" });
+              res.end("That file is larger than 25MB.");
+              return;
+            }
+            const name = new URL(req.url, "http://127.0.0.1").searchParams.get("name") ?? "upload.csv";
+            const result = onboarding.importText(body, name);
+            if (!result.ok) {
+              res.writeHead(400, { "Content-Type": "text/plain" });
+              res.end(result.message);
+              return;
+            }
+            res.writeHead(303, { Location: "/owner/confirm" });
+            res.end();
+            return;
+          }
+          if (req.method === "GET" && path === "/owner/confirm") {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(owner.renderConfirmHTML(onboarding.confirmState()));
+            return;
+          }
+          if (req.method === "POST" && path === "/owner/confirm") {
+            let body;
+            try {
+              body = await readBody(req);
+            } catch {
+              res.writeHead(413, { "Content-Type": "text/plain" });
+              res.end("form too large");
+              return;
+            }
+            onboarding.saveConfirm(new URLSearchParams(body));
+            res.writeHead(303, { Location: "/owner/setup" });
+            res.end();
+            return;
+          }
+        }
+
+        if (req.method === "GET" && path === "/owner") {
+          const model = await getOwnerState();
+          // Never render a zeroed statement: send the owner to the step that
+          // actually moves them forward.
+          if (onboarding && model.step !== "done" && !(req.url ?? "").includes("demo=1")) {
+            res.writeHead(303, { Location: `/owner/${model.step}` });
+            res.end();
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderOwnerHTML(model));
+          return;
+        }
+        if (req.method === "GET" && path === "/api/owner") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(await getOwnerState()));
+          return;
+        }
+        if (req.method === "GET" && path === "/owner/setup") {
+          const saved = (req.url ?? "").includes("saved=1");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderSetupHTML(await getOwnerState(), { saved }));
+          return;
+        }
+        if (req.method === "POST" && path === "/owner/setup" && saveEconomics) {
+          let body;
+          try {
+            body = await readBody(req);
+          } catch {
+            res.writeHead(413, { "Content-Type": "text/plain" });
+            res.end("form too large");
+            return;
+          }
+          await saveEconomics(new URLSearchParams(body));
+          // 303 so a refresh of the board does not repost the form
+          res.writeHead(303, { Location: "/owner/setup?saved=1" });
+          res.end();
+          return;
+        }
+      }
+
       res.writeHead(404);
       res.end("not found");
     } catch (err) {
@@ -218,6 +502,8 @@ export function startBoard(port, { getState }) {
       res.end(JSON.stringify({ message: String(err).slice(0, 200) }));
     }
   });
-  server.listen(port, "127.0.0.1");
+  // Localhost by default so a laptop never accidentally serves the internet;
+  // production sets BOTLIEN_HOST=0.0.0.0 behind the host's TLS terminator.
+  server.listen(port, host);
   return server;
 }
