@@ -12,7 +12,8 @@
     "test": "BOTLIEN_NO_GENESIS=1 node --test test/*.test.mjs",
     "start": "node src/index.mjs",
     "demo": "node src/index.mjs --demo",
-    "e2e": "BOTLIEN_NO_GENESIS=1 node scripts/e2e-check.mjs"
+    "e2e": "BOTLIEN_NO_GENESIS=1 node scripts/e2e-check.mjs",
+    "mail-test": "node scripts/mail-test.mjs"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
