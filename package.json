@@ -4,6 +4,10 @@
   "description": "Collateral risk monitoring for financed and leased commercial service robots",
   "type": "module",
   "private": true,
+  "engines": {
+    "comment": "node:sqlite (DatabaseSync) is unstable before 22.5; the app will not boot on Node 20.",
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "test": "BOTLIEN_NO_GENESIS=1 node --test test/*.test.mjs",
     "start": "node src/index.mjs",

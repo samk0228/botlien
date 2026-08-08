@@ -300,12 +300,54 @@ export function readBody(req, limitBytes = MAX_BODY_BYTES) {
 // 64KB default so a stray POST elsewhere still cannot balloon memory.
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-export function startBoard(port, { getState, getOwnerState = null, saveEconomics = null, onboarding = null }) {
+/**
+ * `tenancy`, when supplied, turns this from a single-fleet board into the
+ * multi-tenant product: the front door moves to `/`, the ops board to `/ops`,
+ * and every `/owner` route resolves the signed-in account's own store before
+ * any of the handlers below run. Omit it and behaviour is exactly as before,
+ * which is what `npm run demo` and the existing tests rely on.
+ */
+export function startBoard(port, {
+  getState,
+  getOwnerState: baseGetOwnerState = null,
+  saveEconomics: baseSaveEconomics = null,
+  onboarding: baseOnboarding = null,
+  tenancy = null,
+  host = process.env.BOTLIEN_HOST ?? "127.0.0.1",
+}) {
   const server = createServer(async (req, res) => {
     try {
       const path = (req.url ?? "/").split("?")[0];
 
-      if (req.method === "GET" && (path === "/" || path === "/index.html")) {
+      // Per-request bindings. Without tenancy these are the single store the
+      // process was started with; with it, they are the account's own.
+      let getOwnerState = baseGetOwnerState;
+      let saveEconomics = baseSaveEconomics;
+      let onboarding = baseOnboarding;
+
+      if (tenancy) {
+        const { handlePublicRoute, requiresSession } = await import("./gate.mjs");
+        if (await handlePublicRoute(req, res, path, tenancy.ctx)) return;
+
+        if (requiresSession(path)) {
+          const { currentAccount } = await import("./auth.mjs");
+          const account = currentAccount(tenancy.ctx.control, req.headers.cookie, tenancy.ctx.now());
+          if (!account) {
+            res.writeHead(303, { Location: "/signin" });
+            res.end();
+            return;
+          }
+          const bound = tenancy.forAccount(account);
+          getOwnerState = bound.getOwnerState;
+          saveEconomics = bound.saveEconomics;
+          onboarding = bound.onboarding;
+        }
+      }
+
+      // The ops board is ours, not a customer's. It keeps `/` only when there
+      // is no public site in front of it.
+      const opsPath = tenancy ? path === "/ops" : path === "/" || path === "/index.html";
+      if (req.method === "GET" && opsPath) {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(renderBoardHTML(model));
@@ -450,6 +492,8 @@ export function startBoard(port, { getState, getOwnerState = null, saveEconomics
       res.end(JSON.stringify({ message: String(err).slice(0, 200) }));
     }
   });
-  server.listen(port, "127.0.0.1");
+  // Localhost by default so a laptop never accidentally serves the internet;
+  // production sets BOTLIEN_HOST=0.0.0.0 behind the host's TLS terminator.
+  server.listen(port, host);
   return server;
 }

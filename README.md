@@ -145,6 +145,43 @@ Key invariants:
 3. `npm start` — auth is JWT via `authorizeApiAccess`, robot list via REST,
    status via gRPC `SubscribeRobotStatus` with reconnect backoff.
 
+## Sending real sign-in email
+
+Sign-in is a magic link, so mail delivery is not a feature of the product, it
+is the front door. With no credential the mailer falls back to console mode and
+writes every link to `data/sent-mail.log`, which is how the flow is developed
+and tested. That fallback is why a missing key looks like "no email arrived"
+rather than an error.
+
+Two things have to be true before a stranger can sign in, and each one alone is
+not enough:
+
+**1. A sending credential.** [Resend](https://resend.com), already implemented
+in `src/mailer.mjs`.
+
+- Add `botlien.com` as a domain in Resend and paste the DKIM/SPF records it
+  gives you into Cloudflare (Botlien's nameservers are `maisie`/`nick.ns.
+  cloudflare.com`). Use the `send.botlien.com` subdomain it offers, which leaves
+  the existing Hostinger MX records alone so inbound mail to `@botlien.com`
+  keeps working.
+- Until a domain is verified, Resend only delivers to the address that owns the
+  account. That is fine for demoing to yourself and is exactly why a shared
+  demo fails while your own test passes.
+- Then create `.claude/secrets.local.json` (gitignored):
+  ```json
+  { "resend": { "api_key": "re_...", "from": "Botlien <info@botlien.com>" } }
+  ```
+  `from` is optional; it defaults to `Botlien <info@botlien.com>`. The
+  environment variables `RESEND_API_KEY` and `BOTLIEN_MAIL_FROM` override both.
+
+**2. A public address in the link.** `BOTLIEN_BASE_URL` is what gets baked into
+every emailed link, and it defaults to `http://127.0.0.1:<port>`. A link to
+`127.0.0.1` resolves to *the recipient's* machine, so a customer receives a real
+email pointing at a dead page while the send looks successful from here. Boot
+warns when live mail and a loopback base URL are configured together. On a real
+host set `BOTLIEN_BASE_URL=https://app.botlien.com` and
+`BOTLIEN_SECURE_COOKIES=1`.
+
 ## Conventions
 
 Plain Node ESM (`.mjs`), Node 22+, `node:sqlite`, `node --test`, no

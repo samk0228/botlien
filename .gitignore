@@ -6,3 +6,8 @@ logs/
 *.local.json
 .claude/secrets.local.json
 .DS_Store
+.gstack/
+
+# Rendered walkthrough footage. Regenerate with: node prototype/demo/record.cjs
+media/
+prototype/demo/.out/

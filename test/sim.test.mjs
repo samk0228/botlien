@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createSimConnector, mulberry32 } from "../src/connectors/sim.mjs";
 import demoFleet from "../src/scenarios/demo-fleet.mjs";
 
@@ -65,9 +66,112 @@ test("declining_utilization profile: day 3 activity well below day 1", async () 
   const byRobot = [...first.events, ...rest.events].filter((e) => e.externalId === "sim-002");
   const day1 = byRobot.filter((e) => e.at < START + DAY);
   const day3 = byRobot.filter((e) => e.at >= START + 2 * DAY);
-  const activeRatio = (list) => list.filter((e) => e.status.missionState === "active").length / list.length;
+  // Measured INSIDE the service window. The fleet no longer runs around the
+  // clock, so a whole-day ratio is mostly a count of the hours the restaurant
+  // is shut, and it moves whenever the opening hours do. Comparing peak-hour
+  // duty keeps this testing the thing it is named after: the profile declines.
+  const inService = (e) => {
+    const h = new Date(e.at).getHours();
+    return h >= demoFleet.service.openHour && h < demoFleet.service.closeHour;
+  };
+  const activeRatio = (list) => {
+    const open = list.filter(inService);
+    return open.filter((e) => e.status.missionState === "active").length / open.length;
+  };
   assert.ok(activeRatio(day1) > 0.3, `day1 active ratio ${activeRatio(day1)}`);
   assert.ok(activeRatio(day3) < 0.15, `day3 active ratio ${activeRatio(day3)}`);
+});
+
+test("service window and demand curve shape the day", async () => {
+  const c = createSimConnector(demoFleet);
+  await c.init();
+  const first = await c.tick(START);
+  const rest = await c.tick(START + 2 * DAY);
+  const servi = [...first.events, ...rest.events].filter((e) => e.externalId === "sim-001");
+
+  const atHour = (h) => servi.filter((e) => new Date(e.at).getHours() === h);
+  const activeShare = (list) => list.filter((e) => e.status.missionState === "active").length / (list.length || 1);
+
+  // Shut at 4am: nothing running, ever.
+  assert.equal(activeShare(atHour(4)), 0, "robots must not invent runs while the venue is closed");
+  // Dinner peak beats the dead middle of the afternoon.
+  assert.ok(activeShare(atHour(19)) > activeShare(atHour(15)) + 0.15, "dinner peak should outwork the 3pm lull");
+
+  // A healthy Servi should land near a believable day's work, not the ~400
+  // runs the uncalibrated simulator used to produce.
+  const day = servi.filter((e) => e.at >= START + DAY && e.at < START + 2 * DAY);
+  const runs = new Set(day.map((e) => e.status.missionId).filter(Boolean)).size;
+  assert.ok(runs > 60 && runs < 260, `a day's runs should be plausible for one Servi, got ${runs}`);
+});
+
+test("demo cleaners keep enough duty for the wear rules to fire", async () => {
+  // COUPLING, MADE EXECUTABLE. The consumable and deferred-maintenance rules
+  // only speak about a machine that is actually being worked: deferred_maintenance
+  // will not fire below rules.deferred_maintenance.min_active_ms_24h, and the
+  // wear model in simWear() accumulates against active time. So the demo's
+  // cleaning duty cycle silently controls whether the asset-condition story
+  // appears on the risk board at all.
+  //
+  // That coupling is invisible from either side. Recalibrating cleaner duty
+  // downward would take the PD-side wear story off the demo with every test
+  // still green, which is exactly how a demo quietly stops demonstrating the
+  // thing it exists to demonstrate. This test is the tripwire: if it fails,
+  // either restore the duty or retune headStart in simWear() to match.
+  const config = JSON.parse(readFileSync(new URL("../config.json", import.meta.url), "utf8"));
+  const minActiveMsDay = config.rules.deferred_maintenance.min_active_ms_24h;
+
+  const c = createSimConnector(demoFleet);
+  await c.init();
+  const first = await c.tick(START);
+  const rest = await c.tick(START + 6 * DAY);
+  const events = [...first.events, ...rest.events];
+
+  const cleaners = demoFleet.robots.filter((r) => r.category === "cleaning");
+  assert.ok(cleaners.length > 0, "the demo fleet needs a cleaner for the wear story");
+
+  for (const r of cleaners) {
+    const mine = events.filter((e) => e.externalId === r.externalId);
+    // One sample a minute, so one active sample is one active minute.
+    const activeMsPerDay = (mine.filter((e) => e.status.missionState === "active").length / 6) * 60_000;
+    assert.ok(
+      activeMsPerDay >= minActiveMsDay * 2,
+      `${r.displayName} logs ${Math.round(activeMsPerDay / 60_000)} active min/day against a ` +
+        `${minActiveMsDay / 60_000} min/day rule floor; under 2x headroom the wear rules stop firing on the demo`
+    );
+  }
+});
+
+test("pose is reported, and stalls concentrate on one spot", async () => {
+  const c = createSimConnector(demoFleet);
+  await c.init();
+  const first = await c.tick(START);
+  const rest = await c.tick(START + 2 * DAY);
+  const scrubber = [...first.events, ...rest.events].filter((e) => e.externalId === "sim-004");
+  assert.ok(scrubber.every((e) => e.status.pose !== null), "a scenario with a floor reports pose on every status");
+
+  const stalls = scrubber.filter((e) => e.status.stuck);
+  assert.ok(stalls.length > 10, `expected stalls, got ${stalls.length}`);
+  const cell = (p) => `${Math.round(p.x / 2) * 2},${Math.round(p.y / 2) * 2}`;
+  const tally = new Map();
+  for (const s of stalls) tally.set(cell(s.status.pose), (tally.get(cell(s.status.pose)) ?? 0) + 1);
+  const top = Math.max(...tally.values());
+  assert.ok(top / stalls.length > 0.5, `stalls should cluster, top cell held ${top}/${stalls.length}`);
+});
+
+test("a per-robot outage goes dark without taking the pipe down", async () => {
+  const c = createSimConnector(demoFleet);
+  await c.init();
+  await c.tick(START); // anchor
+  const later = await c.tick(START + 17 * DAY);
+  const outageStart = START + 15 * DAY;
+  const outageEnd = outageStart + 72 * 3_600_000;
+  const inWindow = (e) => e.at >= outageStart && e.at < outageEnd;
+
+  const dark = later.events.filter((e) => e.externalId === "sim-001" && inWindow(e));
+  assert.equal(dark.length, 0, "the robot under a scripted outage reports nothing");
+  const siblings = later.events.filter((e) => e.externalId === "sim-002" && inWindow(e));
+  assert.ok(siblings.length > 0, "its siblings keep reporting throughout");
+  assert.equal(later.heartbeat.state, "ok", "one dead robot is not a dead connector");
 });
 
 test("battery_degradation profile: daily max battery fades", async () => {

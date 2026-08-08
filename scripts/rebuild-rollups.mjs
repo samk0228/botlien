@@ -13,7 +13,7 @@
 //
 // Idempotent: recomputing a correct bucket yields the same row.
 import { openStore } from "../src/store.mjs";
-import { computeRollups } from "../src/rollup.mjs";
+import { rebuildRollupsForRobot } from "../src/rollup.mjs";
 import { loadConfig, ROOT } from "../src/infra.mjs";
 import { join } from "node:path";
 
@@ -24,27 +24,16 @@ const arg = (name, fallback = null) => {
 
 const DAY = 86_400_000;
 
-/** Recompute every bucket for one robot, reading snapshots in day-sized chunks
- * so a multi-month database never lands in memory at once. Chunks are expanded
- * to whole bucket boundaries, so no bucket is ever computed from a partial slice
- * (which is the bug this script exists to repair). */
+/** Recompute every bucket for one robot. The work lives in src/rollup.mjs so the
+ * import path and this repair script share one implementation; dry-run counts
+ * what would be written without writing it. */
 export function rebuildRobot(store, robotId, bucketMs, { dryRun = false } = {}) {
+  if (!dryRun) return rebuildRollupsForRobot(store, robotId, bucketMs);
+
   const rows = store.snapshotsBetween(robotId, 0, Number.MAX_SAFE_INTEGER);
   if (rows.length === 0) return { buckets: 0, snapshots: 0 };
-
-  const minAt = rows[0].at;
-  const maxAt = rows[rows.length - 1].at;
-  let written = 0;
-
-  for (let chunkStart = Math.floor(minAt / DAY) * DAY; chunkStart <= maxAt; chunkStart += DAY) {
-    const chunk = rows.filter((r) => r.at >= chunkStart && r.at < chunkStart + DAY);
-    if (chunk.length === 0) continue;
-    for (const b of computeRollups(chunk, bucketMs)) {
-      if (!dryRun) store.upsertRollup({ robotId, ...b });
-      written += 1;
-    }
-  }
-  return { buckets: written, snapshots: rows.length };
+  const counter = { upsertRollup: () => {}, snapshotsBetween: () => rows };
+  return rebuildRollupsForRobot(counter, robotId, bucketMs);
 }
 
 function distribution(store, robots, bucketMs) {

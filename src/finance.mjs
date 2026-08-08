@@ -79,7 +79,10 @@ export function robotFinancials(rollups, econ, { fromMs, toMs }) {
   return {
     basis,
     taskType: econ.taskType,
-    taskLabel: TASK_LABEL[basis] ?? "tasks",
+    // The economics carry the vocabulary for their kind of work, so a warehouse
+    // reads "picks started" where a restaurant reads "runs started". Falls back
+    // to the generic label when none was supplied.
+    taskLabel: econ.taskLabel ?? TASK_LABEL[basis] ?? "tasks",
     unit: econ.unit ?? "task",
     rateDerivation: econ.rateDerivation ?? null,
     tasks,
@@ -93,6 +96,21 @@ export function robotFinancials(rollups, econ, { fromMs, toMs }) {
     // Cost per task needs tasks to divide by, and a robot that did nothing has
     // an undefined cost per task, not a zero one.
     costPerTaskCents: invoiceCents !== null && tasks > 0 ? invoiceCents / tasks : null,
+    // Labour-equivalent hours: work serviced expressed in hours of the person
+    // who would otherwise do that specific task. It falls out of the rate
+    // derivation for free, since rate = wage / throughput, so
+    //   tasks x rate / wage = tasks / throughput = hours of that job.
+    //
+    // WHAT THIS IS NOT, and the UI says so next to it: headcount, FTEs, or
+    // labour saved. A Servi that runs 400 trays does not remove a server, who
+    // also takes orders, upsells, handles complaints, and closes. This is hours
+    // of ONE task, and turning it into a robots-versus-employees verdict would
+    // require knowing which human tasks were actually displaced, which is
+    // exactly the leap the vendor ROI calculators make and the reason this
+    // product exists as an alternative to them.
+    laborEquivalentHours: econ.wageCentsHour > 0 ? workCents / econ.wageCentsHour : null,
+    wageCentsHour: econ.wageCentsHour ?? null,
+    wageIsBenchmark: econ.wageIsBenchmark === true,
     activeMs: duty,
     capacityMs: capMs,
     // Capacity is hours-per-day, not a schedule, so duty performed outside the
@@ -154,6 +172,9 @@ export function fleetFinancials(perRobot) {
       workServicedCents: 0,
       invoiceProratedCents: 0,
       coverage: null,
+      laborEquivalentHours: null,
+      laborHoursPartial: false,
+      anyBenchmarkWage: false,
       activeMs: 0,
       capacityMs: 0,
       utilizationPct: null,
@@ -164,12 +185,19 @@ export function fleetFinancials(perRobot) {
   const invoiceCents = rows.reduce((s, r) => s + (r.invoiceProratedCents ?? 0), 0);
   const duty = rows.reduce((s, r) => s + (r.activeMs ?? 0), 0);
   const cap = rows.reduce((s, r) => s + (r.capacityMs ?? 0), 0);
+  // Summed only across robots that HAVE a wage. A robot with no wage behind it
+  // contributes no hours rather than zero hours, so the fleet total never
+  // quietly understates itself by treating "unknown" as "none".
+  const withWage = rows.filter((r) => r.laborEquivalentHours !== null);
   return {
     robotCount: rows.length,
     configuredCount: rows.length,
     workServicedCents: workCents,
     invoiceProratedCents: invoiceCents,
     coverage: invoiceCents > 0 ? workCents / invoiceCents : null,
+    laborEquivalentHours: withWage.length > 0 ? withWage.reduce((s, r) => s + r.laborEquivalentHours, 0) : null,
+    laborHoursPartial: withWage.length > 0 && withWage.length < rows.length,
+    anyBenchmarkWage: rows.some((r) => r.wageIsBenchmark),
     activeMs: duty,
     capacityMs: cap,
     utilizationPct: cap > 0 ? (duty / cap) * 100 : null,

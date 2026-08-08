@@ -1,0 +1,29 @@
+Botlien coverage model,,,,,,
+"Harbor Grill, Pier 4","Aug 4 to Sep 3, 2026",30 days,,,,
+Every figure below is a formula. Change an input and the whole sheet moves.,,,,,,
+
+INPUTS,value,unit,where it comes from,,,
+"Loaded wage per hour, tray work",22,$ / hr,BLS 35-3031 food serving + ~28% payroll load. Replace with yours.
+Runs a person does per hour,30,runs / hr,The one input nobody can measure. This is the assumption.
+Cleaning benchmark wage,25,$ / hr,Botlien benchmark until you set your own.
+
+DERIVED RATES,value,unit,"the division, shown",,,
+Tray delivery,"=ROUND(B6/B7,2)",$ / run,"=""$""&TEXT(B6,""0.00"")&"" / hr ÷ ""&B7&"" runs per hour"""
+Floor cleaning,=B8,$ / active hour,One robot hour valued at one human hour. No productivity multiplier.
+
+FLEET,kind of work,volume,rate,work serviced,lease invoiced,coverage
+Servi 1 (front),tray delivery,3780,=$B$11,=C15*D15,999,=E15/F15
+Servi 2 (patio),tray delivery,900,=$B$11,=C16*D16,999,=E16/F16
+P3 runner,tray delivery,3900,=$B$11,=C17*D17,999,=E17/F17
+Servi 3 (banquet),tray delivery,3480,=$B$11,=C18*D18,999,=E18/F18
+Scrubber 50,floor cleaning,120,=$B$12,=C19*D19,800,=E19/F19
+Scrubber 75 (nights),floor cleaning,61.2,=$B$12,=C20*D20,800,=E20/F20
+TOTAL,6 robots,,,=SUM(E15:E20),=SUM(F15:F20),=E21/F21
+
+CHECKS,value,,what it means,,,
+Cost per run (delivery only),"=ROUND(SUMIF(B15:B20,""tray delivery"",F15:F20)/SUMIF(B15:B20,""tray delivery"",C15:C20),2)",$ / run,Pure fact: invoices divided by runs. No assumption in it.
+"A person would cost, per run",=B11,$ / run,The gap between these two rows is the business case.
+Break-even runs per hour,"=ROUND(B6/((F21-SUMIF(B15:B20,""floor cleaning"",E15:E20))/SUMIF(B15:B20,""tray delivery"",C15:C20)),0)",runs / hr,"Coverage hits 1.00x here. The statement rounds the rate to the cent before multiplying, which puts its figure at 258. Either convention, no person does it."
+
+"Counts are mission starts reported by the robot, so they read as runs started, not runs completed.",,,,,,
+"Work serviced is replacement cost. Not revenue, not profit, not labour saved.",,,,,,

@@ -1,0 +1,221 @@
+// The public surface: the front door and every sign-in screen.
+//
+// Palette, type scale and copy are lifted from the approved prototype so the
+// shipped pages and the design agree. Server-rendered like the rest of the
+// product, with no client JavaScript: these pages are a form and a link, and
+// an owner on a restaurant's wifi should not wait on a bundle to sign in.
+const CSS = `
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{
+  --page-bg:#F1F2FC;
+  --page:linear-gradient(160deg,#EDEFFC 0%,#F4F1FB 45%,#F2F6FD 100%);
+  --fg1:#16204A; --fg2:#6B7392; --fg3:#9AA1BC;
+  --ink:#0A0A0A; --ink-fg:#FFFFFF;
+  --hair:rgba(10,10,10,.10); --hair2:rgba(10,10,10,.16); --hair3:rgba(10,10,10,.28);
+  --ghost:rgba(10,10,10,.04);
+}
+body{margin:0;background:var(--page-bg);background-image:var(--page);color:var(--fg1);
+  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  -webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:var(--fg1)}
+a:hover{color:var(--fg2)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 28px}
+.auth{max-width:420px;margin:0 auto;padding:96px 28px 64px}
+.mark{font-size:13px;font-weight:700;letter-spacing:-0.02em;margin-bottom:28px;display:block}
+h1{font-size:clamp(26px,4.6vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px}
+.lede{font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 36px}
+label{display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px}
+input[type=email]{width:100%;font-size:15px;color:var(--fg1);background:transparent;
+  padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit}
+input[type=email]:focus{border-bottom-color:var(--fg1)}
+.btn{width:100%;margin-top:28px;padding:15px 22px;border-radius:4px;border:none;
+  background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:700;
+  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.btn:hover{opacity:.9}
+.ghost{display:inline-block;padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);
+  background:transparent;color:var(--fg1);cursor:pointer;font-size:13.5px;font-weight:600;
+  font-family:inherit;text-decoration:none}
+.err{font-size:12.5px;font-weight:600;color:var(--fg1);margin-top:8px}
+.note{margin-top:16px;padding:14px 16px;border:1px solid var(--hair3);border-radius:4px;
+  font-size:13.5px;line-height:1.6;color:var(--fg2)}
+.ok{display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid var(--hair);
+  border-radius:4px;margin-bottom:28px;font-size:13.5px;color:var(--fg2)}
+.fine{font-size:12.5px;color:var(--fg3);margin-top:22px;line-height:1.6}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+/* front door */
+.hero{padding:110px 0 72px}
+.hero h1{font-size:clamp(32px,6vw,52px);max-width:15ch;margin-bottom:20px}
+.hero .lede{font-size:16.5px;max-width:52ch;margin-bottom:36px}
+.cta{display:inline-block;padding:15px 26px;border-radius:4px;background:var(--ink);
+  color:var(--ink-fg);text-decoration:none;font-size:14.5px;font-weight:700}
+.cta:hover{opacity:.9;color:var(--ink-fg)}
+.second{display:block;margin-top:26px;font-size:13.5px;color:var(--fg2)}
+.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;
+  background:var(--hair);border-top:1px solid var(--hair);margin-top:24px}
+.proof div{background:var(--page-bg);padding:26px 22px;font-size:13.5px;line-height:1.6;color:var(--fg2)}
+.proof b{display:block;color:var(--fg1);font-weight:700;font-size:13px;margin-bottom:6px}
+footer{margin-top:72px;padding:28px 0 48px;border-top:1px solid var(--hair);
+  font-size:12.5px;color:var(--fg3)}
+@media(max-width:600px){.hero{padding:72px 0 48px}.auth{padding:64px 22px 48px}}
+`;
+
+export function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function page(title, body) {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>${CSS}</style></head>
+<body>${body}</body></html>`;
+}
+
+const MARK = `<span class="mark">BOTLIEN</span>`;
+
+/** S0. No pricing, no logo wall, no testimonial, no outcome claim: we have no
+ * customers yet, and the product's position is that it does not make the
+ * claims vendors make. The three proof points below are all verifiable. */
+export function renderLandingHTML() {
+  return page(
+    "Botlien · Find out whether your robots are covering their lease",
+    `<div class="wrap">
+  <div class="hero">
+    ${MARK}
+    <h1>Find out whether your robots are covering their lease.</h1>
+    <p class="lede">Drop in the usage export you already have. Botlien values the work your
+      robots actually performed against what you pay to lease them, and shows the arithmetic
+      behind every figure.</p>
+    <a class="cta" href="/signin">Start free</a>
+    <a class="second" href="/signin?demo=1">Running robots across five or more sites? Book a walkthrough.</a>
+  </div>
+  <div class="proof">
+    <div><b>Works with the export you already have</b>A Bear Universe or Pudu Cloud CSV is enough to get a statement.</div>
+    <div><b>Every figure shows its arithmetic</b>No score, no index, no black box. The division is on the page.</div>
+    <div><b>No vendor credentials needed to start</b>API access is the upgrade, not the first step.</div>
+  </div>
+  <footer>Botlien · collateral risk monitoring for financed and leased service robots</footer>
+</div>`,
+  );
+}
+
+/**
+ * The sign-in screen. `variant` picks the framing:
+ *   "signin"  returning owner
+ *   "new"     first visit, arrived from Start free
+ *   "failed"  the mailer rejected the send
+ *   "signedout" just signed out
+ */
+export function renderSignInHTML({ variant = "signin", email = "", error = null } = {}) {
+  const heading = variant === "new" ? "Start with your usage export" : "Sign in";
+  const lede =
+    variant === "new"
+      ? "Enter your email and we&#39;ll send you a link to get started. No card. Nothing is charged until you choose a paid plan."
+      : "No password to remember. We email you a link that signs you in.";
+
+  const banner = variant === "signedout" ? `<div class="ok">Signed out.</div>` : "";
+  const errLine = error ? `<div class="err">${esc(error)}</div>` : "";
+  const failNote =
+    variant === "failed"
+      ? `<div class="note">We couldn&#39;t send that email. Try again, or write to
+         <a href="mailto:info@botlien.com" style="font-weight:600">info@botlien.com</a>.</div>`
+      : "";
+
+  return page(
+    "Botlien · Sign in",
+    `<div class="auth">
+  ${banner}${MARK}
+  <h1>${heading}</h1>
+  <p class="lede">${lede}</p>
+  <form method="post" action="/signin">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="email"
+      placeholder="sam@harborgrill.com" value="${esc(email)}" required autofocus>
+    ${errLine}
+    <button class="btn" type="submit">Email me a sign-in link</button>
+  </form>
+  ${failNote}
+  <p class="fine">By signing in you agree we may store the usage data you upload in order to
+    produce your statement. You can delete your account and its data at any time.</p>
+</div>`,
+  );
+}
+
+/** Shown after a link is sent. Never reveals whether the address has an
+ * account: the same screen appears either way, so this page cannot be used to
+ * enumerate customers. */
+export function renderCheckEmailHTML({ email = "", devLink = null, resent = false } = {}) {
+  const dev = devLink
+    ? `<div class="note"><b>Development mode.</b> No mail provider is configured, so the link is
+       here instead: <a href="${esc(devLink)}">sign in</a>.</div>`
+    : "";
+  return page(
+    "Botlien · Check your email",
+    `<div class="auth">
+  ${resent ? `<div class="ok">Sent again.</div>` : ""}
+  ${MARK}
+  <h1>Check your email</h1>
+  <p class="lede">We sent a link to
+    <b style="font-weight:600;color:var(--fg1)">${esc(email)}</b>.
+    It works once and expires in 15 minutes.</p>
+  ${dev}
+  <div class="row">
+    <form method="post" action="/signin">
+      <input type="hidden" name="email" value="${esc(email)}">
+      <button class="ghost" type="submit">Resend</button>
+    </form>
+    <a class="ghost" href="/signin" style="border-color:transparent;color:var(--fg2)">Use a different email</a>
+  </div>
+</div>`,
+  );
+}
+
+/** Every way a link can fail to sign someone in. Each reason gets its own
+ * sentence, because "that didn't work" tells an owner nothing about whether to
+ * click the older email in their inbox or ask for a new one. */
+const LINK_FAILURES = {
+  expired: [
+    "That link has expired",
+    "Sign-in links last 15 minutes. Ask for a fresh one and it will work.",
+  ],
+  used: [
+    "That link was already used",
+    "Each link signs you in once. Ask for a new one below.",
+  ],
+  unknown: [
+    "That link is not valid",
+    "It may have been cut short by your email client. Ask for a new one below.",
+  ],
+};
+
+export function renderLinkFailedHTML(reason = "unknown") {
+  const [heading, lede] = LINK_FAILURES[reason] ?? LINK_FAILURES.unknown;
+  return page(
+    "Botlien · Sign in",
+    `<div class="auth">
+  ${MARK}
+  <h1>${esc(heading)}</h1>
+  <p class="lede">${esc(lede)}</p>
+  <a class="cta" href="/signin" style="display:inline-block">Email me a new link</a>
+</div>`,
+  );
+}
+
+export function renderRateLimitedHTML(email = "") {
+  return page(
+    "Botlien · Sign in",
+    `<div class="auth">
+  ${MARK}
+  <h1>Too many links</h1>
+  <p class="lede">We have already sent several sign-in links to
+    <b style="font-weight:600;color:var(--fg1)">${esc(email)}</b> in the last hour.
+    Check your inbox and spam folder, then try again later, or write to
+    <a href="mailto:info@botlien.com" style="font-weight:600">info@botlien.com</a>.</p>
+</div>`,
+  );
+}
