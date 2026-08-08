@@ -216,7 +216,9 @@ async function main() {
     },
   });
   const mode = demo ? `demo (${config.demo.clock_scale}x clock)` : "live";
-  const base = `http://127.0.0.1:${port}`;
+  // The address the outside world uses, not the one we bound. On a host these
+  // differ, and a log line claiming 127.0.0.1 sends you debugging the wrong box.
+  const base = process.env.BOTLIEN_BASE_URL ?? `http://127.0.0.1:${port}`;
   console.log(
     demo
       ? `botlien ${mode} — risk board ${base}/ · owner board ${base}/owner`
@@ -229,6 +231,17 @@ async function main() {
     server.close();
     await engine.stop();
     store.close();
+    // Every account's database is a separate file with its own WAL, and a
+    // container gets SIGTERM on each deploy. Closing them checkpoints the WAL
+    // back into the database; skipping it leaves -wal files on the volume that
+    // the next boot has to recover, per account, on the first request.
+    if (tenancy) {
+      try {
+        tenancy.close();
+      } catch {
+        /* a handle we cannot close is not worth failing the shutdown over */
+      }
+    }
     process.exit(0);
   };
   process.on("SIGINT", shutdown);

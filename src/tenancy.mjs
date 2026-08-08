@@ -163,5 +163,13 @@ export function createTenancy({
     return { store, getOwnerState, saveEconomics, onboarding };
   }
 
-  return { ctx, forAccount };
+  /** Release every SQLite handle this owns: each account's store plus the
+   * control database. Called on SIGTERM so a deploy checkpoints WAL files
+   * instead of leaving them for the next boot to recover. */
+  const close = () => {
+    tenants.closeAll();
+    control.close();
+  };
+
+  return { ctx, forAccount, close };
 }

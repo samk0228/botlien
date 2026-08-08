@@ -20,7 +20,15 @@ export function resolvePath(p, root = ROOT) {
   return isAbsolute(p) ? p : join(root, p);
 }
 
-const GENESIS_BIN = "/Users/samuelkim/Sams_lifeos/Claude/Projects/genesis/bin/genesis-log";
+// Genesis is a laptop-only dashboard living at an absolute path in the vault.
+// Off that laptop the path simply does not exist, so the presence of the binary
+// is the switch: no env var to remember to set on a server, and no forking a
+// doomed child process on every flag raise in production. Checked once at
+// import rather than per call, because this runs on a hot path.
+const GENESIS_BIN =
+  process.env.BOTLIEN_GENESIS_BIN ??
+  "/Users/samuelkim/Sams_lifeos/Claude/Projects/genesis/bin/genesis-log";
+const GENESIS_PRESENT = existsSync(GENESIS_BIN);
 
 export function loadConfig(root = ROOT) {
   return JSON.parse(readFileSync(join(root, "config.json"), "utf8"));
@@ -38,6 +46,7 @@ export function loadSecrets(root = ROOT) {
 
 export function genesisLog(message, kind, execFile = nodeExecFile) {
   if (process.env.BOTLIEN_NO_GENESIS) return;
+  if (!GENESIS_PRESENT) return;
   try {
     const args = ["botlien", String(message).slice(0, 500)];
     if (kind) args.push(kind);

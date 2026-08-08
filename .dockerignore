@@ -1,0 +1,15 @@
+# Keep the build context small and, more importantly, keep local state and
+# secrets out of the image entirely.
+node_modules/
+data/
+logs/
+media/
+prototype/demo/.out/
+.git/
+.github/
+.gstack/
+.claude/
+.env
+.env.*
+*.local.json
+.DS_Store

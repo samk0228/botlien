@@ -319,6 +319,16 @@ export function startBoard(port, {
     try {
       const path = (req.url ?? "/").split("?")[0];
 
+      // Answered before anything else, and deliberately before the session
+      // check, because a health probe carries no cookie: routed any later it
+      // would 303 to /signin and the platform would read a redirect as a dead
+      // machine and restart a perfectly healthy one, forever.
+      if (path === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ ok: true, uptime_s: Math.round(process.uptime()) }));
+        return;
+      }
+
       // Per-request bindings. Without tenancy these are the single store the
       // process was started with; with it, they are the account's own.
       let getOwnerState = baseGetOwnerState;
