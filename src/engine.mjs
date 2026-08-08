@@ -43,53 +43,75 @@ export function createEngine({ store, connectors, config, log = () => {} }) {
     }
   }
 
+  /** Land one connector's events. Extracted from runOnce so history backfill
+   * (see backfill.mjs) lands through EXACTLY this path rather than a parallel
+   * copy of it: a seeding routine that drifts from the live ingest is a demo
+   * that shows something the product does not do.
+   *
+   * storeRaw=false skips the raw_events archive. Backfill generates six figures
+   * of synthetic rows whose JSON payload dwarfs everything else in the file,
+   * and replaying a simulator is not an audit trail worth keeping. */
+  function ingest(connectorName, events, receivedAtMs, { storeRaw = true } = {}) {
+    const source = connectorName === "sim" ? "sim" : "live";
+    for (const ev of events ?? []) {
+      const robotKey = `${connectorName}:${ev.externalId}`;
+      const rawEventId = storeRaw
+        ? store.insertRawEvent({
+            connector: connectorName,
+            robotKey,
+            kind: "status",
+            source,
+            at: ev.at,
+            receivedAt: receivedAtMs,
+            seq: ev.status?.seq ?? null,
+            payload: ev.raw ? JSON.stringify(ev.raw) : null,
+          })
+        : null;
+      const problems = validateStatus(ev.status);
+      if (problems.length > 0) {
+        invalidCount += 1;
+        if (invalidCount <= 3 || invalidCount % 100 === 0) {
+          log(`invalid status from ${robotKey} dropped: ${problems.join("; ")} (total ${invalidCount})`, "warning");
+        }
+        continue;
+      }
+      const robotId = store.upsertRobot({ connector: connectorName, externalId: ev.externalId }, receivedAtMs);
+      const s = ev.status;
+      const snapshotId = store.insertSnapshot({
+        robotId,
+        rawEventId,
+        at: s.at,
+        receivedAt: receivedAtMs,
+        connector: connectorName,
+        source,
+        connectionState: s.connectionState,
+        batteryPct: s.batteryPct,
+        charging: s.charging,
+        eStop: s.eStop,
+        missionState: s.missionState,
+        missionId: s.missionId,
+        stuck: s.stuck,
+        moving: s.moving,
+        errors: s.errors,
+        pose: s.pose,
+      });
+
+      // Vendor-specific extras. Absent for Bear and for CSV imports, which is
+      // why they live beside the snapshot rather than inside it.
+      if (s.condition) {
+        store.insertCondition({ snapshotId, robotId, at: s.at, ...s.condition });
+      }
+      if (s.wear?.length) {
+        store.insertComponentWear(robotId, s.at, s.wear);
+      }
+    }
+  }
+
   async function runOnce(nowMs) {
     for (const c of connectors) {
       const { events, heartbeat } = await tickConnector(c, nowMs);
       store.insertHeartbeat({ connector: c.name, at: nowMs, state: heartbeat?.state ?? "down", detail: heartbeat?.detail ?? null });
-
-      for (const ev of events ?? []) {
-        const source = c.name === "sim" ? "sim" : "live";
-        const robotKey = `${c.name}:${ev.externalId}`;
-        const rawEventId = store.insertRawEvent({
-          connector: c.name,
-          robotKey,
-          kind: "status",
-          source,
-          at: ev.at,
-          receivedAt: nowMs,
-          seq: ev.status?.seq ?? null,
-          payload: ev.raw ? JSON.stringify(ev.raw) : null,
-        });
-        const problems = validateStatus(ev.status);
-        if (problems.length > 0) {
-          invalidCount += 1;
-          if (invalidCount <= 3 || invalidCount % 100 === 0) {
-            log(`invalid status from ${robotKey} dropped: ${problems.join("; ")} (total ${invalidCount})`, "warning");
-          }
-          continue;
-        }
-        const robotId = store.upsertRobot({ connector: c.name, externalId: ev.externalId }, nowMs);
-        const s = ev.status;
-        store.insertSnapshot({
-          robotId,
-          rawEventId,
-          at: s.at,
-          receivedAt: nowMs,
-          connector: c.name,
-          source,
-          connectionState: s.connectionState,
-          batteryPct: s.batteryPct,
-          charging: s.charging,
-          eStop: s.eStop,
-          missionState: s.missionState,
-          missionId: s.missionId,
-          stuck: s.stuck,
-          moving: s.moving,
-          errors: s.errors,
-          pose: s.pose,
-        });
-      }
+      ingest(c.name, events, nowMs);
     }
 
     if (lastEvalMs === null || nowMs - lastEvalMs >= evalMs) {
@@ -122,6 +144,8 @@ export function createEngine({ store, connectors, config, log = () => {} }) {
         lastOnlineAt: store.latestOnlineAt(robot.id),
         window24h: store.snapshotsBetween(robot.id, nowMs - DAY, nowMs),
         rollups: store.rollupsBetween(robot.id, nowMs - 8 * DAY, nowMs),
+        wear: store.latestComponentWear(robot.id),
+        conditions24h: store.conditionsBetween(robot.id, nowMs - DAY, nowMs),
         heartbeatState: store.latestHeartbeat(robot.connector)?.state ?? "ok",
         nowMs,
       };
@@ -172,7 +196,7 @@ export function createEngine({ store, connectors, config, log = () => {} }) {
     for (const c of connectors) await c.stop();
   }
 
-  return { init, runOnce, stop };
+  return { init, runOnce, ingest, evaluate, stop };
 }
 
 /** Virtual clock: now() maps real elapsed time onto scaled sim time. */

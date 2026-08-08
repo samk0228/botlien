@@ -61,7 +61,9 @@ test("full scenario: sim + engine produce snapshots, rollups, heartbeats, and th
   });
 
   await engine.init(START);
-  assert.equal(store.listRobots().length, 5, "fleet registered at init");
+  // Derived from the scenario, not hard-coded: adding a demo robot is a routine
+  // change and should not fail an engine test that is not about fleet size.
+  assert.equal(store.listRobots().length, demoFleet.robots.length, "fleet registered at init");
 
   // First 2 hours in 5-minute steps so the 12-minute outage is observed live,
   // then 5 sim-days in hourly steps for the slow-burn profiles.

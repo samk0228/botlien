@@ -25,6 +25,48 @@ npm start         # live mode; uses Bear if credentials exist, else demo fleet
 node scripts/rebuild-rollups.mjs [--dry-run]   # recompute rollups from snapshots
 ```
 
+## Onboarding
+
+An owner reaches their statement by dropping a file, not by connecting an API.
+Vendors issue credentials manually and slowly, so the API path comes second.
+
+```
+/owner/business what kind of business is this?  →  one question, four options
+/owner/import   drop a CSV or JSONL export      →  writes snapshots AND rollups
+/owner/confirm  rename, set kind of work, exclude
+/owner/setup    five inputs per robot, prefilled
+/owner          the coverage statement
+```
+
+**Why exactly one question.** A telemetry export already says how many robots
+there are, which brands, how much volume, and over what period, so we do not ask
+any of it. The single thing it cannot say is what kind of business this is, and
+nothing distinguishes a restaurant from a warehouse in a status stream. That one
+answer selects the kinds of work on offer, the replacement rates, the default
+operating hours, and the vocabulary: a warehouse reads "picks started" priced at
+`$24.00/hr ÷ 60 picks per hour = $0.40`, where a restaurant reads "runs started"
+at `$22.00/hr ÷ 30 runs per hour = $0.73`.
+
+The step is **derived from data**, never stored as a wizard cursor: no rollups
+means import, rollups but unconfirmed means confirm, confirmed but unpriced
+means setup. An owner who closes the tab mid-flow resumes exactly where they
+left off, including across a restart. `/owner` redirects into the flow rather
+than rendering a statement of zeros; `?demo=1` shows the simulated fleet
+read-only.
+
+**Why the confirm step exists.** A telemetry export says nothing about what kind
+of work a robot does, so `importTelemetry` applies one category to every robot in
+the file. Left uncorrected, a floor scrubber is priced per run instead of per
+hour, wrong by an order of magnitude. Correcting the kind of work is what makes
+the arithmetic downstream correct.
+
+Uploads POST raw text to `/owner/import?name=<file>` rather than multipart, so
+there is no parser and no dependency. Cap is 25MB for that route only.
+
+`npm start` with no Bear credentials now runs with **no connector at all**. It
+used to fall back to the simulator, which meant an owner importing their own
+export found five invented robots mixed into their fleet.
+
 ## The owner board
 
 Four figures, each shown with the arithmetic that produced it:
@@ -64,21 +106,24 @@ which demonstrates the core data-quality idea (pipe down ≠ robots down).
 ## Architecture
 
 ```
-connectors (sim | bear)          one duck-typed interface; tick(nowMs) drains
-      │                          buffered events + reports its own heartbeat
+connectors (sim | bear | gausium) one duck-typed interface; tick(nowMs) drains
+      │                          buffered events + reports its own heartbeat.
+      │                          bear pushes (gRPC stream), gausium polls (REST)
       ▼
 engine.mjs                       owns time; injects nowMs everywhere (live
       │                          clock, 60x demo clock, or backtest replay)
       ▼
 store.mjs (node:sqlite)          raw_events (verbatim) → status_snapshots
       │                          (normalized) → utilization_rollups; `at` vs
-      │                          `received_at` kept distinct for the backtest
+      │                          `received_at` kept distinct for the backtest.
+      │                          component_wear + snapshot_conditions hold the
+      │                          vendor extras that do not fit a snapshot
       ▼
-rules.mjs + flags.mjs            6 rules as data; raise → escalate →
+rules.mjs + flags.mjs            9 rules as data; raise → escalate →
       │                          hysteresis clear; history never deleted
       ▼
-board.mjs                        127.0.0.1 dashboard: fleet, PD/LGD/infra
-                                 flags, connector heartbeat strip
+board.mjs                        127.0.0.1 dashboard: fleet, asset condition,
+                                 PD/LGD/infra flags, connector heartbeat strip
 ```
 
 Key invariants:
