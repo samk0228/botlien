@@ -2,20 +2,20 @@
 # it is checked in deliberately so the single-machine constraint below is a
 # reviewed decision rather than a dashboard toggle someone flips later.
 
-app = "botlien"
+app = "botlien-preview"
 primary_region = "sjc"
 
 [build]
   dockerfile = "Dockerfile"
 
 [env]
-  BOTLIEN_BASE_URL = "https://app.botlien.com"
+  BOTLIEN_BASE_URL = "https://botlien-preview.fly.dev"
   BOTLIEN_SECURE_COOKIES = "1"
 
 # Every account is its own SQLite file on this volume. A Fly volume attaches to
 # exactly one machine, so this is also the reason for the hard limit below.
 [[mounts]]
-  source = "botlien_data"
+  source = "botlien_preview_data"
   destination = "/data"
 
 [http_service]
