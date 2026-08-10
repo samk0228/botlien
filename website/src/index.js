@@ -46,12 +46,30 @@ async function handleLead(request, env) {
   return Response.json({ ok: true });
 }
 
+// Isolated preview of the polished-UI prototype, a separate static Fly app
+// with no server logic or account data of its own. Proxied here (rather
+// than a DNS-level redirect) so it reads as botlien.com/software instead of
+// bouncing the visitor to a .fly.dev URL.
+async function handleSoftwarePreview(request) {
+  const url = new URL(request.url);
+  const upstream = new URL(url.pathname.replace(/^\/software/, "") || "/", "https://botlien-ui-preview.fly.dev");
+  upstream.search = url.search;
+  const response = await fetch(upstream.toString(), { headers: request.headers });
+  const headers = new Headers(response.headers);
+  headers.delete("content-security-policy");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/lead" && request.method === "POST") {
       return handleLead(request, env);
+    }
+
+    if (url.pathname === "/software" || url.pathname.startsWith("/software/")) {
+      return handleSoftwarePreview(request);
     }
 
     const response = await env.ASSETS.fetch(request);
