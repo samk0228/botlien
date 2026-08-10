@@ -52,18 +52,25 @@ export function setBusinessType(store, type) {
 
 /** Where the owner is in onboarding, derived from data rather than stored as a
  * wizard step. Nothing to keep in sync, and an owner who abandons and returns
- * lands exactly where they left off because the data says so. */
+ * lands exactly where they left off because the data says so.
+ *
+ * Setting numbers per robot is deliberately NOT a gate here. Every category in
+ * rates.mjs already carries a full benchmark, rate, invoice, wage, hours, so a
+ * confirmed fleet can price itself with zero typing. Forcing at least one
+ * robot through the setup form before "done" was asking for input the product
+ * did not actually need to show a real, honestly-labeled first number. Setup
+ * stays fully reachable, at /owner/setup and from the "using benchmark rates"
+ * note on the board, it is just no longer required to get there. */
 export function onboardingStep(store) {
   if (!businessType(store)) return "business";
   const hasRollups = store.rollupTimeRange() !== null;
   if (!hasRollups) return "import";
   if (!store.getKV(KV_CONFIRMED)) return "confirm";
-  if (store.listRobotEconomics().length === 0) return "setup";
   return "done";
 }
 
-const STEP_ORDER = ["business", "import", "confirm", "setup"];
-const STEP_LABEL = { business: "your business", import: "connect data", confirm: "confirm fleet", setup: "your numbers" };
+const STEP_ORDER = ["business", "import", "confirm"];
+const STEP_LABEL = { business: "your business", import: "connect data", confirm: "confirm fleet" };
 
 /** "step 2 of 4 · connect data", so the owner always knows where they are. */
 export function stepLabel(step) {
@@ -318,110 +325,118 @@ function describeWindow({ fromMs, toMs, observedDays, clamped, windowDays }) {
   return `${d(fromMs)} to ${d(toMs)}, the ${span} of telemetry on record. Invoices are prorated to the same period.`;
 }
 
+// Same tokens and component shapes as site.mjs (landing/sign-in), so the
+// product does not visually split in half at the moment someone signs in.
+// Semantic color (green/amber/red for coverage state) is layered on top,
+// same convention any dashboard needs for "is this good or bad" to read at
+// a glance, it is not the page's accent and stays out of chrome/buttons.
 const OWNER_CSS = `
-:root{color-scheme:dark}
-body{background:#0f1115;color:#d5d9e2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px;max-width:980px;margin-inline:auto}
-h1{font-size:20px;letter-spacing:2px;margin:0}
-h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7;margin:26px 0 8px}
-a{color:#7aa2f7}
-.badge{background:#3d2f00;color:#e8b93e;border:1px solid #6b5400;border-radius:4px;padding:2px 8px;font-size:11px;margin-left:10px;vertical-align:middle}
-.sub{color:#8b93a7;font-size:12px;margin-top:4px}
+:root{color-scheme:light}
+body{background:#F1F2FC;background-image:linear-gradient(160deg,#EDEFFC 0%,#F4F1FB 45%,#F2F6FD 100%);color:#16204A;font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;margin:0;padding:32px 24px;max-width:980px;margin-inline:auto}
+h1{font-size:13px;font-weight:700;letter-spacing:-0.02em;margin:0}
+h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6B7392;margin:28px 0 10px}
+a{color:#16204A}
+a:hover{color:#6B7392}
+.badge{background:#FBF1D9;color:#8A5F09;border:1px solid #E4C77A;border-radius:4px;padding:2px 8px;font-size:11px;margin-left:10px;vertical-align:middle}
+.sub{color:#6B7392;font-size:12px;margin-top:4px}
 .nav{margin-top:14px;font-size:12px;display:flex;gap:14px}
-.panel{background:#171a21;border:1px solid #232733;border-radius:8px;padding:14px}
-.empty{color:#5b6272;font-size:13px;padding:6px}
-.headline{background:#141a16;border:1px solid #1f3d2a;border-radius:8px;padding:18px;margin-top:16px}
-.headline .big{font-size:40px;font-weight:700;color:#37c26a;line-height:1.1}
-.headline .big.under{color:#e8b93e}
-.headline .cap{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7}
-.headline .say{font-size:14px;color:#aab1c2;margin-top:8px}
+.panel{background:#FFFFFF;border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:14px}
+.empty{color:#9AA1BC;font-size:13px;padding:6px}
+.headline{background:#FFFFFF;border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:20px;margin-top:16px}
+.headline .big{font-size:40px;font-weight:700;color:#1F7A41;line-height:1.1;font-variant-numeric:tabular-nums}
+.headline .big.under{color:#8A5F09}
+.headline .cap{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6B7392}
+.headline .say{font-size:14px;color:#16204A;margin-top:10px;line-height:1.6}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
-.tile{background:#171a21;border:1px solid #232733;border-radius:8px;padding:12px}
-.tile .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7}
-.tile .v{font-size:24px;font-weight:600;margin-top:4px}
-.tile .n{font-size:11px;color:#5b6272;margin-top:4px}
-.rob{padding:10px 4px;border-bottom:1px solid #1d212b}
+.tile{background:#FFFFFF;border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:14px}
+.tile .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6B7392}
+.tile .v{font-size:22px;font-weight:700;margin-top:5px;font-variant-numeric:tabular-nums}
+.tile .n{font-size:11px;color:#9AA1BC;margin-top:5px;line-height:1.5}
+.rob{padding:12px 4px;border-bottom:1px solid rgba(10,10,10,.10)}
 .rob:last-child{border-bottom:0}
 .rob .top{display:flex;gap:10px;align-items:baseline;font-size:13px}
 .rob .nm{font-weight:600}
-.rob .mk{color:#8b93a7;font-size:11px}
-.rob .cov{margin-left:auto;font-weight:700}
-.rob .cov.ok{color:#37c26a}.rob .cov.under{color:#e8b93e}.rob .cov.none{color:#5b6272}
-.rob .fml{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598;margin-top:5px}
-.tag{font-size:10px;padding:1px 6px;border-radius:3px;background:#232733;color:#8b93a7}
-.tag.def{background:#3d2f00;color:#e8b93e}
-.note{color:#5b6272;font-size:11px;margin-top:8px;line-height:1.6}
-.honest{margin-top:26px;border-top:1px solid #1d212b;padding-top:12px;color:#5b6272;font-size:11px;line-height:1.7}
+.rob .mk{color:#9AA1BC;font-size:11px}
+.rob .cov{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.rob .cov.ok{color:#1F7A41}.rob .cov.under{color:#8A5F09}.rob .cov.none{color:#9AA1BC}
+.rob .fml{font-size:11.5px;color:#6B7392;margin-top:5px}
+.tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;background:rgba(10,10,10,.04);color:#6B7392}
+.tag.def{background:#FBF1D9;color:#8A5F09}
+.note{color:#6B7392;font-size:12px;margin-top:8px;line-height:1.6}
+.honest{margin-top:28px;border-top:1px solid rgba(10,10,10,.10);padding-top:14px;color:#9AA1BC;font-size:11.5px;line-height:1.7}
 form{display:grid;gap:14px}
-fieldset{border:1px solid #232733;border-radius:8px;background:#171a21;padding:14px;margin:0}
-legend{font-size:12px;color:#d5d9e2;padding:0 6px}
-label{display:block;font-size:11px;color:#8b93a7;margin-bottom:3px}
+fieldset{border:1px solid rgba(10,10,10,.10);border-radius:6px;background:#FFFFFF;padding:14px;margin:0}
+legend{font-size:12px;font-weight:600;color:#16204A;padding:0 6px}
+label{display:block;font-size:11.5px;font-weight:600;color:#6B7392;margin-bottom:5px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-input,select{background:#0f1115;color:#d5d9e2;border:1px solid #2b3040;border-radius:5px;padding:7px 8px;font-size:13px;width:100%;box-sizing:border-box}
-button{background:#1f7a41;color:#fff;border:0;border-radius:6px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;justify-self:start}
-.hint{font-size:10px;color:#5b6272;margin-top:3px}
-fieldset.excluded{opacity:.5}
-fieldset.excluded legend .tag{background:#232733;color:#8b93a7}
-.drop{border:1px dashed #2b3040;border-radius:10px;background:#131820;padding:44px 20px;text-align:center}
-.drop .big{font-size:17px;font-weight:600}
-.drop .sm{font-size:12.5px;color:#8b93a7;margin-top:8px;line-height:1.6;max-width:46ch;margin-inline:auto}
-.drop .pick{margin-top:16px}
-.second{margin-top:22px;border-top:1px solid #1d212b;padding-top:16px;color:#8b93a7;font-size:12.5px;line-height:1.6}
-.second b{color:#d5d9e2;font-weight:600}
-.cols{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#aab1c2;line-height:1.8}
-.err{border-left:3px solid #e05252;background:#1e1416;padding:12px 14px;font-size:13px;margin-bottom:16px}
-.steps{display:flex;gap:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#5b6272;margin-top:12px}
-.steps b{color:#37c26a;font-weight:600}
+input,select{background:#FFFFFF;color:#16204A;border:1px solid rgba(10,10,10,.16);border-radius:4px;padding:8px 9px;font-size:13px;width:100%;box-sizing:border-box;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:#16204A}
+button{background:#0A0A0A;color:#FFFFFF;border:0;border-radius:4px;padding:11px 20px;font-size:13.5px;font-weight:700;cursor:pointer;justify-self:start;font-family:inherit}
+button:hover{opacity:.9}
+.hint{font-size:10.5px;color:#9AA1BC;margin-top:4px;line-height:1.5}
+fieldset.excluded{opacity:.55}
+fieldset.excluded legend .tag{background:rgba(10,10,10,.04);color:#6B7392}
+.drop{border:1px dashed rgba(10,10,10,.28);border-radius:8px;background:#FFFFFF;padding:48px 20px;text-align:center}
+.drop.over{border-color:#16204A;background:rgba(10,10,10,.04)}
+.drop .big{font-size:17px;font-weight:700}
+.drop .sm{font-size:13px;color:#6B7392;margin-top:9px;line-height:1.6;max-width:46ch;margin-inline:auto}
+.drop .pick{margin-top:18px}
+.second{margin-top:24px;border-top:1px solid rgba(10,10,10,.10);padding-top:18px;color:#6B7392;font-size:13px;line-height:1.6}
+.second b{color:#16204A;font-weight:600}
+.cols{font-size:12px;color:#6B7392;line-height:1.8}
+.err{border-left:2px solid #B23B3B;background:#FBEAEA;padding:13px 15px;border-radius:0 4px 4px 0;font-size:13px;color:#16204A;margin-bottom:16px}
+.steps{display:flex;gap:8px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9AA1BC;margin-top:12px}
+.steps b{color:#1F7A41;font-weight:700}
 .picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
-.pick-card{display:block;background:#171a21;border:1px solid #232733;border-radius:8px;padding:14px;cursor:pointer}
-.pick-card:hover{border-color:#2f3646}
-.pick-card.on{border-color:#37c26a;background:#141a16}
+.pick-card{display:block;background:#FFFFFF;border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:16px;cursor:pointer}
+.pick-card:hover{border-color:rgba(10,10,10,.28)}
 .pick-card input{position:absolute;opacity:0;pointer-events:none}
-.pick-card .t{display:block;font-size:14px;font-weight:600}
-.pick-card .d{display:block;font-size:12px;color:#8b93a7;margin-top:5px;line-height:1.5}
-.pick-card .w{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
-.pick-card .w i{font-style:normal;font-size:10px;letter-spacing:.03em;color:#8b93a7;background:#0f1115;border:1px solid #232733;border-radius:3px;padding:2px 6px}
-.consequence{background:#141a16;border:1px solid #1f3d2a;border-radius:8px;padding:13px 15px;margin-top:14px;font-size:13px;color:#aab1c2;line-height:1.6}
-.consequence b{color:#d5d9e2}
-.consequence .der{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598}
-button[disabled]{opacity:.45;cursor:default}
-.pick-card:has(input:checked){border-color:#37c26a;background:#141a16}
+.pick-card .t{display:block;font-size:14px;font-weight:700}
+.pick-card .d{display:block;font-size:12.5px;color:#6B7392;margin-top:6px;line-height:1.5}
+.pick-card .w{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.pick-card .w i{font-style:normal;font-size:10px;letter-spacing:.03em;color:#6B7392;background:rgba(10,10,10,.04);border:1px solid rgba(10,10,10,.10);border-radius:3px;padding:2px 7px}
+.consequence{background:#FFFFFF;border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:15px 16px;margin-top:14px;font-size:13px;color:#16204A;line-height:1.6}
+.consequence b{color:#16204A;font-weight:700}
+.consequence .der{font-size:11.5px;color:#6B7392}
+button[disabled]{opacity:.4;cursor:default}
+.pick-card:has(input:checked){border-color:#16204A;background:rgba(10,10,10,.03)}
 
 /* Tips. Visually the loudest thing under the headline on purpose: it is the
    only part of the page that tells the owner to do something. */
-.tip{border-left:2px solid #2f3646;padding:12px 0 12px 13px;margin-bottom:2px}
-.tip+.tip{border-top:1px solid #1d212b}
-.tip.money{border-left-color:#37c26a}
-.tip.risk{border-left-color:#e8b93e}
+.tip{border-left:2px solid rgba(10,10,10,.16);padding:14px 0 14px 15px;margin-bottom:2px}
+.tip+.tip{border-top:1px solid rgba(10,10,10,.10)}
+.tip.money{border-left-color:#1F7A41}
+.tip.risk{border-left-color:#8A5F09}
 .tip .h{display:flex;gap:12px;align-items:baseline}
-.tip .ti{font-size:14px;font-weight:600;color:#e6eaf2}
-.tip .amt{margin-left:auto;font-size:15px;font-weight:700;color:#37c26a;white-space:nowrap}
-.tip.risk .amt{color:#e8b93e}
-.tip .amt small{display:block;font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#5b6272;text-align:right;margin-top:2px}
-.tip .f{font-size:13px;color:#aab1c2;line-height:1.6;margin-top:7px}
-.tip .a{font-size:13px;color:#d5d9e2;line-height:1.6;margin-top:7px}
-.tip .a b{color:#37c26a;font-weight:600}
-.tip .b{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#6b7383;margin-top:8px;line-height:1.6}
-.tip .bd{font-size:10.5px;color:#5b6272;margin-top:4px;line-height:1.6;font-style:italic}
-.tipsum{font-size:12px;color:#8b93a7;margin-top:10px;line-height:1.6}
-.tipsum b{color:#37c26a}
+.tip .ti{font-size:14px;font-weight:700;color:#16204A}
+.tip .amt{margin-left:auto;font-size:15px;font-weight:700;color:#1F7A41;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip.risk .amt{color:#8A5F09}
+.tip .amt small{display:block;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9AA1BC;text-align:right;margin-top:2px}
+.tip .f{font-size:13px;color:#6B7392;line-height:1.6;margin-top:8px}
+.tip .a{font-size:13px;color:#16204A;line-height:1.6;margin-top:8px}
+.tip .a b{color:#1F7A41;font-weight:700}
+.tip .b{font-size:11px;color:#9AA1BC;margin-top:9px;line-height:1.6}
+.tip .bd{font-size:11px;color:#9AA1BC;margin-top:4px;line-height:1.6;font-style:italic}
+.tipsum{font-size:12.5px;color:#6B7392;margin-top:12px;line-height:1.6}
+.tipsum b{color:#1F7A41}
 
 /* Period-over-period. Bars are signed and share one scale so a small effect
    next to a large one looks small. */
-.varsent{font-size:14px;color:#d5d9e2;line-height:1.65}
+.varsent{font-size:14px;color:#16204A;line-height:1.65}
 .vartable{margin-top:14px;display:grid;gap:7px}
 .varrow{display:grid;grid-template-columns:150px 1fr 74px;gap:10px;align-items:center;font-size:12px}
-.varrow .lb{color:#aab1c2}
-.varrow .tr{position:relative;height:16px;background:#12151c;border-radius:3px;overflow:hidden}
+.varrow .lb{color:#16204A}
+.varrow .tr{position:relative;height:16px;background:rgba(10,10,10,.04);border-radius:3px;overflow:hidden}
 .varrow .tr i{position:absolute;top:0;bottom:0;display:block}
-.varrow .tr i.pos{background:#1f7a41;left:50%}
-.varrow .tr i.neg{background:#8f3030;right:50%}
-.varrow .tr .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#2b3040}
-.varrow .dv{text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
-.varrow .dv.pos{color:#37c26a}.varrow .dv.neg{color:#e07a7a}
-.varfoot{font-size:11px;color:#5b6272;margin-top:12px;line-height:1.7}
-.varwho{font-size:12px;color:#8b93a7;margin-top:12px;line-height:1.7}
-.varwho b{color:#d5d9e2}
-.headline .why{font-size:13px;color:#8b93a7;margin-top:10px;padding-top:10px;border-top:1px solid #1f3d2a;line-height:1.6}
+.varrow .tr i.pos{background:#1F7A41;left:50%}
+.varrow .tr i.neg{background:#B23B3B;right:50%}
+.varrow .tr .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(10,10,10,.16)}
+.varrow .dv{text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums}
+.varrow .dv.pos{color:#1F7A41}.varrow .dv.neg{color:#B23B3B}
+.varfoot{font-size:11.5px;color:#9AA1BC;margin-top:12px;line-height:1.7}
+.varwho{font-size:12.5px;color:#6B7392;margin-top:12px;line-height:1.7}
+.varwho b{color:#16204A}
+.headline .why{font-size:13px;color:#6B7392;margin-top:12px;padding-top:12px;border-top:1px solid rgba(10,10,10,.10);line-height:1.6}
 `;
 
 const HONESTY_NOTE = `
@@ -713,6 +728,14 @@ const CATEGORY_LABEL = Object.fromEntries(Object.entries(BENCHMARKS).map(([k, b]
 
 export function renderConfirmHTML(m) {
   const imp = m.lastImport;
+  const included = m.robots.filter((r) => !r.excluded);
+  // An import cannot tell two robots apart by what they do, every row lands on
+  // the same default category. That is fine for a one-robot fleet; for more
+  // than one it means the owner is looking at an unverified guess repeated N
+  // times, and a plain "Yes, that's my fleet" click would confirm all of it
+  // without ever having been asked. Surfaced, not blocked: the guess may be
+  // right, but it should never be invisible.
+  const allSameCategory = included.length > 1 && included.every((r) => r.category === included[0].category);
   const row = (r) => `
     <fieldset${r.excluded ? ' class="excluded"' : ""}>
       <legend>${esc(r.name)} ${r.excluded ? '<span class="tag">excluded</span>' : ""}</legend>
@@ -746,7 +769,9 @@ export function renderConfirmHTML(m) {
 ${imp ? `<div class="note">Read ${esc(Number(imp.rows).toLocaleString("en-US"))} rows across ${esc(imp.robots)} robot${imp.robots === 1 ? "" : "s"}${imp.rangeLabel ? " · " + esc(imp.rangeLabel) : ""}${imp.skipped > 0 ? `<br>${esc(imp.skipped)} row${imp.skipped === 1 ? "" : "s"} skipped: ${esc(skipDetail(imp.skipReasons))}.` : ""}</div>` : ""}
 <h2>We found ${m.robots.length} robot${m.robots.length === 1 ? "" : "s"}. Is this your fleet?</h2>
 <div class="note">A telemetry export does not say what kind of work a robot does, so everything came in as ${esc(CATEGORY_LABEL[m.categories[0]] ?? m.categories[0]).toLowerCase()}. Correct anything that is not: the kind of work decides whether a robot is priced per task or per hour, which changes its numbers by an order of magnitude.</div>
-${m.robots.length === 0 ? '<div class="panel"><div class="empty">no robots found</div></div>' : `<form method="POST" action="/owner/confirm">${m.robots.map(row).join("")}<button type="submit">Yes, set my numbers</button></form>`}
+<div class="note">Confirming takes you straight to your statement, priced at category benchmarks until you set your own numbers. Nothing below is required.</div>
+${allSameCategory ? `<div class="err"><b>All ${included.length} robots are set to the same kind of work: ${esc(CATEGORY_LABEL[included[0].category] ?? included[0].category)}.</b> That is the default guess, not something read from your export. If this fleet actually does more than one thing, fix each robot below before confirming, since the wrong kind of work changes a robot's number by an order of magnitude.</div>` : ""}
+${m.robots.length === 0 ? '<div class="panel"><div class="empty">no robots found</div></div>' : `<form method="POST" action="/owner/confirm">${m.robots.map(row).join("")}<button type="submit">Yes, that's my fleet</button></form>`}
 <div class="honest">${esc(HONESTY_NOTE.trim())}</div>`
   );
 }

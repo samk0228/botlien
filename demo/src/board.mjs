@@ -448,7 +448,11 @@ export function startBoard(port, {
               return;
             }
             onboarding.saveConfirm(new URLSearchParams(body));
-            res.writeHead(303, { Location: "/owner/setup" });
+            // Straight to the board, priced at category benchmarks. Setup is
+            // real and reachable at /owner/setup, it is just not a gate: an
+            // owner should not have to type five numbers per robot before
+            // seeing whether the product is worth anything.
+            res.writeHead(303, { Location: "/owner" });
             res.end();
             return;
           }

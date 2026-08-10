@@ -100,18 +100,38 @@ test("onboarding step is derived from data, so an owner resumes where they left 
   importTelemetryFromText(s, exportCsv(), "export.csv", { nowMs: NOW });
   assert.equal(onboardingStep(s), "confirm");
 
+  // Confirming goes straight to "done": every category in rates.mjs already
+  // carries a full benchmark, so a confirmed fleet prices itself with zero
+  // per-robot input. Setting real numbers is available, not required.
   applyConfirm(s, parseConfirmForm(new URLSearchParams(), s.listRobots()), NOW);
-  assert.equal(onboardingStep(s), "setup");
+  assert.equal(onboardingStep(s), "done");
+  assert.equal(store_hasNoEconomics(s), true, "done with no stored economics rows, benchmarks alone got it there");
 
   const robotId = s.listRobots()[0].id;
   s.upsertRobotEconomics(robotId, { taskType: "tray_delivery", taskBasis: "mission", rateCents: 73 }, NOW);
-  assert.equal(onboardingStep(s), "done");
+  assert.equal(onboardingStep(s), "done", "setting real numbers later does not change the step");
 
   // Survives a restart: the step is inferred from data on disk, not from a
   // wizard cursor held in memory, so an owner who closes the tab mid-flow and
   // comes back tomorrow lands exactly where they left off.
   s.close();
   assert.equal(onboardingStep(openStore(path)), "done");
+});
+
+function store_hasNoEconomics(s) {
+  return s.listRobotEconomics().length === 0;
+}
+
+test("a confirmed fleet prices itself at benchmarks with zero typed numbers", () => {
+  const s = tempStore();
+  importTelemetryFromText(s, exportCsv(), "export.csv", { nowMs: NOW });
+  applyConfirm(s, parseConfirmForm(new URLSearchParams(), s.listRobots()), NOW);
+
+  assert.equal(onboardingStep(s), "done");
+  const m = ownerModel(s, NOW);
+  assert.notEqual(m.totals.coverage, null, "coverage is answerable with no setup at all");
+  assert.equal(m.defaultCount, m.robots.filter((r) => r.fin).length, "every priced robot is flagged as a benchmark default");
+  assert.ok(m.robots.every((r) => !r.configured), "nothing was manually configured");
 });
 
 test("an owner who abandons after importing returns to confirm, not to the start", () => {

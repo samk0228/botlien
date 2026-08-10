@@ -42,6 +42,8 @@ export function createTenancy({
   baseUrl = "http://127.0.0.1:3230",
   secureCookies = false,
   readBody,
+  oauthProviders = {},
+  oauthFetch = fetch,
   log = () => {},
 }) {
   /** Events with no account attached (`landed`) still belong in the funnel. */
@@ -69,6 +71,8 @@ export function createTenancy({
     secureCookies,
     now,
     readBody,
+    oauthProviders,
+    oauthFetch,
     // Pass the whole payload through. An earlier version took (name, detail)
     // and wrapped it, which silently dropped accountId: `account_created` was
     // then stored unattached, funnel() could not join it to `activated`, and

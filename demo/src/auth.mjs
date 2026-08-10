@@ -140,6 +140,30 @@ export function redeemLink(control, token, nowMs, { userAgent = null } = {}) {
   return { ok: true, account, created, sessionToken };
 }
 
+/** Same account-creation and session-issuance tail as redeemLink, for an
+ * identity an OAuth provider already verified instead of a clicked link.
+ * There is no token to consume here, the provider's own redirect back to us
+ * with a valid code is the proof, so this starts one step later than
+ * redeemLink rather than faking a login-token row just to reuse it. */
+export function signInVerifiedEmail(control, rawEmail, nowMs, { userAgent = null } = {}) {
+  const email = String(rawEmail ?? "").trim();
+  if (!validEmail(email)) return { ok: false, reason: "invalid_email" };
+
+  const { account, created } = control.upsertAccount(email, nowMs);
+  control.touchAccount(account.id, nowMs);
+
+  const sessionToken = newToken();
+  control.insertSession({
+    token: sessionToken,
+    accountId: account.id,
+    createdAt: nowMs,
+    expiresAt: nowMs + SESSION_TTL_MS,
+    userAgent,
+  });
+
+  return { ok: true, account, created, sessionToken };
+}
+
 /** Resolve a request's cookies to an account, or null. The hot path: called on
  * every authenticated request, so it is one indexed join and no writes. */
 export function currentAccount(control, cookieHeader, nowMs) {

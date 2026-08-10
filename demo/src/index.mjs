@@ -114,15 +114,17 @@ async function main() {
   // process store below stays the connector-fed fleet behind /ops.
   let tenancy = null;
   if (!demo) {
-    const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
+    const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }, { createOAuthProviders }] = await Promise.all([
       import("./control.mjs"),
       import("./tenant.mjs"),
       import("./mailer.mjs"),
       import("./tenancy.mjs"),
+      import("./oauth.mjs"),
     ]);
     const control = openControl(resolvePath(process.env.BOTLIEN_CONTROL_DB ?? "data/control.db"));
     const mailer = createMailer({ secrets, logPath: resolvePath("data/sent-mail.log") });
     const baseUrl = process.env.BOTLIEN_BASE_URL ?? `http://127.0.0.1:${port}`;
+    const oauthProviders = createOAuthProviders({ secrets });
     tenancy = createTenancy({
       control,
       mailer,
@@ -134,8 +136,12 @@ async function main() {
       // until something is actually terminating TLS in front of us.
       secureCookies: process.env.BOTLIEN_SECURE_COOKIES === "1",
       readBody,
+      oauthProviders,
       log: genesisLog,
     });
+    if (Object.keys(oauthProviders).length > 0) {
+      console.log(`oauth sign-in enabled: ${Object.keys(oauthProviders).join(", ")}`);
+    }
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {

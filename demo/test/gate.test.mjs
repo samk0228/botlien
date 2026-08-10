@@ -14,6 +14,7 @@ import { createTenancy } from "../src/tenancy.mjs";
 import { boardModel } from "../src/board.mjs";
 import { openStore } from "../src/store.mjs";
 import { SESSION_COOKIE } from "../src/auth.mjs";
+import { PROVIDERS, OAUTH_STATE_COOKIE } from "../src/oauth.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00-07:00");
 const DAY = 86_400_000;
@@ -30,8 +31,10 @@ function csv(prefix, days = 3) {
 }
 
 /** Boots the real server on an ephemeral port with a console mailer, so the
- * sign-in link is captured rather than emailed. */
-async function boot() {
+ * sign-in link is captured rather than emailed. `oauthProviders`/`oauthFetch`
+ * let oauth-specific tests boot the same real server with a fake provider and
+ * a fake fetch, rather than a second, parallel test harness. */
+async function boot({ oauthProviders = {}, oauthFetch } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "botlien-gate-"));
   const control = openControl(join(dir, "control.db"));
   const sent = [];
@@ -48,6 +51,8 @@ async function boot() {
     baseUrl: "http://127.0.0.1",
     secureCookies: false,
     readBody,
+    oauthProviders,
+    ...(oauthFetch ? { oauthFetch } : {}),
   });
 
   const server = startBoard(0, {
@@ -324,6 +329,175 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
     await app.get("/owner", cookie);
     await app.get("/owner", cookie);
     assert.equal(app.control.funnel().counts.activated, 1, "a reload is not a second activation");
+  } finally {
+    await app.close();
+  }
+});
+
+// ---- OAuth sign-in (Google / Microsoft) ----
+
+const FAKE_GOOGLE = { ...PROVIDERS.google, clientId: "cid", clientSecret: "sec" };
+
+/** A fake fetch standing in for both Google's token endpoint and its userinfo
+ * endpoint, keyed on URL like the real fetch would be dispatched, so the same
+ * fake works for exchangeCode and fetchVerifiedEmail without either knowing
+ * about the other. */
+function fakeOauthFetch({ email = "sam@harborgrill.com", tokenOk = true, userinfoOk = true } = {}) {
+  return async (url) => {
+    const u = String(url);
+    if (u.includes("oauth2.googleapis.com/token")) {
+      if (!tokenOk) return { ok: false, status: 400, text: async () => "invalid_grant" };
+      return { ok: true, json: async () => ({ access_token: "fake-access-token" }) };
+    }
+    if (u.includes("openidconnect.googleapis.com/v1/userinfo")) {
+      if (!userinfoOk) return { ok: false, status: 401, text: async () => "invalid_token" };
+      return { ok: true, json: async () => ({ email, email_verified: true }) };
+    }
+    throw new Error(`unexpected fetch to ${u}`);
+  };
+}
+
+test("no OAuth button appears when no provider is configured", async () => {
+  const app = await boot();
+  try {
+    const html = await (await app.get("/signin")).text();
+    assert.ok(!html.includes("Continue with"), "unconfigured providers must not render");
+  } finally {
+    await app.close();
+  }
+});
+
+test("a configured provider renders a button pointing at /auth/<id>/start", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE } });
+  try {
+    const html = await (await app.get("/signin")).text();
+    assert.match(html, /Continue with Google/);
+    assert.match(html, /href="\/auth\/google\/start"/);
+  } finally {
+    await app.close();
+  }
+});
+
+test("starting google sign-in redirects to Google with a state param and sets a state cookie", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE } });
+  try {
+    const res = await app.get("/auth/google/start");
+    assert.equal(res.status, 303);
+    const loc = new URL(res.headers.get("location"));
+    assert.equal(loc.hostname, "accounts.google.com");
+    assert.ok(loc.searchParams.get("state")?.startsWith("google:"));
+    const cookie = res.headers.get("set-cookie");
+    assert.ok(cookie?.startsWith(OAUTH_STATE_COOKIE + "="), "a state cookie was set");
+  } finally {
+    await app.close();
+  }
+});
+
+test("an unconfigured provider's start route does not leak a redirect anywhere", async () => {
+  const app = await boot();
+  try {
+    const res = await app.get("/auth/google/start");
+    assert.equal(res.status, 404);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a full google sign-in round trip creates an account and lands on /owner", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE }, oauthFetch: fakeOauthFetch() });
+  try {
+    const start = await app.get("/auth/google/start");
+    const state = new URL(start.headers.get("location")).searchParams.get("state");
+    const stateCookie = start.headers.get("set-cookie").split(";")[0];
+
+    const cb = await app.get(`/auth/google/callback?code=abc123&state=${encodeURIComponent(state)}`, stateCookie);
+    assert.equal(cb.status, 303);
+    assert.equal(cb.headers.get("location"), "/owner");
+    const sessionSet = cb.headers.getSetCookie().join(";");
+    assert.ok(sessionSet.includes(SESSION_COOKIE), "a real session cookie was issued");
+
+    assert.equal(app.control.countAccounts(), 1);
+    assert.equal(app.control.funnel().counts.account_created, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a callback with a mismatched state is rejected rather than signed in", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE }, oauthFetch: fakeOauthFetch() });
+  try {
+    const start = await app.get("/auth/google/start");
+    const stateCookie = start.headers.get("set-cookie").split(";")[0];
+
+    const cb = await app.get(`/auth/google/callback?code=abc123&state=not-the-real-state`, stateCookie);
+    assert.equal(cb.status, 303);
+    assert.equal(cb.headers.get("location").split("?")[0], "/signin");
+    assert.equal(app.control.countAccounts(), 0, "nobody was signed in on a bad state");
+  } finally {
+    await app.close();
+  }
+});
+
+test("a callback with no state cookie at all is rejected, not treated as a fresh state", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE }, oauthFetch: fakeOauthFetch() });
+  try {
+    const cb = await app.get(`/auth/google/callback?code=abc123&state=google:whatever`);
+    assert.equal(cb.status, 303);
+    assert.equal(cb.headers.get("location").split("?")[0], "/signin");
+    assert.equal(app.control.countAccounts(), 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("the provider declining consent sends the owner back with a plain-language reason, not a stack trace", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE }, oauthFetch: fakeOauthFetch() });
+  try {
+    const cb = await app.get(`/auth/google/callback?error=access_denied`);
+    assert.equal(cb.status, 303);
+    const loc = cb.headers.get("location");
+    assert.match(loc, /^\/signin\?oauth_error=/);
+    assert.match(decodeURIComponent(loc), /cancelled/);
+  } finally {
+    await app.close();
+  }
+});
+
+test("google returning an unverified email does not create an account", async () => {
+  const app = await boot({
+    oauthProviders: { google: FAKE_GOOGLE },
+    oauthFetch: async (url) => {
+      const u = String(url);
+      if (u.includes("token")) return { ok: true, json: async () => ({ access_token: "tok" }) };
+      return { ok: true, json: async () => ({ email: "sam@harborgrill.com", email_verified: false }) };
+    },
+  });
+  try {
+    const start = await app.get("/auth/google/start");
+    const state = new URL(start.headers.get("location")).searchParams.get("state");
+    const stateCookie = start.headers.get("set-cookie").split(";")[0];
+
+    const cb = await app.get(`/auth/google/callback?code=abc123&state=${encodeURIComponent(state)}`, stateCookie);
+    assert.equal(cb.status, 303);
+    assert.equal(cb.headers.get("location").split("?")[0], "/signin");
+    assert.equal(app.control.countAccounts(), 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test("signing in with google twice for the same email reuses the one account, same as the email flow", async () => {
+  const app = await boot({ oauthProviders: { google: FAKE_GOOGLE }, oauthFetch: fakeOauthFetch({ email: "sam@harborgrill.com" }) });
+  try {
+    for (let i = 0; i < 2; i++) {
+      const start = await app.get("/auth/google/start");
+      const state = new URL(start.headers.get("location")).searchParams.get("state");
+      const stateCookie = start.headers.get("set-cookie").split(";")[0];
+      const cb = await app.get(`/auth/google/callback?code=c${i}&state=${encodeURIComponent(state)}`, stateCookie);
+      assert.equal(cb.status, 303);
+    }
+    assert.equal(app.control.countAccounts(), 1, "the second sign-in must not create a second account");
+    assert.equal(app.control.funnel().counts.account_created, 1);
   } finally {
     await app.close();
   }

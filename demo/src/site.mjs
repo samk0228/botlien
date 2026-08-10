@@ -43,6 +43,14 @@ input[type=email]:focus{border-bottom-color:var(--fg1)}
   border-radius:4px;margin-bottom:28px;font-size:13.5px;color:var(--fg2)}
 .fine{font-size:12.5px;color:var(--fg3);margin-top:22px;line-height:1.6}
 .row{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+.oauth{width:100%;margin-top:14px;padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);
+  background:transparent;color:var(--fg1);cursor:pointer;font-size:14px;font-weight:600;
+  font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;
+  text-decoration:none}
+.oauth:hover{background:var(--ghost)}
+.oauth svg{flex:none}
+.divider{display:flex;align-items:center;gap:12px;margin:26px 0;color:var(--fg3);font-size:12px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--hair2)}
 /* front door */
 .hero{padding:110px 0 72px}
 .hero h1{font-size:clamp(32px,6vw,52px);max-width:15ch;margin-bottom:20px}
@@ -78,6 +86,30 @@ function page(title, body) {
 
 const MARK = `<span class="mark">BOTLIEN</span>`;
 
+/** Minimal inline marks so a sign-in button reads as "Google"/"Microsoft" at a
+ * glance without pulling in an icon font or an external image, consistent
+ * with the rest of this file's "no client JavaScript, nothing fetched"
+ * design. Simplified, not the pixel-exact brand SVGs, deliberately: this is a
+ * button label, not a brand placement that needs sign-off. */
+const PROVIDER_ICONS = {
+  google: `<svg width="16" height="16" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.61z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.19l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.16.28-1.69V4.98H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.02z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.98l3.05 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>`,
+  microsoft: `<svg width="16" height="16" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>`,
+};
+
+/** One button per configured provider, `providers` is whatever
+ * createOAuthProviders() returned as a list, empty unless credentials exist,
+ * so this renders nothing extra on a laptop with no OAuth app registered. */
+function renderOAuthButtons(providers) {
+  if (!providers || providers.length === 0) return "";
+  const buttons = providers
+    .map(
+      (p) =>
+        `<a class="oauth" href="/auth/${esc(p.id)}/start">${PROVIDER_ICONS[p.id] ?? ""}Continue with ${esc(p.label)}</a>`,
+    )
+    .join("");
+  return `${buttons}<div class="divider">or</div>`;
+}
+
 /** S0. No pricing, no logo wall, no testimonial, no outcome claim: we have no
  * customers yet, and the product's position is that it does not make the
  * claims vendors make. The three proof points below are all verifiable. */
@@ -111,12 +143,12 @@ export function renderLandingHTML() {
  *   "failed"  the mailer rejected the send
  *   "signedout" just signed out
  */
-export function renderSignInHTML({ variant = "signin", email = "", error = null } = {}) {
+export function renderSignInHTML({ variant = "signin", email = "", error = null, providers = [] } = {}) {
   const heading = variant === "new" ? "Start with your usage export" : "Sign in";
   const lede =
     variant === "new"
       ? "Enter your email and we&#39;ll send you a link to get started. No card. Nothing is charged until you choose a paid plan."
-      : "No password to remember. We email you a link that signs you in.";
+      : "No password to remember. Sign in with Google, Microsoft, or an emailed link.";
 
   const banner = variant === "signedout" ? `<div class="ok">Signed out.</div>` : "";
   const errLine = error ? `<div class="err">${esc(error)}</div>` : "";
@@ -132,6 +164,7 @@ export function renderSignInHTML({ variant = "signin", email = "", error = null 
   ${banner}${MARK}
   <h1>${heading}</h1>
   <p class="lede">${lede}</p>
+  ${renderOAuthButtons(providers)}
   <form method="post" action="/signin">
     <label for="email">Email</label>
     <input id="email" name="email" type="email" autocomplete="email"
