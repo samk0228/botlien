@@ -2,7 +2,6 @@
 <style>
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER_EXT__") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
-@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 500;font-display:swap;src:url("__MONO__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
 
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 *{box-sizing:border-box}
@@ -36,14 +35,42 @@ input{font-family:inherit}
 .press:active{transform:scale(.98)}
 .press9:active{transform:scale(.99)}
 
+details.bl-acc summary{list-style:none;cursor:pointer}
+details.bl-acc summary::-webkit-details-marker{display:none}
+details.bl-acc summary .chev{transition:transform .15s}
+
+.bl-bar-tip{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-6px);min-width:118px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:9px 11px;box-shadow:0 6px 20px rgba(10,10,10,.14);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease;z-index:30;white-space:nowrap}
+.bl-bar-wrap:hover .bl-bar-tip{opacity:1;visibility:visible;transform:translate(-50%,-10px)}
+.bl-bar-wrap:first-child .bl-bar-tip{left:0;transform:translate(0,-6px)}
+.bl-bar-wrap:first-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+.bl-bar-wrap:last-child .bl-bar-tip{left:auto;right:0;transform:translate(0,-6px)}
+.bl-bar-wrap:last-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+details.bl-acc[open] summary .chev{transform:rotate(180deg)}
+
+/* Custom slider track: filled portion up to the thumb, plain past it. The
+   fill is a CSS var so one JS line can update it on every drag instead of
+   rebuilding the gradient string, native sliders give none of this for free. */
+input.bl-slider{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;outline:none;
+  background:linear-gradient(to right,var(--ink) 0%,var(--ink) var(--bl-fill,20%),var(--hair) var(--bl-fill,20%),var(--hair) 100%)}
+input.bl-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);border:3px solid var(--page-bg);box-shadow:0 1px 4px rgba(10,10,10,.35);cursor:pointer;margin-top:0}
+input.bl-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--ink);border:3px solid var(--page-bg);box-shadow:0 1px 4px rgba(10,10,10,.35);cursor:pointer}
+input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transparent}
+
+/* Below 900px the sidebar becomes a topbar. It used to just squash the nav
+   and account rows into two permanently-visible horizontal-scroll strips,
+   which is a lot of chrome sitting above the fold before any real content.
+   Now they are collapsed into one menu, closed by default, opened by the
+   hamburger button that only exists at this width. */
+.bl-mobile-toggle{display:none}
 @media (max-width:900px){
   [data-grid]{grid-template-columns:minmax(0,1fr) !important}
   [data-side]{position:static !important;height:auto !important;min-width:0;padding:14px 16px 0 !important;border-right:none !important;border-bottom:1px solid var(--hair)}
   [data-main]{min-width:0}
-  [data-nav]{flex-direction:row !important;overflow-x:auto !important;gap:6px !important;padding-bottom:6px;scrollbar-width:none}
-  [data-nav] > div{white-space:nowrap;padding:9px 12px !important;font-size:13.5px !important}
-  [data-side-foot]{flex-direction:row !important;margin-top:12px !important;overflow-x:auto}
-  [data-side-foot] > div{white-space:nowrap}
+  .bl-mobile-toggle{display:flex}
+  .bl-rail-toggle{display:none !important}
+  [data-nav],[data-side-foot]{display:none !important}
+  [data-side].bl-mobile-open [data-nav],[data-side].bl-mobile-open [data-side-foot]{display:flex !important;flex-direction:column !important;overflow-x:visible !important}
+  [data-side].bl-mobile-open [data-nav] > div,[data-side].bl-mobile-open [data-side-foot] > div{white-space:normal}
   [data-main]{padding:14px 16px 32px !important}
   [data-card]{padding:22px 18px 26px !important}
   [data-stage]{padding:40px 18px 56px !important}
@@ -84,6 +111,7 @@ const AUTH_JOURNEY = [
   ['signin','Sign in'],
   ['check','Check your email'],
   ['signingin','Signing you in'],
+  ['landed-info','Tell us about you'],
   ['landed-new','What kind of business'],
   ['first-run-2','Where they work'],
   ['first-run-3','Who else needs it'],
@@ -139,18 +167,48 @@ const DUTY_HOURS = 684.2;
 const DECLARED_HOURS = 1920;
 
 function money(n){ return '$' + n.toLocaleString('en-US',{ minimumFractionDigits:2, maximumFractionDigits:2 }); }
-function calc(t){
-  const rate = Math.round((WAGE / t) * 100) / 100;
-  const trayWork = Math.round(TRAY_RUNS * rate * 100) / 100;
-  const total = trayWork + CLEAN_WORK;
-  return { rate, trayWork, total, cov: total / TOTAL_INVOICE, trayCov: trayWork / TRAY_INVOICE };
+
+// The one thing no export can ever prove is how many units a PERSON would
+// complete in an hour, only what the robot did. Everything else on the
+// sensitivity card holds still while this one assumption moves, and it only
+// applies to the fleet's biggest per-task category, an all-by-the-hour
+// fleet (cleaning, laundry) has no such assumption to test.
+function sensBase(){
+  const s = computeStatement();
+  const missionCats = s.byCategory.filter(k => (BENCH[k.work]||{}).basis === 'mission');
+  if (!missionCats.length) return null;
+  const dom = missionCats[0];
+  const domRows = s.included.filter(r => r.work === dom.work);
+  const bench = BENCH[dom.work];
+  return {
+    work: dom.work, unit: bench.unit, unitPlural: bench.unitPlural,
+    wageCentsHour: bench.wageCentsHour, benchUnitsPerHour: bench.humanUnitsPerHour,
+    domUnits: domRows.reduce((a,r) => a+r.units, 0),
+    domCount: domRows.length,
+    fixedWork: Math.round((s.totalValue - dom.value) * 100) / 100,
+    totalInvoice: s.totalInvoice,
+  };
 }
-function breakEven(){ let t = 30; while (t < 400 && calc(t).cov >= 1) t++; return t - 1; }
+// base defaults to the frozen Harbor Grill numbers so the legacy "Coverage"
+// page (viewDash/sensitivityBlock), which never learned about
+// computeStatement and still calls calc(t) with one argument, keeps
+// rendering exactly as it always has. "Coverage (new)" always passes a real
+// base from sensBase().
+function calc(t, base){
+  const b = base || { wageCentsHour:2200, domUnits:12060, fixedWork:4530.00, totalInvoice:5596.00 };
+  const rate = Math.round((b.wageCentsHour / 100 / t) * 100) / 100;
+  const domWork = Math.round(b.domUnits * rate * 100) / 100;
+  const total = Math.round((domWork + b.fixedWork) * 100) / 100;
+  return { rate, domWork, total, cov: b.totalInvoice > 0 ? total / b.totalInvoice : null };
+}
+function breakEven(base){ let t = 1; while (t < 2000 && calc(t, base).cov >= 1) t++; return t - 1; }
+// Legacy "Coverage" page only, always the frozen default base, same as
+// every other unparameterized calc() call on that page.
 function utilAt(pct){
   const scale = (pct / 100 * DECLARED_HOURS) / DUTY_HOURS;
   const c = calc(30);
-  const trayWork = c.trayWork * scale;
-  return (trayWork + CLEAN_WORK * scale) / TOTAL_INVOICE;
+  const domWork = c.domWork * scale;
+  return (domWork + CLEAN_WORK * scale) / TOTAL_INVOICE;
 }
 
 const PERIODS = [
@@ -299,14 +357,96 @@ const SETUP = [
   { name:'Scrubber 75 (nights)', model:'Gausium S75', task:'Cleaning cycles', invoice:'$800.00', rate:'$25.00 / hour', derive:'$25.00/hr ÷ 1 hour per hour', wage:'benchmark', hours:'8.0 h' }
 ];
 
-const CONFIRM = [
-  { name:'Servi 1 (front)', seen:'3,780 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Servi 2 (patio)', seen:'900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'P3 runner', seen:'3,900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Servi 3 (banquet)', seen:'3,480 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Scrubber 50', seen:'120.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning' },
-  { name:'Scrubber 75 (nights)', seen:'61.2 active hours · Aug 4 – Sep 3', work:'Floor cleaning' }
+const WORK_CATEGORIES = [
+  'Tray delivery', 'Bussing and dish return', 'Floor cleaning',
+  'Order picking', 'Putaway and replenishment',
+  'Room and guest delivery', 'Laundry handling'
 ];
+
+// units is the number the rest of the dashboard actually computes from
+// (runs started, or active hours, whichever the category's basis is). seen
+// is that same number pre-formatted for display, kept in sync by hand here
+// since there are only six rows, not derived, so a units edit and a seen
+// edit are two edits, not one, if this table is ever hand-edited again.
+const CONFIRM = [
+  { name:'Servi 1 (front)', units:3780, seen:'3,780 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
+  { name:'Servi 2 (patio)', units:900, seen:'900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
+  { name:'P3 runner', units:3900, seen:'3,900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
+  { name:'Servi 3 (banquet)', units:3480, seen:'3,480 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
+  { name:'Scrubber 50', units:120.0, seen:'120.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning' },
+  { name:'Scrubber 75 (nights)', units:61.2, seen:'61.2 active hours · Aug 4 – Sep 3', work:'Floor cleaning' }
+];
+
+// Same seven categories and the same rates as the real backend's
+// src/rates.mjs BENCHMARKS table, kept in sync by hand: this prototype and
+// the real product must never quote two different numbers for the same
+// "tray delivery" rate. wageCentsHour / humanUnitsPerHour is the whole
+// derivation, on purpose, so it can be checked by hand, same rule as there.
+const BENCH = {
+  'Tray delivery':          { wageCentsHour:2200, humanUnitsPerHour:30, invoiceCentsMonth:99900, unit:'run',         unitPlural:'runs',         basis:'mission' },
+  'Bussing and dish return':{ wageCentsHour:2200, humanUnitsPerHour:25, invoiceCentsMonth:99900, unit:'run',         unitPlural:'runs',         basis:'mission' },
+  'Floor cleaning':         { wageCentsHour:2500, humanUnitsPerHour:1,  invoiceCentsMonth:80000, unit:'active hour', unitPlural:'active hours', basis:'active_hour' },
+  'Order picking':          { wageCentsHour:2400, humanUnitsPerHour:60, invoiceCentsMonth:150000,unit:'pick',        unitPlural:'picks',        basis:'mission' },
+  'Putaway and replenishment':{wageCentsHour:2400, humanUnitsPerHour:40, invoiceCentsMonth:150000,unit:'move',        unitPlural:'moves',        basis:'mission' },
+  'Room and guest delivery':{ wageCentsHour:2000, humanUnitsPerHour:12, invoiceCentsMonth:99900, unit:'delivery',    unitPlural:'deliveries',   basis:'mission' },
+  'Laundry handling':       { wageCentsHour:1900, humanUnitsPerHour:1,  invoiceCentsMonth:90000, unit:'active hour', unitPlural:'active hours', basis:'active_hour' },
+};
+
+// The one calculation the whole dashboard reads from. Every card below is a
+// different view of this same result, never its own arithmetic, so a
+// category or exclude change on the confirm screen can only ever move every
+// card in agreement with every other one.
+function computeStatement(){
+  // A manually-typed estimate has no per-robot rows behind it, just a count
+  // and two dollar figures, so it cannot honestly fill in byCategory,
+  // attention, or work-split. Those cards already know how to say "no
+  // robots included yet" for an empty fleet; returning empty here reuses
+  // that same honest state instead of inventing rows to fill them.
+  if (S.manualApplied){
+    const count = Number(S.manualCount) || 0;
+    const cost = Number(S.manualCost) || 0;
+    const revenue = Number(S.manualRevenue) || 0;
+    const totalInvoice = Math.round(count * cost * 100) / 100;
+    const totalValue = Math.round(count * revenue * 100) / 100;
+    const coverage = revenue > 0 && totalInvoice > 0 ? totalValue / totalInvoice : null;
+    return {
+      rows: [], included: [], totalValue, totalInvoice, coverage, byCategory: [],
+      estimate: true, manualCount: count, manualCost: cost, manualRevenue: revenue,
+    };
+  }
+  const rows = CONFIRM.map((c,i) => {
+    const work = S.confirmWork[i] ?? c.work;
+    const b = BENCH[work] ?? BENCH['Tray delivery'];
+    // Rounded to the cent BEFORE multiplying by units, matching the real
+    // backend's derivedRateCents: the rate is what an owner checks on a
+    // napkin ("$22.00 ÷ 30 = $0.73"), so it has to be the same $0.73 that
+    // gets multiplied, not an unrounded 73.33 that quietly drifts the total.
+    const rateCents = Math.round(b.wageCentsHour / b.humanUnitsPerHour);
+    const value = Math.round(c.units * rateCents) / 100;
+    const invoice = b.invoiceCentsMonth / 100;
+    const excluded = !!S.excluded[i];
+    return {
+      i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
+      units: c.units, unit: c.units === 1 ? b.unit : b.unitPlural,
+      rate: rateCents / 100, value, invoice, excluded,
+      cov: invoice > 0 ? value / invoice : null,
+    };
+  });
+  const included = rows.filter(r => !r.excluded);
+  const totalValue = Math.round(included.reduce((s,r) => s+r.value, 0) * 100) / 100;
+  const totalInvoice = Math.round(included.reduce((s,r) => s+r.invoice, 0) * 100) / 100;
+  const coverage = totalInvoice > 0 ? totalValue / totalInvoice : null;
+  const byCategory = {};
+  included.forEach(r => {
+    (byCategory[r.work] = byCategory[r.work] || { work:r.work, count:0, value:0 }).count++;
+    byCategory[r.work].value += r.value;
+  });
+  return {
+    rows, included, totalValue, totalInvoice, coverage,
+    byCategory: Object.values(byCategory).sort((a,b) => b.value - a.value),
+    estimate: false,
+  };
+}
 
 const BUSINESSES = [
   ['Restaurant or cafe','Tray delivery, bussing runs, floor cleaning'],
@@ -361,13 +501,14 @@ const BUTTON_STATES = [
 
 const COPY = {
   dash:['Coverage','Are these robots covering what you pay for them? Everything below values the work performed at what that work costs to buy elsewhere, and shows the arithmetic that produced it.'],
+  dashv2:['Coverage (new)',''],
   robots:['Robot by robot','Coverage for each unit, its duty time against the hours you declared, and the equation behind the figure. One robot is running under its lease.'],
   rates:['Rates','A rate is a loaded wage divided by what a person gets through in an hour. Both sides are yours to set, and the division is shown, not summarized.'],
   setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark. One screen, no wizard, and you can accept it as-is.'],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
   states:['How figures read','Every state a figure or a button can be in, and the form it takes on the page. A missing input is stated plainly instead of being smoothed into a number.'],
   settings:['Settings','Site first, because timezone and operating hours feed the math. Everything else follows in the order you are likely to need it.'],
-  confirm:['Confirm your fleet','Five robots came out of that export. Confirm what each one does before any figure is computed.'],
+  confirm:['Confirm your fleet','Nothing below is required. Confirming takes you straight to your statement, priced at category benchmarks until you set your own numbers.'],
   business:['What kind of business is this?','It sets the kinds of work we price your robots against, and the rate we start from. You can change it later.'],
   creds:['Request credentials','Vendor API access is issued by hand and can take weeks. The file drop gives you the same statement today.'],
   empty:['Coverage','Nothing has been imported for this period yet, so there is no arithmetic to show.'],
@@ -384,9 +525,13 @@ const S = {
   screen: 'signin',
   email: '', touched: false, sending: false, resendLeft: 0, sentAgain: false,
   onboardPicked: -1, authSessions: SESSIONS.slice(1), failNext: false,
+  ownerName: '', businessName: '', infoTouched: false,
+  manualMode: false, manualStage: 'form', manualCount: '', manualCost: '', manualRevenue: '', manualTouched: false, manualApplied: false,
+  confirmWork: {}, confirmName: {}, confirmSeen: {}, confirmTriedSubmit: false,
   siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0, benchmarkOptIn: true,
 
-  view: 'dash', openSetup: 0, profileOpen: false,
+  onboarding: false, view: 'dashv2', openSetup: 0, profileOpen: false, recapGrain: 'day', railCollapsed: false, mobileNavOpen: false,
+  dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
   exportMenu: false, exporting: false, exportDone: false, exportFailed: false, exportFile: '',
   upload: 'idle', upPct: 0, saving: false, robotFilter: 'all',
   picked: -1, credSending: false, credSent: false, excluded: {},
@@ -433,8 +578,9 @@ function authStage(){
   const email = S.email.trim();
   const valid = VALID.test(email);
   const isSignIn = ['signin','signin-new','signin-failed','signedout'].includes(sc);
+  const isNew = sc === 'signin-new';
   const canSend = valid && !S.sending;
-  const sendLabel = S.sending ? 'Sending…' : (email.length === 0 ? 'Enter your email' : 'Email me a sign-in link');
+  const sendLabel = S.sending ? 'Sending…' : (email.length === 0 ? 'Enter your email' : (isNew ? 'Email me a link to get started' : 'Email me a sign-in link'));
   let body = '';
 
   if (isSignIn){
@@ -442,8 +588,17 @@ function authStage(){
       ? '<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid var(--hair);border-radius:4px;margin-bottom:28px;font-size:13.5px;color:var(--fg2)">'+ic('check',16)+'Signed out.</div>'
       : '');
     body += '<img src="'+LOGO+'" alt="Botlien" style="width:26px;height:32px;object-fit:contain;filter:var(--mark);margin-bottom:28px">'
-      + '<h1 style="font-size:clamp(26px,4.6vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">'+(sc==='signin-new'?'Start with your usage export':'Sign in')+'</h1>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 36px">'+(sc==='signin-new'
+      // Two doors, one lock: sign in and sign up are the same form under the
+      // hood (an unrecognized email creates an account), but an owner who
+      // has never used Botlien looks for a "sign up" button, not a
+      // reassurance buried in fine print, so this toggle is real UI, not
+      // just copy.
+      + '<div style="display:flex;gap:4px;padding:3px;background:var(--ghost);border-radius:6px;margin-bottom:28px;max-width:280px">'
+        + '<button type="button" data-act="authScreen" data-key="signin" style="flex:1;padding:9px 14px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;background:'+(isNew?'transparent':'var(--ink)')+';color:'+(isNew?'var(--fg2)':'var(--ink-fg)')+'">Sign in</button>'
+        + '<button type="button" data-act="authScreen" data-key="signin-new" style="flex:1;padding:9px 14px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;background:'+(isNew?'var(--ink)':'transparent')+';color:'+(isNew?'var(--ink-fg)':'var(--fg2)')+'">Sign up</button>'
+      + '</div>'
+      + '<h1 style="font-size:clamp(26px,4.6vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">'+(isNew?'Start with your usage export':'Sign in')+'</h1>'
+      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 36px">'+(isNew
           ? 'Enter your email and we&#39;ll send you a link to get started. No card. Nothing is charged until you choose a paid plan.'
           : 'No password to remember. We email you a link that signs you in.')+'</p>'
       + '<label for="authEmail" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">Email</label>'
@@ -455,11 +610,13 @@ function authStage(){
       + (sc === 'signin-failed'
           ? '<div style="margin-top:16px;padding:14px 16px;border:1px solid var(--hair3);border-radius:4px;font-size:13.5px;line-height:1.6;color:var(--fg2)">We couldn&#39;t send that email. Try again, or write to <a href="mailto:info@botlien.com" style="font-weight:600">info@botlien.com</a>.</div>' : '')
       + '<div style="display:flex;align-items:center;gap:16px;margin:32px 0"><div style="flex:1;height:1px;background:var(--hair)"></div><span style="font-size:12px;color:var(--fg3)">or</span><div style="flex:1;height:1px;background:var(--hair)"></div></div>'
-      + '<button type="button" data-act="googleStart" class="hv-ghost" style="width:100%;padding:14px 22px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:10px">'+ic('globe',17)+'Continue with Google</button>'
+      + '<button type="button" data-act="googleStart" class="hv-ghost" style="width:100%;padding:14px 22px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:10px">'+ic('globe',17)+(isNew?'Sign up with Google':'Continue with Google')+'</button>'
       + '<div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--hair)">'
         + '<span data-act="sampleData" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">See a real statement first, no account</span>'
         + '<div style="font-size:12.5px;color:var(--fg3);margin-top:8px;line-height:1.6">A five robot restaurant, one full month, every figure live. It is the fastest way to decide whether this is worth your export.</div></div>'
-      + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:28px 0 0">Owners open Botlien monthly. A password used twelve times a year is a reset twelve times a year, so there isn&#39;t one. An email we don&#39;t recognize creates an account, unless your company already has one.</p>';
+      + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:28px 0 0">'+(isNew
+          ? 'Already have an account? <span data-act="authScreen" data-key="signin" style="color:var(--fg1);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Sign in instead</span>, the same link either way.'
+          : 'Owners open Botlien monthly. A password used twelve times a year is a reset twelve times a year, so there isn&#39;t one. An email we don&#39;t recognize creates an account, unless your company already has one.')+'</p>';
   }
 
   if (sc === 'check'){
@@ -485,13 +642,30 @@ function authStage(){
       + '<div style="font-size:16px;font-weight:600;color:var(--fg2)">Signing you in…</div></div>';
   }
 
-  const STEP_OF = { 'landed-new':1, 'first-run-2':2, 'first-run-3':3, 'first-run-4':4 };
+  // 'landed-info' and 'landed-new' are the primary path now: who you are,
+  // then business type, then straight to import (its own unnumbered screen).
+  // first-run-2/3/4 stay addressable via ?screen= for reference, they are
+  // just not chained into anymore.
+  const ONBOARD_STEPS = 2;
+  const STEP_OF = { 'landed-info':1, 'landed-new':2, 'first-run-2':3, 'first-run-3':4, 'first-run-4':5 };
   if (STEP_OF[sc]){
-    const n = STEP_OF[sc];
+    const n = Math.min(STEP_OF[sc], ONBOARD_STEPS);
     body += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:18px">'
-      + [1,2,3,4].map(i => '<div style="height:3px;flex:1;background:'+(i<=n?'var(--ink)':'var(--hair2)')+'"></div>').join('')
+      + Array.from({length:ONBOARD_STEPS},(_,idx) => idx+1).map(i => '<div style="height:3px;flex:1;background:'+(i<=n?'var(--ink)':'var(--hair2)')+'"></div>').join('')
       + '</div>'
-      + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:14px">Step '+n+' of 4 · first time here</div>';
+      + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:14px">Step '+n+' of '+ONBOARD_STEPS+' · first time here</div>';
+  }
+
+  if (sc === 'landed-info'){
+    const nameOk = S.ownerName.trim().length > 0;
+    body += '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">Tell us who this is for</h1>'
+      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 28px">So the statement and any emails know who to talk to. Nothing here changes a number.</p>'
+      + '<label for="ownerName" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">Your name</label>'
+      + '<input id="ownerName" type="text" placeholder="Sam Ortega" value="'+esc(S.ownerName)+'" style="width:100%;font-size:15px;color:var(--fg1);background:transparent;padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;margin-bottom:'+(S.infoTouched && !nameOk ? '4' : '26')+'px">'
+      + (S.infoTouched && !nameOk ? '<div style="font-size:12.5px;font-weight:600;color:var(--fg1);margin-bottom:22px">We need something to call you.</div>' : '')
+      + '<label for="businessName" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">Business name <span style="font-weight:500;color:var(--fg3)">· optional</span></label>'
+      + '<input id="businessName" type="text" placeholder="Harbor Grill" value="'+esc(S.businessName)+'" style="width:100%;font-size:15px;color:var(--fg1);background:transparent;padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;margin-bottom:28px">'
+      + '<button type="button" data-act="infoContinue" class="hv-dim" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:pointer">Continue</button>';
   }
 
   if (sc === 'landed-new'){
@@ -508,7 +682,7 @@ function authStage(){
       + (p >= 0
         ? '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
           + '<div style="font-size:14px;color:var(--fg1);line-height:1.7;margin-bottom:10px">'+PROMISE[p][0]+'</div>'
-          + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12px;color:var(--fg2);overflow-x:auto;white-space:nowrap">'+PROMISE[p][1]+'</div></div>'
+          + '<div style="font-family:inherit;font-size:12px;color:var(--fg2);overflow-x:auto;white-space:nowrap">'+PROMISE[p][1]+'</div></div>'
         : '')
       + '<button type="button" data-act="onboardContinue" class="hv-dim" style="display:inline-flex;align-items:center;gap:9px;padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:'+(p>=0?'pointer':'default')+';opacity:'+(p>=0?1:0.4)+'">'
       + (p>=0 ? 'Continue as '+ONBOARD_BUSINESSES[p][0].toLowerCase() : 'Choose one to continue')+'</button>';
@@ -565,7 +739,7 @@ function authStage(){
       + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">Shared: robot model, kind of work, runs per robot, coverage. Never shared: your name, your address, your invoices, your wage, anything a person could trace back to you. You get the comparison only while you contribute to it.</div></div></div>'
       + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
         + '<div style="font-size:12px;font-weight:700;color:var(--fg3);margin-bottom:8px">What it looks like on your statement</div>'
-        + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' venues<br>cohort: '+BENCHMARK.cohort+'</div></div>'
+        + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' venues<br>cohort: '+BENCHMARK.cohort+'</div></div>'
       + '<button type="button" data-act="finishFirstRun" class="hv-dim" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:pointer">'+(S.benchmarkOptIn?'Finish and import my usage':'Finish without the benchmark')+'</button>'
       + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'
       + (S.invitesSent ? S.invitesSent + (S.invitesSent === 1 ? ' invite goes out' : ' invites go out') + ' when you finish. ' : '')
@@ -642,6 +816,7 @@ function authStage(){
 /* ─────────────────────────  APP VIEW  ───────────────────────── */
 
 function appRail(){
+  const collapsed = S.railCollapsed;
   const nav = (k) => ({
     bg: S.view === k ? 'var(--ghost2)' : 'transparent',
     fg: S.view === k ? 'var(--fg1)' : 'var(--fg2)',
@@ -649,13 +824,19 @@ function appRail(){
   });
   const item = (k, icon, label, extra) => {
     const n = nav(k);
-    return '<div data-act="go" data-view="'+k+'" class="hv-fg1" style="display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'+ic(icon,19)+label+(extra||'')+'</div>';
+    const justify = collapsed ? 'justify-content:center;' : '';
+    const dot = (collapsed && extra) ? '<span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--ink)"></span>' : '';
+    return '<div data-act="go" data-view="'+k+'" class="hv-fg1" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
+      + ic(icon,19)
+      + (collapsed ? '' : label+(extra||''))
+      + dot
+    + '</div>';
   };
   const badge = '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--fg1)">1</span>';
   const nset = nav('settings');
 
   const site = SITES[S.site];
-  const menu = S.siteMenu
+  const menu = (S.siteMenu && !collapsed)
     ? '<div style="position:absolute;top:64px;left:0;right:0;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:50">'
       + '<div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--fg3);border-bottom:1px solid var(--hair)">Harbor Grill Group</div>'
       + SITES.map((s,i) => '<div data-act="pickSite" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13.5px;font-weight:'+(S.site===i?700:500)+';color:var(--fg1)">'
@@ -663,18 +844,34 @@ function appRail(){
       + '<div data-act="go" data-view="sites" class="hv-ghost" style="padding:11px 14px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">All 3 sites together</div></div>'
     : '';
 
-  return '<aside data-side style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;padding:22px 20px 28px">'
-    + '<div style="position:relative;margin-bottom:34px">'
-    + '<div data-act="toggleSite" class="hv-ghost" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:transparent;border:1px solid var(--hair);border-radius:4px;cursor:pointer">'
+  const toggle = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="'+(collapsed?'Expand':'Collapse')+'" style="display:flex;align-items:center;justify-content:center;width:100%;padding:9px 0;border-radius:4px;cursor:pointer;color:var(--fg3)">'
+    + ic('chevron-down', 16, 'transform:rotate('+(collapsed?'-90deg':'90deg')+')') + '</div>';
+
+  const brand = collapsed
+    ? '<div data-act="toggleSite" class="hv-ghost" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;padding:12px 0;background:transparent;border:1px solid var(--hair);border-radius:4px;cursor:pointer">'
+      + '<img src="'+LOGO+'" alt="Botlien" style="width:22px;height:26px;object-fit:contain;filter:var(--mark)">'
+      + '</div>'
+    : '<div data-act="toggleSite" class="hv-ghost" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 14px;background:transparent;border:1px solid var(--hair);border-radius:4px;cursor:pointer">'
       + '<img src="'+LOGO+'" alt="Botlien" style="width:26px;height:32px;object-fit:contain;filter:var(--mark)">'
       + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden">'
         + '<span style="font-size:15px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+site.name+' · '+site.robots+'</span>'
         + '<span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbor Grill Group</span>'
       + '</div>'
       + ic('chevron-down',15,'margin-left:auto;color:var(--fg3)')
-      + '</div>' + menu + '</div>'
-    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px">'
+      + '</div>';
+
+  // Hamburger only exists below 900px (.bl-mobile-toggle), everything it
+  // opens is the same nav and account rows that already render for desktop,
+  // just hidden by default at that width until this flips the open class.
+  const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-ghost" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:44px;height:44px;flex:none;border:1px solid var(--hair);border-radius:4px;cursor:pointer;color:var(--fg1)">'
+    + ic('equal', 19, S.mobileNavOpen ? 'transform:rotate(90deg)' : '') + '</div>';
+
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;padding:'+(collapsed?'22px 12px 28px':'22px 20px 28px')+'">'
+    + '<div style="position:relative;margin-bottom:16px;display:flex;gap:10px;align-items:stretch">' + brand + mobileToggle + menu + '</div>'
+    + toggle
+    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;margin-top:14px">'
       + item('dash','equal','Coverage')
+      + item('dashv2','equal','Coverage (new)')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
       + item('condition','sliders-horizontal','Condition', '<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--fg1)">1</span>')
@@ -683,33 +880,39 @@ function appRail(){
       + item('start','upload','Import usage')
       + item('states','list','How figures read')
     + '</nav>'
+    // Account and notifications used to live in a topbar of their own,
+    // floating over every page. Moved down here instead: this is the one
+    // spot in the app that is already "who you are and what needs you,"
+    // Settings and Log out were already living right below it.
     + '<div data-side-foot style="margin-top:auto;display:flex;flex-direction:column;gap:4px">'
-      + '<div data-act="go" data-view="settings" class="hv-ghost-fg1" style="display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',19)+'Settings</div>'
-      + '<div data-act="logOut" class="hv-ghost-fg1" style="display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:500;color:var(--fg2)">'+ic('log-out',19)+'Log out</div>'
+      + '<div data-act="go" data-view="alerts" class="hv-fg1" title="'+(collapsed?'Notifications':'')+'" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+(S.view==='alerts'?700:500)+';color:'+(S.view==='alerts'?'var(--fg1)':'var(--fg2)')+';background:'+(S.view==='alerts'?'var(--ghost2)':'transparent')+'">'
+        + ic('bell',19) + (collapsed?'':'Notifications')
+        + '<i style="position:absolute;'+(collapsed?'top:8px;right:8px':'top:13px;right:14px')+';width:7px;height:7px;border-radius:50%;background:var(--ink)"></i>'
+      + '</div>'
+      + '<div data-act="toggleProfile" class="hv-ghost-fg1" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:12px;padding:'+(collapsed?'8px':'8px 10px')+';border-radius:4px;cursor:pointer">'
+        + '<div style="width:30px;height:30px;flex:none;border-radius:4px;background:var(--ink);color:var(--ink-fg);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700">HG</div>'
+        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
+        + (collapsed ? '' : ic('chevron-down',14,'color:var(--fg3);flex:none'))
+        + (S.profileOpen
+          ? '<div style="position:absolute;bottom:calc(100% + 8px);left:0;width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
+            + '<div style="padding:14px 16px;border-bottom:1px solid var(--hair)"><div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Sam Ortega</div><div style="font-size:12px;color:var(--fg3);margin-top:2px">sam@harborgrill.com</div></div>'
+            + '<div data-act="go" data-view="settings" class="hv-ghost" style="padding:12px 16px;font-size:13px;font-weight:600;color:var(--fg1)">Settings</div>'
+            + '<div data-act="logOut" class="hv-ghost" style="padding:12px 16px;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">Log out</div></div>'
+          : '')
+      + '</div>'
+      + '<div data-act="go" data-view="settings" class="hv-ghost-fg1" title="'+(collapsed?'Settings':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',19)+(collapsed?'':'Settings')+'</div>'
+      + '<div data-act="logOut" class="hv-ghost-fg1" title="'+(collapsed?'Log out':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:500;color:var(--fg2)">'+ic('log-out',19)+(collapsed?'':'Log out')+'</div>'
     + '</div></aside>';
-}
-
-function appTopbar(){
-  return '<div style="display:flex;align-items:center;justify-content:flex-end;gap:18px;margin-bottom:18px">'
-    + '<div data-act="go" data-view="alerts" class="hv-ghost" style="position:relative;width:42px;height:42px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--fg1);cursor:pointer" title="Notifications">'
-      + ic('bell',19)
-      + '<i style="position:absolute;top:9px;right:11px;width:7px;height:7px;border-radius:50%;background:var(--ink)"></i></div>'
-    + '<div style="position:relative;display:flex;align-items:center;gap:10px;cursor:pointer" data-act="toggleProfile">'
-      + '<div style="width:42px;height:42px;border-radius:4px;background:var(--ink);color:var(--ink-fg);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">HG</div>'
-      + ic('chevron-down',16,'color:var(--fg3)')
-      + (S.profileOpen
-        ? '<div style="position:absolute;top:52px;right:0;width:264px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:40">'
-          + '<div style="padding:16px 18px;border-bottom:1px solid var(--hair)"><div style="font-size:14px;font-weight:600;color:var(--fg1)">Sam Ortega</div><div style="font-size:12.5px;color:var(--fg3);margin-top:3px">sam@harborgrill.com</div></div>'
-          + '<div data-act="go" data-view="settings" class="hv-ghost" style="padding:13px 18px;font-size:13.5px;font-weight:600;color:var(--fg1)">Settings</div>'
-          + '<div data-act="logOut" class="hv-ghost" style="padding:13px 18px;font-size:13.5px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">Log out</div></div>'
-        : '')
-    + '</div></div>';
 }
 
 function appHeader(){
   const view = S.view;
   const p = PERIODS[S.period];
-  const showExport = view === 'dash' || view === 'robots' || view === 'rates' || view === 'sites';
+  // Picking a reporting period, or being told one is "30 days on record,"
+  // presumes a confirmed fleet with a statement behind it. That's only
+  // true on the actual report pages, so the whole period block (and the
+  // export button, which needs the same thing) is scoped to just those.
+  const showExport = view === 'dash' || view === 'dashv2' || view === 'robots' || view === 'rates' || view === 'sites';
   let ex = '';
   if (showExport){
     ex = '<div style="position:relative">'
@@ -740,29 +943,37 @@ function appHeader(){
       + '<button type="button" data-act="dismissExport" class="hv-fg1" style="padding:8px 12px;border-radius:3px;border:none;background:transparent;color:var(--fg2);cursor:pointer;font-size:12.5px;font-weight:600">Dismiss</button></div>';
   }
 
+  // The period picker (and the "N days on record" line under it) only
+  // makes sense on pages that actually show a period-scoped statement.
+  // Settings, credentials, notifications, condition, and the UI-states
+  // reference page aren't reports, so a date control there is a claim
+  // about data that page doesn't have.
+  const showPeriod = showExport;
+  const periodPicker = !showPeriod ? '' : '<div style="position:relative">'
+      + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
+      + (S.periodMenu
+        ? '<div style="position:absolute;top:48px;right:0;width:300px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
+          + PERIODS.map((q,i) => '<div data-act="pickPeriod" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:'+(i<PERIODS.length-1?'1px solid var(--hair)':'none')+'">'
+            + '<div><div style="font-size:13px;font-weight:'+(S.period===i?700:500)+';color:var(--fg1);font-variant-numeric:tabular-nums">'+q.label+'</div>'
+            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px">'+(q.status==='open'?'Open · figures still moving':q.closed+' · frozen')+'</div></div>'
+            + '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+q.cov.toFixed(2)+'x</span></div>').join('')
+          + '</div>'
+        : '')
+    + '</div>';
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
       + '<h1 style="font-size:clamp(24px,5vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.1;margin:0;color:var(--fg1)">'+COPY[view][0]+'</h1>'
       + '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'
-        + '<div style="position:relative">'
-          + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
-          + (S.periodMenu
-            ? '<div style="position:absolute;top:48px;right:0;width:300px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
-              + PERIODS.map((q,i) => '<div data-act="pickPeriod" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:'+(i<PERIODS.length-1?'1px solid var(--hair)':'none')+'">'
-                + '<div><div style="font-size:13px;font-weight:'+(S.period===i?700:500)+';color:var(--fg1);font-variant-numeric:tabular-nums">'+q.label+'</div>'
-                + '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px">'+(q.status==='open'?'Open · figures still moving':q.closed+' · frozen')+'</div></div>'
-                + '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+q.cov.toFixed(2)+'x</span></div>').join('')
-              + '</div>'
-            : '')
-        + '</div>'
+        + periodPicker
         + ex
       + '</div></div>'
-    + '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>'
-    + '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · 30 days of telemetry on record. Lease invoices prorated to the same period.</p>'
-    + '<div style="display:inline-flex;align-items:center;gap:9px;margin:0 0 32px;font-size:12px;font-weight:600;color:var(--fg2)">'
-      + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
-      + (p.status==='open'
-        ? 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.'
-        : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>'
+    + (COPY[view][1] ? '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>' : '')
+    + (!showPeriod ? '' :
+      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · 30 days of telemetry on record. Lease invoices prorated to the same period.</p>'
+      + '<div style="display:inline-flex;align-items:center;gap:9px;margin:0 0 32px;font-size:12px;font-weight:600;color:var(--fg2)">'
+        + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
+        + (p.status==='open'
+          ? 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.'
+          : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>')
     + banner;
 }
 
@@ -794,7 +1005,7 @@ function sensitivityBlock(){
       + '<input id="sensRange" type="range" min="15" max="60" step="1" value="'+t+'" style="flex:1;min-width:240px;accent-color:var(--fg1)" aria-label="Tray runs a person completes per hour">'
       + '<div style="font-variant-numeric:tabular-nums;font-size:14px;color:var(--fg1);white-space:nowrap"><b id="sensT" style="font-weight:700">'+t+'</b> runs per hour</div>'
     + '</div>'
-    + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:13px;color:var(--fg1);line-height:1.9;overflow-x:auto;white-space:nowrap;padding-bottom:4px">'
+    + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.9;overflow-x:auto;white-space:nowrap;padding-bottom:4px">'
       + '$22.00 / hr ÷ <span id="sensT2">'+t+'</span> runs = <span id="sensRate">'+money(c.rate)+'</span> per run<br>'
       + '12,060 runs x <span id="sensRate2">'+money(c.rate)+'</span> + $4,530.00 cleaning = <span id="sensWork">'+money(c.total)+'</span><br>'
       + '<span id="sensWork2">'+money(c.total)+'</span> / $5,596.00 invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>'
@@ -842,7 +1053,7 @@ function tipsBlock(){
       + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 10px;max-width:88ch">'+t.finding+'</p>'
       + (t.also ? '<p style="font-size:13.5px;line-height:1.7;color:var(--fg2);margin:0 0 10px;max-width:88ch">'+t.also+'</p>' : '')
       + '<p style="font-size:14px;line-height:1.7;color:var(--fg1);margin:0 0 12px;max-width:88ch"><b style="font-weight:700">Do this:</b> '+t.action+'</p>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);line-height:1.7;overflow-x:auto;white-space:nowrap;padding-bottom:2px">'+t.basis+'</div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.7;overflow-x:auto;white-space:nowrap;padding-bottom:2px">'+t.basis+'</div>'
       + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:8px;max-width:88ch">'+t.bound+'</div>'
     + '</div>';
   };
@@ -927,7 +1138,7 @@ function viewDash(){
         + '<div><div style="font-size:clamp(44px,10vw,72px);font-weight:700;letter-spacing:-0.04em;line-height:1;color:var(--fg1);font-variant-numeric:tabular-nums">'+cov.toFixed(2)+'x</div>'
           + '<div style="font-size:13px;font-weight:600;color:var(--fg2);margin-top:8px">'+s.name+' · '+s.robots+' robots</div></div>'
       + '</div></div>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:13px;color:var(--fg1);line-height:1.8;margin-bottom:32px;overflow-x:auto;white-space:nowrap">'
+      + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.8;margin-bottom:32px;overflow-x:auto;white-space:nowrap">'
         + money(s.work)+' / '+money(s.invoice)+' = '+cov.toFixed(2)+'x</div>'
       + '<div style="padding-top:28px;border-top:1px solid var(--hair);max-width:88ch">'
         + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 16px">This demo only carries the full robot-level fleet for Pier 4, so the findings, the sensitivity control and the variance breakdown are on that site. Everything above is '+s.name+'&#39;s own arithmetic.</p>'
@@ -989,6 +1200,441 @@ function viewDash(){
     + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0;max-width:88ch">Botlien prices the work your robots performed, valued at what that work costs to buy elsewhere, against what you pay to lease them. It does not claim revenue, profit, or labor saved, because telemetry cannot show what your business would have done without the robots. Counts come from mission starts reported by the robot, so they read as runs started, not runs completed. Every figure above shows its arithmetic so you can check it by hand.</p></div>';
 }
 
+/* Draft redesign, v2: v1 (see git history / the diff that added this file)
+ * cut the word count but was still one giant number and two bars, which is
+ * closer to a receipt than a dashboard. This pass replaces that with a real
+ * time-series recap (day/week/month, real month data from PERIODS, day/week
+ * interpolated since this mock has no raw daily rows) plus two cards an
+ * owner opening this daily would actually want: which robot needs attention
+ * right now, and where the work is coming from. Card language and layout
+ * lifted from ui.shadcn.com's block patterns, small caps label, big number,
+ * one thin line of context, nothing paragraph-length. */
+
+/* Newest-first, and only as many bars as have actually happened. The open
+ * period is 30 real days old, so day view gets 30 real bars and week view
+ * gets the 4 real weeks inside it, dense, like an actual usage chart. Month
+ * view gets exactly one bar, because exactly one month has happened, that
+ * is not a bug to hide, it is the honest shape of a brand new account. Every
+ * bar is real or a fair reading of a real range, none of it is invented
+ * future history. Index 0 is always the current point, on the left; the
+ * next real point lands there and pushes everything else one slot right. */
+function recapSeries(grain){
+  if (grain === 'month'){
+    const p = PERIODS[0];
+    return [{ label: p.label.split(' ')[0], value: p.cov }];
+  }
+  const n = grain === 'week' ? 4 : 30;
+  const start = grain === 'week' ? 2.10 : 2.22;
+  const end = 2.38;
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const t = i / (n - 1);
+    const wave = Math.sin(i * (grain === 'week' ? 1.1 : 0.85)) * (grain === 'week' ? 0.05 : 0.08);
+    out.push({ label: grain === 'week' ? 'W'+(i+1) : String(i+1), value: Math.max(0.5, start + (end - start) * t + wave) });
+  }
+  out[out.length - 1].value = end;
+  return out.reverse();
+}
+
+/* Plain bar chart, no library, this file has none and stays that way. Every
+ * shadcn/Recharts bar example in their own gallery skips gridlines entirely:
+ * one confident bar color, generous top rounding, bars sitting straight on
+ * an implied baseline, nothing else competing for attention. Copied that
+ * directly rather than dressing the chart up with lines it does not need.
+ * The one thing this chart has that theirs don't, a breakeven reference at
+ * 1.00x, stays, but as close to invisible as it can be while still reading. */
+function barChart(points, opts){
+  opts = opts || {};
+  // Compact is the default footprint now, the same scale as the utilization
+  // area chart next to it, not a full-bleed hero. Only widen it on purpose.
+  const compact = opts.compact !== false;
+  const w = 340, h = compact ? 92 : 168, padL = 2, padR = 26, padB = compact ? 18 : 26, r = compact ? 3 : 5;
+  const fAxis = compact ? 9.5 : 11, fLine = compact ? 9 : 10;
+  const vals = points.map(p => p.value);
+  const max = Math.max.apply(null, vals) * 1.14;
+  const baseline = h - padB;
+  const bw = (w - padL - padR) / points.length;
+  const barW = Math.max(3, bw * (points.length > 15 ? 0.56 : 0.5));
+  const yFor = (v) => baseline - (v / max) * baseline;
+  const lineVisible = max > 1;
+  const lineY = yFor(1);
+
+  // A label under every bar, like the reference, would be unreadable at 30
+  // bars, so it thins to roughly six evenly spaced ticks the way minTickGap
+  // does in Recharts. The current bar always keeps its label.
+  const labelStep = Math.max(1, Math.round(points.length / 6));
+
+  // Axis labels stay in the background SVG, that text scales safely because
+  // the viewBox matches the element's own aspect-ratio exactly (see below).
+  // The current period sits at index 0, on the left; the hover card on the
+  // bar itself carries its value now, so nothing needs to sit above it.
+  let axisText = '';
+  points.forEach((p, i) => {
+    if (i === 0 || i % labelStep === 0){
+      const x = padL + i * bw + bw / 2;
+      axisText += '<text x="'+x.toFixed(1)+'" y="'+(h-6)+'" font-size="'+fAxis+'" fill="var(--fg3)" text-anchor="middle">'+esc(p.label)+'</text>';
+    }
+  });
+
+  // The bars themselves are real HTML, not SVG, positioned in percent so
+  // they track the background exactly. That is what lets each one carry a
+  // proper hover card, shadcn's HoverCard pattern, styled with real CSS
+  // instead of the slow, plain native title tooltip this used to lean on.
+  let bars = '';
+  points.forEach((p, i) => {
+    const x = padL + i * bw + (bw - barW) / 2;
+    const y = yFor(p.value);
+    const barH = Math.max(2, baseline - y);
+    const rr = Math.min(r, barW / 2, barH);
+    bars += '<div class="bl-bar-wrap" style="position:absolute;left:'+(x/w*100).toFixed(2)+'%;width:'+(barW/w*100).toFixed(2)+'%;top:'+(y/h*100).toFixed(2)+'%;height:'+(barH/h*100).toFixed(2)+'%">'
+      + '<div style="position:absolute;inset:0;background:var(--fg1);border-radius:'+rr.toFixed(1)+'px '+rr.toFixed(1)+'px 0 0;cursor:default"></div>'
+      + '<div class="bl-bar-tip"><div style="font-size:12px;font-weight:700;color:var(--fg1)">'+esc(p.label)+'</div>'
+        + '<div style="font-size:11.5px;color:var(--fg2);margin-top:2px">'+p.value.toFixed(2)+'x coverage</div></div>'
+    + '</div>';
+  });
+
+  // No preserveAspectRatio="none" on a mismatched box here: that was
+  // stretching X and Y by different factors whenever the card was wider
+  // than the chart was drawn for, which is what fattened the bars and
+  // smeared the month labels sideways. The viewBox matches this element's
+  // own locked aspect-ratio, so the scale stays uniform as it resizes.
+  return '<div style="position:relative;width:100%;aspect-ratio:'+w+'/'+h+'">'
+    + '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0;overflow:visible;display:block">'
+      + (lineVisible ? '<line x1="0" y1="'+lineY.toFixed(1)+'" x2="'+w+'" y2="'+lineY.toFixed(1)+'" stroke="var(--hair2)" stroke-width="1"></line>'
+          + '<text x="'+w+'" y="'+(lineY-5).toFixed(1)+'" font-size="'+fLine+'" fill="var(--fg3)" text-anchor="end">1.00x</text>' : '')
+      + axisText
+    + '</svg>'
+    + bars
+  + '</div>';
+}
+
+/* Utilization has no history surfaced anywhere in the app today, just the
+ * current 36%. An area chart (the exact shape ui.shadcn.com's chart gallery
+ * leads with) is the right shape for "one continuous quantity over time",
+ * versus the bar chart above, which is right for "discrete comparable
+ * periods". Same reasoning shadcn's own docs give for picking area vs bar. */
+function utilSeries(){
+  const days = 14, end = 36;
+  const out = [];
+  for (let i = 0; i < days; i++){
+    const t = i / (days - 1);
+    const wave = Math.sin(i * 0.7) * 5.5;
+    out.push({ label: 'D'+(i+1), value: Math.max(4, Math.min(100, 24 + 10*t + wave)) });
+  }
+  out[out.length - 1].value = end;
+  return out;
+}
+
+function areaChart(points, opts){
+  opts = opts || {};
+  const w = 340, h = 88, padB = 4;
+  const domainMax = opts.max || Math.max.apply(null, points.map(p => p.value)) * 1.2;
+  const stepX = w / (points.length - 1);
+  const yFor = (v) => (h - padB) - (v / domainMax) * (h - padB);
+  const coords = points.map((p, i) => [i*stepX, yFor(p.value)]);
+  const line = coords.map((c,i) => (i===0?'M':'L')+c[0].toFixed(1)+' '+c[1].toFixed(1)).join(' ');
+  const area = line + ' L '+w+' '+h+' L 0 '+h+' Z';
+  const gid = 'ag'+Math.round(domainMax);
+  const last = coords[coords.length-1];
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="aspect-ratio:'+w+'/'+h+';overflow:visible;display:block">'
+    + '<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="var(--fg1)" stop-opacity="0.16"></stop>'
+      + '<stop offset="100%" stop-color="var(--fg1)" stop-opacity="0"></stop>'
+    + '</linearGradient></defs>'
+    + '<path d="'+area+'" fill="url(#'+gid+')"></path>'
+    + '<path d="'+line+'" fill="none" stroke="var(--fg1)" stroke-width="1.75"></path>'
+    + '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="3" fill="var(--fg1)"></circle>'
+  + '</svg>';
+}
+
+// Badge, shadcn's small status-pill pattern: a filled variant for the state
+// that needs attention, an outlined one for everything settled.
+function badge(text, tone){
+  const filled = tone === 'open';
+  return '<span style="display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2.5px 7px;border-radius:3px;'
+    + (filled ? 'background:var(--ink);color:var(--ink-fg)' : 'border:1px solid var(--hair2);color:var(--fg3)')
+    + '">'+text+'</span>';
+}
+
+// Closed periods only, the open one is still moving and would misstate an
+// average or a "best" claim while it settles.
+function periodStats(){
+  const closed = PERIODS.filter(p => p.status === 'closed');
+  const avg = closed.reduce((s,p) => s + p.cov, 0) / closed.length;
+  const best = closed.reduce((a,b) => b.cov > a.cov ? b : a);
+  return { avg, best, open: PERIODS[0] };
+}
+
+function statRow(label, value, note){
+  return '<div><div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);margin-bottom:4px">'+label+'</div>'
+    + '<div style="font-size:18px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums;line-height:1.2">'+value+'</div>'
+    + (note ? '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px">'+note+'</div>' : '')
+  + '</div>';
+}
+
+// A day-by-day trend needs days, plural, on record, which a fleet confirmed
+// moments ago does not have. Faking a shape here would be worse than the
+// old hardcoded chart, since it would look freshly computed and still be
+// invented. This shows the one real number honestly instead: today's.
+// Says "no history yet" once, here, and nowhere else, the coverage number
+// itself already lives on the KPI card above. Repeating it here too was the
+// redundant version of this card, not an improvement on the fake chart it
+// replaced.
+function recapCard(){
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Coverage over time</div>'
+    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">One period on record, the number above is it. A day-by-day chart and a 6-month average fill in here as more periods close, not before, a chart drawn from one day would be a straight line pretending to be a trend.</div>'
+  + '</div>';
+}
+
+// Utilization needs duration, how many hours a robot actually ran, which is
+// a different number than the run or active-hour COUNT onboarding collects.
+// Nothing asked during onboarding can honestly produce this yet, so it says
+// so instead of showing a number with no real hours behind it.
+function utilizationCard(){
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Utilization</div>'
+    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Needs the robot&#39;s reported duty hours, not just its task count. Available once your export or live connection includes it.</div>'
+  + '</div>';
+}
+
+// The coverage number, its delta, and its methodology, as one dashboard
+// card in the same family as Coverage over time, Utilization, Needs
+// attention, and Where the work is, not free-floating hero text sitting
+// above the grid it belongs in.
+function coverageKpiCard(){
+  const s = computeStatement();
+  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
+  const tag = s.estimate
+    ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
+    : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">first period, no trend yet</span>';
+  const subhead = s.estimate
+    ? (s.manualRevenue > 0
+      ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
+      : money(s.totalInvoice)+' of lease cost from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+'. Add what the work is worth per robot to see a coverage ratio.')
+    : money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased';
+  const detail = s.estimate
+    ? 'One number spread evenly across '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+', not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement, priced at category benchmarks until you set your own numbers.'
+    : 'Replacement cost of the work performed, divided by the lease. Not revenue, not profit, not labor you stopped paying for, just what it would have cost to buy this work another way, priced at category benchmarks until you set your own numbers. Change a robot&#39;s kind of work or exclude one on the confirm screen and this recalculates from those '+s.included.length+' robots, nothing here is fixed.';
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
+      + '<div style="font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</div>'
+      + tag
+    + '</div>'
+    + '<div style="font-size:13px;color:var(--fg2);margin-bottom:14px">'+subhead+'</div>'
+    + '<details class="bl-acc">'
+      + '<summary style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg3)">'
+        + '<span class="chev" style="display:inline-flex">'+ic('chevron-down',13)+'</span>How this number is calculated'
+      + '</summary>'
+      + '<div style="margin-top:10px;font-size:13px;line-height:1.65;color:var(--fg2)">'+detail+'</div>'
+    + '</details>'
+    + (s.estimate ? '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)"><button type="button" data-act="startRealImport" class="hv-dim" style="padding:11px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Import my export</button></div>' : '')
+  + '</div>';
+}
+
+function attentionCard(){
+  const s = computeStatement();
+  const withCov = s.included.filter(r => r.cov !== null);
+  const sorted = withCov.slice().sort((a,b) => b.cov - a.cov);
+  const max = sorted.length ? Math.max.apply(null, sorted.map(r => r.cov)) * 1.05 : 1;
+  const rows = sorted.map(r => {
+    const short = r.cov < 1;
+    const pct = Math.min(100, (r.cov / max) * 100);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0">'
+      + '<span style="width:118px;flex:none;font-size:12.5px;font-weight:600;color:'+(short?'var(--fg1)':'var(--fg2)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</span>'
+      + '<div style="flex:1;height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+(short?'var(--fg1)':'var(--hair3)')+'"></div></div>'
+      + '<span style="width:44px;flex:none;text-align:right;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.cov.toFixed(2)+'x</span>'
+    + '</div>';
+  }).join('');
+  const flagged = sorted.find(r => r.cov < 1);
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:2px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1)">Needs attention</div>'
+      + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:none;border:none;cursor:pointer">All robots →</button>'
+    + '</div>'
+    + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
+    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">No robots included yet.</div>')+'</div>'
+  + '</div>';
+}
+
+function workSplitCard(){
+  const s = computeStatement();
+  const total = s.totalValue;
+  const rows = s.byCategory.map((k, i) => {
+    const pct = total > 0 ? (k.value / total) * 100 : 0;
+    return '<div style="margin-bottom:14px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:600;color:var(--fg1)">'+esc(k.work)+' · '+k.count+' '+(k.count===1?'robot':'robots')+'</span><span style="color:var(--fg2);font-variant-numeric:tabular-nums">'+money(k.value)+'</span></div>'
+      + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+(i===0?'var(--fg1)':'var(--hair3)')+'"></div></div>'
+    + '</div>';
+  }).join('');
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Where the work is</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">Share of work serviced, by kind, this period</div>'
+    + (rows || '<div style="font-size:13px;color:var(--fg3)">No robots included yet.</div>')
+  + '</div>';
+}
+
+// Every block on the dashboard, keyed once, so the dashboard is just "which
+// keys, in what order, hidden or not" rather than a hardcoded page. Adding a
+// block anywhere else in the app later means adding one entry here.
+const DASH_BLOCKS = {
+  kpi:       { label: 'Coverage number',      render: coverageKpiCard },
+  cost:      { label: 'Cost per run',         render: costCard },
+  recap:     { label: 'Coverage over time',   render: recapCard },
+  util:      { label: 'Utilization',          render: utilizationCard },
+  attn:      { label: 'Needs attention',      render: attentionCard },
+  work:      { label: 'Where the work is',    render: workSplitCard },
+  sens:      { label: 'Rate assumption',      render: sensitivityCard },
+  ownbench:  { label: 'Trend vs your own past', render: benchmarkOwnCard },
+  venuebench:{ label: 'Benchmark vs other venues', render: benchmarkVenueCard },
+};
+const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'];
+// 'ownbench' (trend vs your own past) starts hidden, not removed: with one
+// period on record it would say the exact same "no history yet" thing recap
+// already says, right next to it. Reachable any time from Customize, just
+// not cluttering the first look with a duplicate.
+const DASH_HIDDEN_DEFAULT = ['ownbench'];
+let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render
+
+function viewDashV2(){
+  if (S.site !== 0) return viewDash();
+  const hidden = S.dashLayout.filter(id => S.dashHidden.includes(id));
+  const visible = S.dashLayout.filter(id => !S.dashHidden.includes(id));
+  // Real masonry (see layoutDashMasonry below), not a row/column layout.
+  // Grid and flexbox both size a whole row by its tallest member, so a
+  // short card next to a tall one always leaves a gap somewhere, inside
+  // itself if the row stretches, or below it if the row doesn't. A short
+  // card's neighbor below has to wait for the tall card to end either way.
+  // Masonry places each card in whichever column is shortest right now, so
+  // nothing ever waits on a taller sibling. width/position get set by JS
+  // after layout; this starting size is just what paints before that runs.
+  return '<div style="padding:0 0 8px;margin-bottom:56px">'
+    + dashToolbar(hidden)
+    + '<div id="dashGrid" style="position:relative">'
+      + visible.map(dashBlockWrap).join('')
+    + '</div>'
+  + '</div>';
+}
+
+function dashToolbar(hidden){
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'
+    + (S.dashEdit ? hidden.map(id => '<button type="button" data-act="dashShow" data-id="'+id+'" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:var(--ghost);border:1px dashed var(--hair2);border-radius:5px;padding:7px 12px;cursor:pointer">+ '+DASH_BLOCKS[id].label+'</button>').join('') : '')
+    + (S.dashEdit ? '<button type="button" data-act="dashReset" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg3);background:none;border:none;cursor:pointer;padding:8px 6px">Reset layout</button>' : '')
+    + '<button type="button" data-act="toggleDashEdit" class="hv-dim press" style="font-size:12.5px;font-weight:700;color:'+(S.dashEdit?'var(--ink-fg)':'var(--fg1)')+';background:'+(S.dashEdit?'var(--ink)':'transparent')+';border:1px solid var(--hair2);border-radius:5px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px">'
+      + ic('sliders-horizontal',14) + (S.dashEdit?'Done':'Customize')
+    + '</button>'
+  + '</div>';
+}
+
+// Native HTML5 drag-and-drop, drag handle is the whole card in edit mode.
+// Reorder happens once, on drop, not live while dragging over neighbors,
+// that is the version that does not fight its own re-render mid-gesture.
+function dashBlockWrap(id){
+  const block = DASH_BLOCKS[id];
+  if (!block) return '';
+  const edit = S.dashEdit;
+  // Width and position are set by layoutDashMasonry after this paints, not
+  // here. A real strip above the card, not floated on top of it, is what
+  // fixed the other overlap: absolute positioning over the corner was
+  // landing on whatever the card already had there, "All robots →", the
+  // Day/Week/Month tabs, take your pick, this pushes the card down instead.
+  return '<div class="dash-block" data-dash-id="'+id+'" draggable="'+(edit?'true':'false')+'" style="box-sizing:border-box;'+(edit?'cursor:grab;':'')+'">'
+    + (edit
+      ? '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;margin-bottom:8px;background:var(--ghost);border:1px dashed var(--hair2);border-radius:6px">'
+        + '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--fg3);font-size:11.5px;font-weight:600">'+ic('equal',14)+'Drag to reorder</span>'
+        + '<button type="button" data-act="dashHide" data-id="'+id+'" title="Remove from dashboard" style="flex:none;width:24px;height:24px;border-radius:5px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;font-size:14px;line-height:1;color:var(--fg2)">&times;</button>'
+      + '</div>'
+      : '')
+    + '<div style="'+(edit?'pointer-events:none;':'')+'">'+block.render()+'</div>'
+  + '</div>';
+}
+
+// Same interactive slider as the page above, same card frame as everything
+// else here. The paragraph explaining it got cut to one line, the live
+// math trace stays, that is the part that actually earns trust.
+function sensitivityCard(){
+  const base = sensBase();
+  if (!base){
+    return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Every included robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test. This card appears once a per-run or per-pick robot is in the fleet.</div>'
+    + '</div>';
+  }
+  const min = Math.max(1, Math.round(base.benchUnitsPerHour * 0.5));
+  const max = Math.max(min + 1, Math.round(base.benchUnitsPerHour * 2));
+  const t = Math.min(max, Math.max(min, S.throughput));
+  const c = calc(t, base);
+  const be = breakEven(base);
+  const secs = Math.round(3600 / be);
+  const fill = ((t - min) / (max - min) * 100).toFixed(1);
+  const unitLabel = base.unit+'s/hr';
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:18px">Every figure here assumes '+base.benchUnitsPerHour+' '+unitLabel+' for '+esc(base.work.toLowerCase())+' ('+base.domCount+' robot'+(base.domCount===1?'':'s')+'). Drag it and they move with you.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:16px">'
+      + '<input id="sensRange" class="bl-slider" type="range" min="'+min+'" max="'+max+'" step="1" value="'+t+'" style="flex:1;min-width:120px;--bl-fill:'+fill+'%" aria-label="'+esc(base.unit)+'s a person completes per hour">'
+      + '<div style="text-align:right;flex:none">'
+        + '<div style="font-variant-numeric:tabular-nums;font-size:13px;color:var(--fg1);white-space:nowrap"><b id="sensT" style="font-weight:700">'+t+'</b> '+unitLabel+'</div>'
+        + '<div style="font-size:11px;color:var(--fg3);white-space:nowrap">= <b id="sensCovBig" style="color:var(--fg1);font-weight:700">'+c.cov.toFixed(2)+'x</b> coverage</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
+      + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
+      + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
+      + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>'
+    + '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
+      + '<div style="flex:1;min-width:260px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
+      + '<button type="button" data-act="saveThroughput" class="hv-ghost" style="padding:9px 15px;border-radius:5px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--fg1);white-space:nowrap">Use '+t+' as my number</button>'
+    + '</div>'
+    + (S.savedThroughput
+      ? '<div id="savedNote" style="margin-top:14px;padding:12px 14px;border:1px solid var(--hair2);border-radius:5px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Saved. '+t+' '+unitLabel+' applies to '+esc(base.work.toLowerCase())+' going forward.</div>'
+      : '')
+  + '</div>';
+}
+
+function costCard(){
+  const s = computeStatement();
+  if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—','no robots included yet','','')+'</div>';
+  // The dashboard's biggest category by value, since "cost per task" only
+  // means one thing when every included robot bills the same way. A mixed
+  // fleet still gets a real number, just for the work that carries it.
+  const top = s.byCategory[0];
+  const b = BENCH[top.work];
+  const rate = money(b.wageCentsHour / b.humanUnitsPerHour / 100);
+  const label = 'Cost per '+b.unit;
+  const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = $'+(b.wageCentsHour/100).toFixed(2)+'/hr ÷ '+b.humanUnitsPerHour;
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig(label, rate, note, '', '')+'</div>';
+}
+
+// Same reason as Coverage over time: a trend against your own past needs a
+// past. First period, honestly, has none yet.
+function benchmarkOwnCard(){
+  const s = computeStatement();
+  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against your own past</div>'
+      + '<div style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</div>'
+      + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">No prior period to compare yet, this is the first one. Once a second period closes, this becomes a real trend instead of one point.</div>'
+    + '</div>';
+}
+
+// The percentile, median, and cohort size are inherently about OTHER
+// venues' anonymized data, not derivable from this owner's own onboarding
+// answers, so those stay illustrative of the feature. "You" is not: that
+// half is always the real computed number, never the frozen 2.38x.
+function benchmarkVenueCard(){
+  const s = computeStatement();
+  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against venues like yours</div>'
+      + '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">'
+        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+BENCHMARK.percentile+'</span>'
+        + '<span style="font-size:12.5px;color:var(--fg2)">percentile</span></div>'
+      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-top:10px;font-variant-numeric:tabular-nums">You '+covLabel+' · median '+BENCHMARK.median+' · '+BENCHMARK.n+' venues, '+BENCHMARK.cohort+'</div>'
+      + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">Illustrative: the median and cohort size shown are a sample, not computed from your fleet, opting in is what would make this real. A lease at your price is normal for this cohort either way.</div>'
+    + '</div>';
+}
+
 function fig(label, value, note, wrap, noteStyle){
   return '<div style="'+wrap+'">'
     + '<div style="font-size:13px;font-weight:600;color:var(--fg3);margin-bottom:10px">'+label+'</div>'
@@ -1000,7 +1646,7 @@ function fig(label, value, note, wrap, noteStyle){
 // kind, so their robots say so plainly rather than showing an empty meter — a
 // missing input is stated as missing, never rendered as a zero.
 function conditionBlock(r){
-  if(!r.parts) return '<div style="margin-top:14px;font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:11.5px;color:var(--fg3)">consumable life · not reported by '+(r.model||'').split(' ')[0]+'</div>';
+  if(!r.parts) return '<div style="margin-top:14px;font-family:inherit;font-size:11.5px;color:var(--fg3)">consumable life · not reported by '+(r.model||'').split(' ')[0]+'</div>';
   const spent = r.parts.filter(p => p.left <= 0).length;
   const bars = r.parts.map(p => {
     const past = p.left <= 0;
@@ -1013,11 +1659,11 @@ function conditionBlock(r){
     const width = past ? '100%' : Math.max(0, Math.min(100, p.left)) + '%';
     const label = past ? Math.round(-p.left) + '% over' : Math.round(p.left) + '% left';
     return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:9px">'
-      + '<span data-barlabel style="width:104px;flex:none;font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12px;color:var(--fg2)">'+p.name+'</span>'
+      + '<span data-barlabel style="width:104px;flex:none;font-family:inherit;font-size:12px;color:var(--fg2)">'+p.name+'</span>'
       + '<span style="flex:1;min-width:60px;height:8px;border:1px solid var(--hair2);position:relative;display:block">'
         + '<i style="position:absolute;left:0;top:0;bottom:0;width:'+width+';background:'+fill+'"></i></span>'
       + '<span style="width:96px;flex:none;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;font-weight:'+(past?700:400)+';color:'+(past?'var(--fg1)':'var(--fg2)')+'">'+label+'</span>'
-      + '<span style="width:104px;flex:none;text-align:right;font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:11.5px;color:var(--fg3)">'+p.used+'</span></div>';
+      + '<span style="width:104px;flex:none;text-align:right;font-family:inherit;font-size:11.5px;color:var(--fg3)">'+p.used+'</span></div>';
   }).join('');
   const note = spent
     ? 'A part past its rating is work this machine is still doing on borrowed time. Replacing it is not in the figure above.'
@@ -1028,7 +1674,7 @@ function conditionBlock(r){
       + '<span style="font-size:12.5px;color:var(--fg3)">life remaining against the maker&#39;s rating</span></div>'
     + '<div data-bars style="margin-bottom:12px">'+bars+'</div>'
     + '<div style="font-size:13px;line-height:1.6;color:var(--fg2);max-width:86ch">'+note+'</div>'
-    + '<div style="margin-top:10px;font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:11.5px;color:var(--fg3)">also reported · '+r.hand+' of active time hand-driven · battery '+r.temp+'</div>'
+    + '<div style="margin-top:10px;font-family:inherit;font-size:11.5px;color:var(--fg3)">also reported · '+r.hand+' of active time hand-driven · battery '+r.temp+'</div>'
     + '</div>';
 }
 
@@ -1054,7 +1700,7 @@ function viewRobots(){
       + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center">'
         + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
           + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
-        + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+r.eq+'</div>'
+        + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+r.eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
   }).join('');
 
@@ -1103,7 +1749,7 @@ function viewRates(){
             + '<div style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
             + '<div style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.span+'</div>'
             + '<div><div style="font-size:12.5px;color:var(--fg2)">'+r.by+'</div>'
-            + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:11.5px;color:var(--fg3);margin-top:3px">'+r.basis+'</div></div></div>').join('')
+            + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:3px">'+r.basis+'</div></div></div>').join('')
           + '</div></div>'
         : '')
     + '</div>'
@@ -1111,7 +1757,7 @@ function viewRates(){
       + '<span style="font-size:13.5px;color:var(--fg2);flex:1;min-width:280px">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until you replace it.</span>'
       + '<button type="button" data-act="setupBenchmark" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Set your real numbers</button></div>'
   + '</div>'
-  + '<div style="padding:0"><div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:13.5px;color:var(--fg1);line-height:2">$22.00 / hr ÷ 30 runs per hour = $0.73 per run<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div></div>';
+  + '<div style="padding:0"><div style="font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$22.00 / hr ÷ 30 runs per hour = $0.73 per run<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div></div>';
 }
 
 function viewSetup(){
@@ -1127,7 +1773,7 @@ function viewSetup(){
           + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.invoice+'</div></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
           + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
-          + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:11.5px;color:var(--fg3);margin-top:6px">'+r.derive+'</div></div>'
+          + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+r.derive+'</div></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</div>'
           + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.wage+'</div></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</div>'
@@ -1193,7 +1839,52 @@ function howToBlock(){
   + '</div>';
 }
 
+function viewManual(){
+  const count = Number(S.manualCount) || 0;
+  const cost = Number(S.manualCost) || 0;
+  const revenue = Number(S.manualRevenue) || 0;
+  const canSee = count > 0 && cost > 0;
+
+  if (S.manualStage === 'result'){
+    const totalCost = count * cost;
+    const totalRevenue = count * revenue;
+    const cov = totalRevenue > 0 ? totalRevenue / totalCost : null;
+    return '<div style="border:1px solid var(--hair2);border-radius:4px;padding:36px 34px;margin-bottom:32px">'
+      + '<div style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fg3);border:1px solid var(--hair2);border-radius:3px;padding:3px 8px;margin-bottom:16px">Estimate, not measured</div>'
+      + (cov === null
+        ? '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 12px;color:var(--fg1)">'+esc(money(totalCost))+' / mo in lease cost</h2>'
+          + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 24px">Add what the work is worth per robot to see a coverage ratio, or skip that and just track lease cost for now.</p>'
+        : '<h2 style="font-size:40px;font-weight:700;letter-spacing:-0.025em;margin:0 0 12px;color:var(--fg1)">'+cov.toFixed(2)+'x</h2>'
+          + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 24px">'+esc(money(totalRevenue))+' of estimated work against '+esc(money(totalCost))+' in lease cost, from '+count+' robot'+(count===1?'':'s')+' at the numbers you typed in, not from telemetry.</p>')
+      + '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--hair2);border-radius:4px;margin-bottom:26px">'
+        + ic('check',16,'color:var(--fg1);margin-top:2px')
+        + '<div style="font-size:13px;line-height:1.65;color:var(--fg2)">This is a rough placeholder built from what you typed, an average across robots you told us about, not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement.</div></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:12px">'
+        + '<button type="button" data-act="manualToDash" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">See it on my statement</button>'
+        + '<button type="button" data-act="startRealImport" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">Import my export instead</button></div></div>';
+  }
+
+  return '<div style="border:1px solid var(--hair2);border-radius:4px;padding:36px 34px;margin-bottom:32px">'
+    + '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">Tell us the basics instead</h2>'
+    + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 26px">A rough, clearly-labeled estimate while you track down your export. Swap it for the real thing whenever you have the file, nothing here is permanent.</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:24px;margin-bottom:8px">'
+      + '<div><label for="manualCount" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">How many robots</label>'
+        + '<input id="manualCount" type="number" min="1" inputmode="numeric" placeholder="6" value="'+esc(S.manualCount)+'" style="width:100%;font-size:15px;color:var(--fg1);background:transparent;padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none"></div>'
+      + '<div><label for="manualCost" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">What you pay to lease each robot / mo</label>'
+        + '<input id="manualCost" type="number" min="0" inputmode="decimal" placeholder="900" value="'+esc(S.manualCost)+'" style="width:100%;font-size:15px;color:var(--fg1);background:transparent;padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none">'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:6px;line-height:1.5">Your lease, loan, or subscription payment for one robot.</div></div>'
+      + '<div><label for="manualRevenue" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">What you&#39;d pay a person to do that work / mo <span style="font-weight:500">· optional</span></label>'
+        + '<input id="manualRevenue" type="number" min="0" inputmode="decimal" placeholder="2200" value="'+esc(S.manualRevenue)+'" style="width:100%;font-size:15px;color:var(--fg1);background:transparent;padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none">'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:6px;line-height:1.5">A dollar guess, not hours. If a person did what this robot did for a month, what would you pay them? Not your revenue, not the robot&#39;s price.</div></div>'
+    + '</div>'
+    + (S.manualTouched && !canSee ? '<div style="font-size:12.5px;font-weight:600;color:var(--fg1);margin:14px 0 0">Robot count and lease cost are the two we can&#39;t guess.</div>' : '')
+    + '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:26px">'
+      + '<button type="button" data-act="manualSubmit" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">See my rough numbers</button>'
+      + '<button type="button" data-act="manualCancel" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">I found my export</button></div></div>';
+}
+
 function viewStart(){
+  if (S.manualMode) return viewManual();
   let box = '';
   if (S.upload === 'idle'){
     box = '<div style="border:1px dashed var(--hair3);border-radius:4px;padding:64px 40px;text-align:center;margin-bottom:32px">'
@@ -1204,7 +1895,8 @@ function viewStart(){
         + '<button type="button" data-act="uploadGood" class="hv-dim press" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Choose a file</button>'
         + '<button type="button" data-act="sampleData" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">Look around with sample data</button>'
         + '<button type="button" data-act="uploadBad" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">Choose a file we can&#39;t read</button>'
-      + '</div></div>'
+      + '</div>'
+      + '<div style="margin-top:18px"><span data-act="startManual" style="font-size:13px;font-weight:600;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">I can&#39;t get an export right now</span></div></div>'
       + howToBlock();
   }
   if (S.upload === 'loading'){
@@ -1231,9 +1923,9 @@ function viewStart(){
       + '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">We couldn&#39;t read that file</h2>'
       + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 22px">It has no column we recognize as a robot id or a mission start. Export again from Bear Universe or Pudu Cloud without renaming the columns.</p>'
       + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">Columns we accept</div>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);line-height:1.9;margin-bottom:22px;overflow-x:auto;white-space:nowrap">robot_id | robot_name | mission_start_at | mission_type | duration_s | battery_pct</div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.9;margin-bottom:22px;overflow-x:auto;white-space:nowrap">robot_id | robot_name | mission_start_at | mission_type | duration_s | battery_pct</div>'
       + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">What we found instead</div>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:26px;overflow-x:auto;white-space:nowrap">Device,Date,Trips,Notes<br>"Servi patio",08/12/2026,41,"lunch"</div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:26px;overflow-x:auto;white-space:nowrap">Device,Date,Trips,Notes<br>"Servi patio",08/12/2026,41,"lunch"</div>'
       + '<button type="button" data-act="resetUpload" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Try another file</button></div>';
   }
 
@@ -1249,22 +1941,59 @@ function viewStart(){
 
 function viewConfirm(){
   const excludedCount = Object.keys(S.excluded).filter(k => S.excluded[k]).length;
-  return '<div style="padding:0;margin-bottom:40px">'
-    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
-      + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five robots found in that export</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Rename anything you call something else. Exclude what you don&#39;t lease.</span></div>'
-    + CONFIRM.map((c,i) => '<div data-split style="border-top:1px solid var(--hair);padding:20px 4px;display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center">'
-        + '<div><div style="font-size:14px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">'+c.name+'</div>'
+  const included = CONFIRM.filter((c,i) => !S.excluded[i]);
+  const allSameWork = included.length > 1 && included.every(c => c.work === included[0].work);
+  // Reviewing is the one required action, not typing. A robot counts as
+  // reviewed the moment its "kind of work" select is opened, whether or not
+  // the value changes, because looking is what proves the default was seen,
+  // not agreed with by accident. Excluded robots do not need review, they
+  // are not being priced.
+  const needsReview = CONFIRM.map((c,i) => i).filter(i => !S.excluded[i]);
+  const reviewedCount = needsReview.filter(i => S.confirmSeen[i]).length;
+  const allReviewed = reviewedCount === needsReview.length;
+  const left = needsReview.length - reviewedCount;
+
+  const row = (c,i) => {
+    const excl = !!S.excluded[i];
+    const seen = !!S.confirmSeen[i];
+    const work = S.confirmWork[i] ?? c.work;
+    const name = S.confirmName[i] ?? c.name;
+    return '<div data-split style="border-top:1px solid var(--hair);padding:20px 4px;display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:start;opacity:'+(excl?0.5:1)+'">'
+      + '<div>'
+        + '<label style="display:block;font-size:10.5px;font-weight:700;color:var(--fg3);margin-bottom:4px">Call it</label>'
+        + '<input id="confirmName-'+i+'" type="text" value="'+esc(name)+'" style="width:100%;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">'
         + '<div style="font-size:12px;color:var(--fg3);margin-top:6px;font-variant-numeric:tabular-nums">'+c.seen+'</div></div>'
-        + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px">'
-          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:200px;font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">'+c.work+ic('chevron-down',14,'color:var(--fg3)')+'</div>'
-          + '<button type="button" data-act="toggleExclude" data-i="'+i+'" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:'+(S.excluded[i]?'var(--ink)':'transparent')+';color:'+(S.excluded[i]?'var(--ink-fg)':'var(--fg1)')+';cursor:pointer;font-size:12.5px;font-weight:600">'+(S.excluded[i]?'Excluded':'Exclude')+'</button>'
-        + '</div></div>').join('')
+      + '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px">'
+        + '<div style="min-width:200px">'
+          + '<label for="confirmWork-'+i+'" style="display:block;font-size:10.5px;font-weight:700;color:var(--fg3);margin-bottom:4px">Kind of work'+(!excl && !seen ? ' <span style="color:var(--fg1)">· look at this</span>' : '')+'</label>'
+          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid '+(!excl && !seen ? 'var(--fg1)' : 'var(--hair2)')+';outline:none;font-family:inherit;cursor:pointer">'
+            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===work?' selected':'')+'>'+esc(w)+'</option>').join('')
+          + '</select></div>'
+        + '<button type="button" data-act="toggleExclude" data-i="'+i+'" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:'+(excl?'var(--ink)':'transparent')+';color:'+(excl?'var(--ink-fg)':'var(--fg1)')+';cursor:pointer;font-size:12.5px;font-weight:600">'+(excl?'Excluded':'Exclude')+'</button>'
+      + '</div></div>';
+  };
+
+  return '<div style="padding:0;margin-bottom:40px">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px">'
+      + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">'+CONFIRM.length+' robots found in that export</h2>'
+      + '<span style="font-size:13px;color:var(--fg3)">Rename anything you call something else. Exclude what you don&#39;t lease.</span></div>'
+    + (allSameWork ? '<div style="border-left:2px solid var(--fg1);background:var(--ghost2);padding:13px 15px;border-radius:0 4px 4px 0;font-size:13px;color:var(--fg1);line-height:1.6;margin-bottom:22px"><b>All '+included.length+' robots are set to the same kind of work: '+included[0].work+'.</b> That is a default guess, not something read from your export. Fix each one below if this fleet actually does more than one thing.</div>' : '')
+    + '<div style="border-left:2px solid '+(allReviewed?'var(--fg3)':'var(--fg1)')+';background:var(--ghost2);padding:13px 15px;border-radius:0 4px 4px 0;font-size:13px;color:var(--fg1);line-height:1.6;margin-bottom:8px">'
+      + (allReviewed
+        ? 'You&#39;ve looked at all '+needsReview.length+'. Confirm below when ready.'
+        + (S.confirmTriedSubmit ? '' : '')
+        : '<b>Open the &quot;Kind of work&quot; field for each robot below before confirming.</b> '+left+' left. It decides whether a robot is priced per task or per hour, which changes its number by an order of magnitude, so a glance is required, typing is not.')
+    + '</div>'
+    + CONFIRM.map(row).join('')
     + '<div style="margin-top:28px;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
-      + '<button type="button" data-act="go" data-view="setup" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Yes, set my numbers</button>'
-      + '<span style="font-size:13px;color:var(--fg3)">'+(excludedCount === 0
-          ? 'All five will be priced. Nothing is computed until you continue.'
-          : excludedCount+' excluded, so they stay out of every total instead of reading as $0.00.')+'</span></div>'
+      + '<button type="button" data-act="confirmFleet" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700;opacity:'+(allReviewed?1:0.4)+'">Yes, that&#39;s my fleet</button>'
+      + '<span style="font-size:13px;color:var(--fg3)">'+(!allReviewed
+          ? 'Look at '+left+' more to unlock this.'
+          : excludedCount === 0
+            ? 'All '+CONFIRM.length+' will be priced. Nothing is computed until you continue.'
+            : excludedCount+' excluded, so they stay out of every total instead of reading as $0.00.')+'</span></div>'
+    + (S.confirmTriedSubmit && !allReviewed ? '<div style="margin-top:12px;font-size:12.5px;font-weight:600;color:var(--fg1)">Look at the highlighted fields above first, then confirm.</div>' : '')
+    + '<div style="margin-top:18px;font-size:12.5px;color:var(--fg3)">Want to type your own rate, invoice, or wage instead of the benchmark guess? <span data-act="go" data-view="setup" style="color:var(--fg1);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Set your numbers</span>, any time, not required now.</div>'
   + '</div>';
 }
 
@@ -1279,7 +2008,7 @@ function viewBusiness(){
   + (p >= 0
     ? '<div style="border:1px solid var(--hair2);border-radius:4px;padding:24px;margin-bottom:28px">'
       + '<div style="font-size:14.5px;color:var(--fg1);line-height:1.7;margin-bottom:12px">'+PROMISE[p][0]+'</div>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg2);overflow-x:auto;white-space:nowrap">'+PROMISE[p][1]+'</div></div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);overflow-x:auto;white-space:nowrap">'+PROMISE[p][1]+'</div></div>'
     : '')
   + '<button type="button" data-act="businessContinue" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:'+(p>=0?'pointer':'default')+';font-size:14px;font-weight:700;opacity:'+(p>=0?1:0.4)+'">'
   + (p>=0 ? 'Continue as '+BUSINESSES[p][0].toLowerCase() : 'Choose one to continue')+'</button>';
@@ -1287,7 +2016,7 @@ function viewBusiness(){
 
 function viewCreds(){
   return '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:78ch">Bear and Pudu issue API credentials manually, one account at a time, and it can take weeks. We&#39;ll send your vendor the request and the exact scopes we need, and you&#39;ll hear from them directly. Meanwhile the file drop works today and gives you the same statement, history included.</p>'
-    + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:28px;overflow-x:auto;white-space:nowrap">scopes requested: robot.list · robot.status.read · mission.history.read</div>'
+    + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:28px;overflow-x:auto;white-space:nowrap">scopes requested: robot.list · robot.status.read · mission.history.read</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
       + '<button type="button" data-act="sendCreds" class="hv-dim" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700;opacity:'+(S.credSending?0.8:1)+'">'
         + (S.credSending ? spinner(13) : '')
@@ -1301,7 +2030,7 @@ function viewEmpty(){
     + '<p style="font-size:15px;line-height:1.7;color:var(--fg2);margin:0 0 28px">Drop an export and your statement fills in within minutes.</p>'
     + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">'
       + '<button type="button" data-act="go" data-view="start" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Import usage</button>'
-      + '<span data-act="go" data-view="dash" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">See a sample statement</span></div></div>';
+      + '<span data-act="sampleData" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">See a sample statement</span></div></div>';
 }
 
 function viewStates(){
@@ -1312,7 +2041,7 @@ function viewStates(){
     + STATES.map(s => '<div data-split style="border-top:1px solid var(--hair);padding:24px 4px;display:grid;grid-template-columns:minmax(200px,260px) minmax(0,1fr);gap:28px;align-items:start">'
       + '<div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+s.name+'</div>'
       + '<div><div style="font-size:14px;color:var(--fg2);line-height:1.7">'+s.detail+'</div>'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);margin-top:12px;overflow-x:auto;min-width:0;white-space:nowrap">'+s.eq+'</div></div></div>').join('')
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);margin-top:12px;overflow-x:auto;min-width:0;white-space:nowrap">'+s.eq+'</div></div></div>').join('')
   + '</div>'
   + '<div style="padding:0">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
@@ -1356,7 +2085,7 @@ function viewSites(){
           + '<span style="margin-left:auto;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+cov.toFixed(2)+'x</span></div>'
         + '<div data-split style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,1fr);gap:28px;align-items:center">'
           + '<div style="height:10px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+((cov/max)*100).toFixed(1)+'%;background:var(--ink)"></div></div>'
-          + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);overflow-x:auto;white-space:nowrap">'+money(s.work)+' / '+money(s.invoice)+' = '+cov.toFixed(2)+'x</div></div></div>'; }).join('')
+          + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);overflow-x:auto;white-space:nowrap">'+money(s.work)+' / '+money(s.invoice)+' = '+cov.toFixed(2)+'x</div></div></div>'; }).join('')
     + '</div>'
     + '<div style="padding:0">'
       + '<div style="font-size:12px;font-weight:700;color:var(--fg3);margin-bottom:14px">What the spread says</div>'
@@ -1428,7 +2157,7 @@ function viewSettings(){
   + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Data sources</h2>'
     + SOURCES.map(d => '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 2px;border-top:1px solid var(--hair)">'
-      + '<div style="font-family:\'JetBrains Mono\',ui-monospace,monospace;font-size:12.5px;color:var(--fg1);line-height:1.6;min-width:0;overflow-x:auto;white-space:nowrap">'+d.line+'</div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.6;min-width:0;overflow-x:auto;white-space:nowrap">'+d.line+'</div>'
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import another file</button></div>'
 
@@ -1461,6 +2190,7 @@ function viewSettings(){
 function appBody(){
   switch (S.view){
     case 'dash': return viewDash();
+    case 'dashv2': return viewDashV2();
     case 'robots': return viewRobots();
     case 'rates': return viewRates();
     case 'setup': return viewSetup();
@@ -1479,8 +2209,10 @@ function appBody(){
 }
 
 function appStage(){
-  return '<div data-main style="padding:22px 34px 44px 0;min-width:0">'
-    + appTopbar()
+  // appTopbar used to live here, the bell and account avatar floating over
+  // every page. Both moved into the sidebar foot, so this is just padding
+  // now, no header row to reserve space for.
+  return '<div data-main style="padding:36px 34px 44px 0;min-width:0">'
     + '<div data-card style="background:transparent;border:1px solid var(--hair);border-radius:4px;padding:40px 40px 44px">'
       + appHeader()
       + appBody()
@@ -1501,12 +2233,25 @@ function render(){
   const selStart = keepId && 'selectionStart' in active ? active.selectionStart : null;
 
   const onAuth = S.stage === 'auth';
-  const inner = onAuth ? authStage() : appRail() + appStage();
+  // A first-time owner stays out of the app rail clear through import and
+  // confirm: the rail is the product's navigation, and there is nothing to
+  // navigate to until a fleet exists. Content still comes from appStage(),
+  // since 'start' and 'confirm' are real views with real width needs (a
+  // robot table does not fit the 440px sign-in card), just centred in their
+  // own wide column instead of sitting next to the rail. It only appears
+  // once the fleet is actually confirmed (confirmFleet clears S.onboarding).
+  // A returning owner (toApp) never sets it, so they see the rail immediately.
+  const inOnboarding = S.stage === 'app' && S.onboarding;
+  const inner = onAuth
+    ? authStage()
+    : inOnboarding
+      ? '<div data-stage style="padding:56px 34px 80px;display:flex;justify-content:center"><div style="width:100%;max-width:860px">' + appStage() + '</div></div>'
+      : appRail() + appStage();
 
   /* The app keeps its rail, because navigation between Coverage, Robots, Rates
-     and Settings is the product. Auth has nowhere to navigate to, so it gets
-     the whole width and the card centres in it. */
-  const cols = onAuth ? 'minmax(0,1fr)' : '264px minmax(0,1fr)';
+     and Settings is the product. Auth (and onboarding) has nowhere to
+     navigate to, so it gets the whole width and the card centres in it. */
+  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '72px minmax(0,1fr)' : '264px minmax(0,1fr)');
 
   document.getElementById('root').innerHTML =
     '<div style="position:relative;min-height:100vh;background:var(--page);color:var(--fg1)">'
@@ -1514,6 +2259,7 @@ function render(){
     + inner + '</div></div>';
 
   applySensitivity();
+  layoutDashMasonry();
 
   if (keepId){
     const el = document.getElementById(keepId);
@@ -1539,29 +2285,87 @@ function render(){
    event would replace the range element mid-drag and the thumb would stop
    tracking the pointer. */
 function applySensitivity(){
-  const c = calc(S.throughput);
   const put = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  put('sensT', S.throughput);
-  put('sensT2', S.throughput);
-  put('sensRate', money(c.rate));
-  put('sensRate2', money(c.rate));
-  put('sensWork', money(c.total));
-  put('sensWork2', money(c.total));
-  put('sensCov', c.cov.toFixed(2) + 'x');
-  put('heroWork', money(c.total));
-  put('heroCov', c.cov.toFixed(2) + 'x');
-  put('barWork', money(c.total));
-  put('figWork', money(c.total));
-  put('kindRate', money(c.rate));
-  put('kindWork', money(c.trayWork));
-  put('kindCov', c.trayCov.toFixed(2) + 'x');
+  // The ids below are shared between two pages that are never mounted at
+  // once, "Coverage (new)" uses a real base from sensBase(), the legacy
+  // "Coverage" page always uses calc()'s frozen default. Which one owns the
+  // shared ids depends on which page is actually on screen right now.
+  const onNew = S.view === 'dashv2';
+  const newBase = onNew ? sensBase() : null;
+  if (!onNew || newBase){
+    const c = calc(S.throughput, newBase);
+    put('sensT', S.throughput);
+    put('sensT2', S.throughput);
+    put('sensRate', money(c.rate));
+    put('sensRate2', money(c.rate));
+    put('sensWork', money(c.total));
+    put('sensWork2', money(c.total));
+    put('sensCov', c.cov.toFixed(2) + 'x');
+    put('sensCovBig', c.cov.toFixed(2) + 'x');
+    const slider = document.getElementById('sensRange');
+    if (slider) slider.style.setProperty('--bl-fill', ((S.throughput - 15) / (60 - 15) * 100) + '%');
+    const btn = document.querySelector('[data-act="saveThroughput"]');
+    if (btn) btn.textContent = 'Use ' + S.throughput + ' as my number';
+  }
+  // heroWork/heroCov/barWork/figWork/kindRate/kindWork/kindCov/barLease/
+  // heroSentence exist only on the legacy page, which never calls
+  // computeStatement, so these stay on the frozen default on purpose.
+  const cLegacy = calc(S.throughput);
+  put('heroWork', money(cLegacy.total));
+  put('heroCov', cLegacy.cov.toFixed(2) + 'x');
+  put('barWork', money(cLegacy.total));
+  put('figWork', money(cLegacy.total));
+  put('kindRate', money(cLegacy.rate));
+  put('kindWork', money(cLegacy.domWork));
+  put('kindCov', (cLegacy.domWork / TRAY_INVOICE).toFixed(2) + 'x');
   const bar = document.getElementById('barLease');
-  if (bar) bar.style.width = Math.min(100, (TOTAL_INVOICE / c.total) * 100).toFixed(1) + '%';
+  if (bar) bar.style.width = Math.min(100, (TOTAL_INVOICE / cLegacy.total) * 100).toFixed(1) + '%';
   const sent = document.getElementById('heroSentence');
-  if (sent) sent.textContent = 'Your six robots performed ' + money(c.total) + ' of work over 30 days, valued at what that same work costs to buy from a person or a service. You paid $5,596.00 to lease them.';
-  const btn = document.querySelector('[data-act="saveThroughput"]');
-  if (btn) btn.textContent = 'Use ' + S.throughput + ' as my number';
+  if (sent) sent.textContent = 'Your six robots performed ' + money(cLegacy.total) + ' of work over 30 days, valued at what that same work costs to buy from a person or a service. You paid $5,596.00 to lease them.';
 }
+
+/* Real masonry for the dashboard grid. Grid and flexbox both size a row by
+ * its tallest member, whatever else is in that row either stretches to
+ * match it (dead space inside the short card) or stops short of it (dead
+ * space below the short card, waiting for the row to clear). Neither is
+ * fixable without changing what "a row" means, so this drops rows
+ * entirely: each card gets measured at its real width, then placed at the
+ * top of whichever column is shortest right now. A short card's neighbor
+ * lands right under it, it never waits on a taller card two columns over. */
+function layoutDashMasonry(){
+  const container = document.getElementById('dashGrid');
+  if (!container) return;
+  const cards = Array.prototype.slice.call(container.children);
+  if (!cards.length){ container.style.height = '0px'; return; }
+
+  const gap = 20, minColWidth = 320;
+  const width = container.clientWidth;
+  if (!width){ return; } // not laid out yet (display:none ancestor, etc.)
+  const cols = Math.max(1, Math.min(cards.length, Math.floor((width + gap) / (minColWidth + gap))));
+  const colWidth = (width - gap * (cols - 1)) / cols;
+
+  cards.forEach(card => {
+    card.style.position = 'absolute';
+    card.style.width = colWidth + 'px';
+  });
+  const colHeights = new Array(cols).fill(0);
+  cards.forEach(card => {
+    let ci = 0;
+    for (let i = 1; i < cols; i++){ if (colHeights[i] < colHeights[ci]) ci = i; }
+    card.style.left = (ci * (colWidth + gap)) + 'px';
+    card.style.top = colHeights[ci] + 'px';
+    colHeights[ci] = colHeights[ci] + card.offsetHeight + gap;
+  });
+  container.style.height = (Math.max.apply(null, colHeights) - gap) + 'px';
+}
+// Column count depends on viewport width, so a resize can change it. No
+// masonry library here to subscribe to, a short debounce on window resize
+// is the whole mechanism.
+let dashResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(dashResizeTimer);
+  dashResizeTimer = setTimeout(layoutDashMasonry, 120);
+});
 
 /* ─────────────────────────  BEHAVIOUR  ───────────────────────── */
 
@@ -1582,7 +2386,7 @@ function toCheck(again){
 function signInAs(kind){
   clearTimeout(timers.signin);
   set({ screen:'signingin' });
-  timers.signin = setTimeout(() => set({ screen: kind === 'new' ? 'landed-new' : 'landed-returning' }), 1400);
+  timers.signin = setTimeout(() => set({ screen: kind === 'new' ? 'landed-info' : 'landed-returning' }), 1400);
 }
 
 function submitEmail(){
@@ -1621,10 +2425,17 @@ function download(kind){
 }
 
 function goView(view, extra){
-  set(Object.assign({ stage:'app', view, profileOpen:false, exportMenu:false, exportDone:false, exportFailed:false, exportFile:'' }, extra || {}));
+  set(Object.assign({ stage:'app', view, profileOpen:false, exportMenu:false, exportDone:false, exportFailed:false, exportFile:'', mobileNavOpen:false }, extra || {}));
 }
 
 const ACTIONS = {
+  setRecapGrain: (el) => set({ recapGrain: el.dataset.grain }),
+  toggleRail: () => set({ railCollapsed: !S.railCollapsed }),
+  toggleMobileNav: () => set({ mobileNavOpen: !S.mobileNavOpen }),
+  toggleDashEdit: () => set({ dashEdit: !S.dashEdit }),
+  dashHide: (el) => set({ dashHidden: S.dashHidden.concat(el.dataset.id) }),
+  dashShow: (el) => set({ dashHidden: S.dashHidden.filter(id => id !== el.dataset.id) }),
+  dashReset: () => set({ dashLayout: DASH_ORDER_DEFAULT.slice(), dashHidden: DASH_HIDDEN_DEFAULT.slice() }),
   /* auth */
   authScreen: (el) => {
     const key = el.dataset.key;
@@ -1635,7 +2446,10 @@ const ACTIONS = {
     set({ screen:key });
   },
   submitEmail,
-  googleStart: () => signInAs(S.email ? 'returning' : 'new'),
+  // Which tab is selected is the owner's own stated intent, "Sign in" or
+  // "Sign up", so that decides new-vs-returning. Whether they happened to
+  // type an email first does not, Google does not need it typed at all.
+  googleStart: () => signInAs(S.screen === 'signin-new' ? 'new' : 'returning'),
   resend: () => { if (S.resendLeft === 0) toCheck(true); },
   differentEmail: () => { clearInterval(timers.resend); set({ screen:'signin', sentAgain:false, touched:false }); },
   openLinkReturning: () => signInAs('returning'),
@@ -1643,7 +2457,17 @@ const ACTIONS = {
   goExpired: () => set({ screen:'expired' }),
   sendNewLink: () => toCheck(true),
   onboardPick: (el) => set({ onboardPicked: Number(el.dataset.i) }),
-  onboardContinue: () => { if (S.onboardPicked >= 0) set({ screen:'first-run-2', picked:S.onboardPicked }); },
+  infoContinue: () => {
+    if (S.ownerName.trim().length === 0){ set({ infoTouched:true }); return; }
+    set({ screen:'landed-new' });
+  },
+  onboardContinue: () => { if (S.onboardPicked >= 0) goView('start', { picked:S.onboardPicked, upload:'idle', onboarding:true }); },
+  confirmFleet: () => {
+    const needsReview = CONFIRM.map((c,i) => i).filter(i => !S.excluded[i]);
+    const allReviewed = needsReview.every(i => S.confirmSeen[i]);
+    if (!allReviewed){ set({ confirmTriedSubmit:true }); return; }
+    goView('dashv2', { onboarding:false, manualApplied:false });
+  },
   siteCount: (el) => set({ siteCount: el.dataset.v }),
   firstRun3: () => set({ screen:'first-run-3' }),
   toggleInvite: (el) => {
@@ -1655,9 +2479,14 @@ const ACTIONS = {
   firstRun4: () => set({ screen:'first-run-4', invitesSent: invitesReady().length }),
   skipInvites: () => set({ screen:'first-run-4', invites:{}, inviteEmail:{}, invitesSent:0 }),
   toggleBenchmark: () => set({ benchmarkOptIn: !S.benchmarkOptIn }),
-  finishFirstRun: () => goView('start', { upload:'idle' }),
+  finishFirstRun: () => goView('start', { upload:'idle', onboarding:true }),
   requestAccess: () => set({ screen:'check', sentAgain:false }),
-  sampleData: () => goView('dash'),
+  // Reachable both pre-signin (already fine, onboarding was never true) and
+  // mid-onboarding via the "what a statement looks like" preview link, which
+  // must not carry a stale onboarding:true into a screen meant to show the
+  // full app, same bug shape as googleStart, a flag left to whatever it
+  // already was instead of being decided at the point that actually matters.
+  sampleData: () => goView('dashv2', { onboarding:false, manualApplied:false }),
   notInDemo: (el) => set({ notInDemo: S.notInDemo === el.dataset.what ? '' : el.dataset.what }),
   dropSession: (el) => {
     const i = Number(el.dataset.i);
@@ -1665,11 +2494,11 @@ const ACTIONS = {
   },
 
   /* bridge */
-  toApp: () => goView('dash'),
+  toApp: () => goView('dashv2', { onboarding:false, manualApplied:false }),
   logOut: () => {
     clearInterval(timers.resend); clearInterval(timers.upload);
     set({ stage:'auth', screen:'signedout', email:'', touched:false, sending:false,
-          onboardPicked:-1, picked:-1, profileOpen:false, view:'dash', authSessions: SESSIONS.slice(1) });
+          onboardPicked:-1, picked:-1, profileOpen:false, view:'dashv2', authSessions: SESSIONS.slice(1) });
   },
 
   /* app */
@@ -1696,11 +2525,23 @@ const ACTIONS = {
     if (S.saving) return;
     set({ saving:true });
     clearTimeout(timers.save);
-    timers.save = setTimeout(() => set({ saving:false, view:'dash' }), 800);
+    timers.save = setTimeout(() => set({ saving:false, view:'dashv2' }), 800);
   },
   uploadGood: () => runUpload(),
   uploadBad: () => set({ upload:'bad' }),
   resetUpload: () => set({ upload:'idle', upPct:0 }),
+  startManual: () => set({ manualMode:true, manualStage:'form', manualTouched:false }),
+  manualCancel: () => set({ manualMode:false, manualStage:'form', manualTouched:false }),
+  manualSubmit: () => {
+    const ok = (Number(S.manualCount) || 0) > 0 && (Number(S.manualCost) || 0) > 0;
+    if (!ok){ set({ manualTouched:true }); return; }
+    set({ manualStage:'result' });
+  },
+  manualToDash: () => goView('dashv2', { onboarding:false, manualApplied:true }),
+  // No onboarding: value set here on purpose, this button is reachable both
+  // mid-onboarding (stay chrome-free) and later from the estimate dashboard
+  // as an existing owner (keep the rail), so it must not force either way.
+  startRealImport: () => goView('start', { manualMode:false, upload:'idle' }),
   toggleExclude: (el) => {
     const i = Number(el.dataset.i);
     const ex = Object.assign({}, S.excluded);
@@ -1731,6 +2572,15 @@ document.addEventListener('input', (e) => {
   if (!e.target) return;
   if (e.target.id === 'authEmail'){ set({ email: e.target.value, touched:true }); return; }
   if (e.target.id === 'siteName'){ S.siteName = e.target.value; return; }
+  if (e.target.id === 'ownerName'){ S.ownerName = e.target.value; return; }
+  if (e.target.id === 'businessName'){ S.businessName = e.target.value; return; }
+  if (e.target.id === 'manualCount'){ S.manualCount = e.target.value; return; }
+  if (e.target.id === 'manualCost'){ S.manualCost = e.target.value; return; }
+  if (e.target.id === 'manualRevenue'){ S.manualRevenue = e.target.value; return; }
+  if (/^confirmName-\d+$/.test(e.target.id)){
+    S.confirmName[Number(e.target.id.slice(12))] = e.target.value;
+    return;
+  }
   if (/^invite\d+$/.test(e.target.id)){
     const i = Number(e.target.id.slice(6));
     S.inviteEmail[i] = e.target.value;
@@ -1749,9 +2599,68 @@ document.addEventListener('input', (e) => {
   }
 });
 
+// A robot's "kind of work" counts as reviewed the moment its select opens,
+// value changed or not, that is what proves a human looked, not that they
+// happened to agree. focusin (bubbles), not focus (does not), is what lets
+// one listener catch every row instead of one per select.
+document.addEventListener('focusin', (e) => {
+  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
+  const i = Number(e.target.id.slice(12));
+  if (!S.confirmSeen[i]) set({ confirmSeen: Object.assign({}, S.confirmSeen, { [i]: true }) });
+});
+
+document.addEventListener('change', (e) => {
+  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
+  const i = Number(e.target.id.slice(12));
+  S.confirmWork[i] = e.target.value;
+});
+
+// Opening a "how this is calculated" accordion grows its own card without
+// going through render(), a native <details> toggle, not a data-act click,
+// so nothing tells the masonry layout a card underneath it needs to move.
+// Capture phase because <details> toggle events do not reliably bubble
+// across the browsers this needs to work in.
+document.addEventListener('toggle', (e) => {
+  if (!e.target || !e.target.classList || !e.target.classList.contains('bl-acc')) return;
+  requestAnimationFrame(layoutDashMasonry);
+}, true);
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target && e.target.id === 'authEmail') submitEmail();
 });
+
+/* Dashboard block reordering. Reorder happens once, on drop, not live on
+   every dragover, this build has no virtual DOM so a re-render mid-drag
+   would tear down the very node the browser is tracking as the drag
+   source. One render at the end is the version that cannot get that wrong. */
+document.addEventListener('dragstart', (e) => {
+  const el = e.target.closest && e.target.closest('.dash-block');
+  if (!el) return;
+  dashDragId = el.dataset.dashId;
+  if (e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dashDragId); } catch(err){} }
+});
+document.addEventListener('dragover', (e) => {
+  if (!dashDragId) return;
+  if (e.target.closest && e.target.closest('.dash-block')) e.preventDefault();
+});
+document.addEventListener('drop', (e) => {
+  const dragged = dashDragId;
+  dashDragId = null;
+  if (!dragged) return;
+  const el = e.target.closest && e.target.closest('.dash-block');
+  if (!el) return;
+  e.preventDefault();
+  const targetId = el.dataset.dashId;
+  if (targetId === dragged) return;
+  const order = S.dashLayout.slice();
+  const from = order.indexOf(dragged);
+  const to = order.indexOf(targetId);
+  if (from === -1 || to === -1) return;
+  order.splice(from, 1);
+  order.splice(to, 0, dragged);
+  set({ dashLayout: order });
+});
+document.addEventListener('dragend', () => { dashDragId = null; });
 
 /* Every screen the sign-in rail used to list, still addressable, just not
    advertised. `?screen=expired` opens the dead-link screen, `?view=rates` opens
