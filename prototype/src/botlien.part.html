@@ -202,14 +202,35 @@ function calc(t, base){
 }
 function breakEven(base){ let t = 1; while (t < 2000 && calc(t, base).cov >= 1) t++; return t - 1; }
 
+// siteCov/siteUtil are [Pier 4, Marina, Airport] for that period, coverage
+// ratio and average fleet utilization %. Pier 4's numbers were already
+// real (the KPI and period picker read them before this chart existed);
+// Marina and Airport's history is new, shaped to land on their current
+// live numbers in the open period, same mild month-to-month noise Pier 4
+// already had, not a hand-drawn straight line pretending to be six real
+// months.
+const SITE_ROBOT_COUNTS = [6, 3, 4];
 const PERIODS = [
-  { label:'Aug 4 – Sep 3, 2026', cov:2.38, status:'open',   closed:'' },
-  { label:'Jul 4 – Aug 3, 2026', cov:2.11, status:'closed', closed:'Closed Aug 4' },
-  { label:'Jun 4 – Jul 3, 2026', cov:2.21, status:'closed', closed:'Closed Jul 4' },
-  { label:'May 4 – Jun 3, 2026', cov:2.04, status:'closed', closed:'Closed Jun 4' },
-  { label:'Apr 4 – May 3, 2026', cov:1.99, status:'closed', closed:'Closed May 4' },
-  { label:'Mar 4 – Apr 3, 2026', cov:1.88, status:'closed', closed:'Closed Apr 4' }
+  { label:'Aug 4 – Sep 3, 2026', status:'open',   closed:'',              siteCov:[2.38,1.90,2.60], siteUtil:[36,24,42] },
+  { label:'Jul 4 – Aug 3, 2026', status:'closed', closed:'Closed Aug 4',  siteCov:[2.11,1.79,2.48], siteUtil:[33,22,39] },
+  { label:'Jun 4 – Jul 3, 2026', status:'closed', closed:'Closed Jul 4',  siteCov:[2.21,1.83,2.53], siteUtil:[35,23,40] },
+  { label:'May 4 – Jun 3, 2026', status:'closed', closed:'Closed Jun 4',  siteCov:[2.04,1.71,2.31], siteUtil:[31,20,36] },
+  { label:'Apr 4 – May 3, 2026', status:'closed', closed:'Closed May 4',  siteCov:[1.99,1.68,2.22], siteUtil:[29,19,34] },
+  { label:'Mar 4 – Apr 3, 2026', status:'closed', closed:'Closed Apr 4',  siteCov:[1.88,1.62,2.15], siteUtil:[27,17,31] }
 ];
+// scope is S.dashScope: a site index (0/1/2) or 'all', which weights by
+// each site's current robot count, the same weighting computeStatement()
+// itself uses to blend sites for "all 3 sites."
+function covForPeriod(p, scope){
+  if (scope !== 'all') return p.siteCov[scope];
+  const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
+  return p.siteCov.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
+}
+function utilForPeriod(p, scope){
+  if (scope !== 'all') return p.siteUtil[scope];
+  const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
+  return p.siteUtil.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
+}
 
 // Identity only. Work, invoice, and coverage per site used to be typed
 // here as static numbers with nothing behind them, which is exactly why
@@ -954,7 +975,7 @@ function appHeader(){
           + PERIODS.map((q,i) => '<div data-act="pickPeriod" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:'+(i<PERIODS.length-1?'1px solid var(--hair)':'none')+'">'
             + '<div><div style="font-size:13px;font-weight:'+(S.period===i?700:500)+';color:var(--fg1);font-variant-numeric:tabular-nums">'+q.label+'</div>'
             + '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px">'+(q.status==='open'?'Open · figures still moving':q.closed+' · frozen')+'</div></div>'
-            + '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+q.cov.toFixed(2)+'x</span></div>').join('')
+            + '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+covForPeriod(q, S.dashScope).toFixed(2)+'x</span></div>').join('')
           + '</div>'
         : '')
     + '</div>';
@@ -987,13 +1008,6 @@ function badge(text, tone){
 
 // Closed periods only, the open one is still moving and would misstate an
 // average or a "best" claim while it settles.
-function periodStats(){
-  const closed = PERIODS.filter(p => p.status === 'closed');
-  const avg = closed.reduce((s,p) => s + p.cov, 0) / closed.length;
-  const best = closed.reduce((a,b) => b.cov > a.cov ? b : a);
-  return { avg, best, open: PERIODS[0] };
-}
-
 function statRow(label, value, note){
   return '<div><div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);margin-bottom:4px">'+label+'</div>'
     + '<div style="font-size:18px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums;line-height:1.2">'+value+'</div>'
@@ -1001,29 +1015,122 @@ function statRow(label, value, note){
   + '</div>';
 }
 
-// A day-by-day trend needs days, plural, on record, which a fleet confirmed
-// moments ago does not have. Faking a shape here would be worse than the
-// old hardcoded chart, since it would look freshly computed and still be
-// invented. This shows the one real number honestly instead: today's.
-// Says "no history yet" once, here, and nowhere else, the coverage number
-// itself already lives on the KPI card above. Repeating it here too was the
-// redundant version of this card, not an improvement on the fake chart it
-// replaced.
+// Smooth curve through points, cubic Bezier via Catmull-Rom (tension 1/6),
+// the same "natural" interpolation a real charting library defaults to.
+// No library here to import that curve math from, so it's reproduced by
+// hand, same as every other visual this app draws itself.
+function smoothPath(pts){
+  if (pts.length < 2) return '';
+  if (pts.length === 2) return 'M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1)+' L'+pts[1][0].toFixed(1)+','+pts[1][1].toFixed(1);
+  let d = 'M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1);
+  for (let i=0; i<pts.length-1; i++){
+    const p0 = pts[i-1] || pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2] || p2;
+    const c1x = p1[0]+(p2[0]-p0[0])/6, c1y = p1[1]+(p2[1]-p0[1])/6;
+    const c2x = p2[0]-(p3[0]-p1[0])/6, c2y = p2[1]-(p3[1]-p1[1])/6;
+    d += ' C'+c1x.toFixed(1)+','+c1y.toFixed(1)+' '+c2x.toFixed(1)+','+c2y.toFixed(1)+' '+p2[0].toFixed(1)+','+p2[1].toFixed(1);
+  }
+  return d;
+}
+
+// One inline chart, hand-drawn SVG, same as every other visual in this
+// app (duty bars, condition bars, the sensitivity slider), not a
+// charting dependency for six points. points is oldest-to-newest,
+// {value, label, current}. opts.reference draws a dashed line at that
+// value (coverage's 1.0x breakeven). opts.area fills a gradient under a
+// dot-free curve instead, for the area-chart look; without it this
+// draws the dotted line-chart look.
+function sparklineChart(points, opts){
+  opts = opts || {};
+  const W = 560, H = 130, padX = 10, padY = 16, labelH = 20;
+  const vals = points.map(p => p.value);
+  const min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  const span = (max - min) || 1;
+  const lo = min - span*0.3, hi = max + span*0.3;
+  const plotH = H - labelH - padY;
+  const baseY = padY + plotH;
+  const x = (i) => padX + (i/(points.length-1)) * (W - padX*2);
+  const y = (v) => padY + plotH - ((v - lo)/(hi - lo)) * plotH;
+  const coords = points.map((p,i) => [x(i), y(p.value)]);
+  const linePath = smoothPath(coords);
+  const grid = !opts.grid ? '' : [0.25,0.5,0.75].map(t => {
+    const gy = (padY + plotH*t).toFixed(1);
+    return '<line x1="'+padX+'" y1="'+gy+'" x2="'+(W-padX)+'" y2="'+gy+'" stroke="var(--hair)" stroke-width="1"/>';
+  }).join('');
+  const refLine = (opts.reference == null || opts.reference < lo || opts.reference > hi) ? '' :
+    '<line x1="'+padX+'" y1="'+y(opts.reference).toFixed(1)+'" x2="'+(W-padX)+'" y2="'+y(opts.reference).toFixed(1)+'" stroke="var(--hair2)" stroke-width="1" stroke-dasharray="3,4"/>';
+  const area = !opts.area ? '' :
+    '<defs><linearGradient id="'+opts.gradientId+'" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="5%" stop-color="var(--ink)" stop-opacity="0.32"/>'
+      + '<stop offset="95%" stop-color="var(--ink)" stop-opacity="0.03"/>'
+    + '</linearGradient></defs>'
+    + '<path d="'+linePath+' L'+x(points.length-1).toFixed(1)+','+baseY.toFixed(1)+' L'+x(0).toFixed(1)+','+baseY.toFixed(1)+' Z" fill="url(#'+opts.gradientId+')" stroke="none"/>';
+  const dots = opts.dots === false ? '' : points.map((p,i) => '<circle cx="'+x(i).toFixed(1)+'" cy="'+y(p.value).toFixed(1)+'" r="'+(p.current?4:2.5)+'" fill="'+(p.current?'var(--ink)':'var(--fg3)')+'"/>').join('');
+  const endLabels = [0, points.length-1].map(i => '<text x="'+x(i).toFixed(1)+'" y="'+Math.max(11,(y(points[i].value)-9)).toFixed(1)+'" text-anchor="'+(i===0?'start':'end')+'" font-size="11" font-weight="700" fill="var(--fg1)">'+esc(opts.formatValue(points[i].value))+'</text>').join('');
+  const monthLabels = points.map((p,i) => '<text x="'+x(i).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="10" fill="var(--fg3)">'+esc(p.label)+'</text>').join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:130px;display:block;overflow:visible">'
+    + grid + area + refLine
+    + '<path d="'+linePath+'" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    + dots + endLabels + monthLabels
+  + '</svg>';
+}
+
+// Pier 4's 6 periods were always real, the card just refused to chart
+// them, one point looked like a fake trend even though five closed
+// periods already sat in PERIODS. Marina and Airport now carry the same
+// history (see PERIODS above), so every site scope, and "all 3 sites,"
+// gets the real chart instead of only Pier 4 qualifying. Dotted line,
+// grid, and a trend footer, the shadcn line-chart look.
 function recapCard(){
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Coverage over time</div>'
-    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">One period on record, the number above is it. A day-by-day chart and a 6-month average fill in here as more periods close, not before, a chart drawn from one day would be a straight line pretending to be a trend.</div>'
+  const s = computeStatement();
+  if (s.mode === 'estimate'){
+    return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Coverage over time</div>'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">A typed estimate has no period history behind it. Import your export and six months of real periods fill in here.</div>'
+    + '</div>';
+  }
+  const points = PERIODS.slice().reverse().map(p => ({
+    value: covForPeriod(p, S.dashScope), label: p.label.slice(0,3), current: p.status === 'open'
+  }));
+  const avg = points.reduce((a,p) => a+p.value, 0) / points.length;
+  const first = points[0].value, last = points[points.length-1].value;
+  const pctChange = first ? ((last - first) / first) * 100 : 0;
+  const up = pctChange >= 0;
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 0;overflow:hidden">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1)">Coverage over time</div>'
+      + '<span style="font-size:12px;color:var(--fg3)">6-month average '+avg.toFixed(2)+'x</span>'
+    + '</div>'
+    + sparklineChart(points, { reference:1, formatValue: v => v.toFixed(2)+'x', grid:true })
+    + '<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg1);padding:14px 0 4px;border-top:1px solid var(--hair);margin-top:4px">'
+      + ic(up?'trending-up':'trending-down',14)
+      + 'Trending '+(up?'up':'down')+' '+Math.abs(pctChange).toFixed(1)+'% over 6 months'
+    + '</div>'
+    + '<div style="font-size:11.5px;color:var(--fg3);padding-bottom:14px">Showing coverage for the last 6 periods</div>'
   + '</div>';
 }
 
-// Utilization needs duration, how many hours a robot actually ran, which is
-// a different number than the run or active-hour COUNT onboarding collects.
-// Nothing asked during onboarding can honestly produce this yet, so it says
-// so instead of showing a number with no real hours behind it.
+// Same data shape as coverage, average fleet duty against declared
+// operating hours instead of work against lease cost. Gradient-filled
+// area instead of a dotted line, the shadcn area-chart look, no 1.0x
+// reference either, utilization has no breakeven, just a rate.
 function utilizationCard(){
+  const s = computeStatement();
+  if (s.mode === 'estimate'){
+    return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Utilization</div>'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Needs the robot&#39;s reported duty hours, not just its task count. Available once your export or live connection includes it.</div>'
+    + '</div>';
+  }
+  const points = PERIODS.slice().reverse().map(p => ({
+    value: utilForPeriod(p, S.dashScope), label: p.label.slice(0,3), current: p.status === 'open'
+  }));
+  const avg = points.reduce((a,p) => a+p.value, 0) / points.length;
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Utilization</div>'
-    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Needs the robot&#39;s reported duty hours, not just its task count. Available once your export or live connection includes it.</div>'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1)">Utilization</div>'
+      + '<span style="font-size:12px;color:var(--fg3)">6-month average '+Math.round(avg)+'%</span>'
+    + '</div>'
+    + sparklineChart(points, { formatValue: v => Math.round(v)+'%', area:true, gradientId:'utilAreaFill', dots:false, grid:true })
   + '</div>';
 }
 
@@ -1036,7 +1143,7 @@ function coverageKpiCard(){
   const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
   const tag = s.mode === 'estimate'
     ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
-    : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">first period, no trend yet</span>';
+    : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">open period, still moving</span>';
   const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
