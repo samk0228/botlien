@@ -485,7 +485,7 @@ const S = {
   confirmWork: {}, confirmName: {}, confirmSeen: {}, confirmTriedSubmit: false,
   siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0, benchmarkOptIn: true,
 
-  onboarding: false, view: 'dashv2', openSetup: 0, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
+  onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false, robotFilter: 'all',
   picked: -1, credSending: false, credSent: false, excluded: {},
@@ -1320,28 +1320,48 @@ function viewRobots(){
   // What's added here is only the context that page had and no row does,
   // why condition matters and who isn't reporting it.
   const silent = ROBOTS.filter(r => !r.parts);
-  const rows = ROBOTS.filter(r => !attention || r.short).map(r => {
+  // Six full rows, equation and condition bars included, all open at
+  // once, was everything about every robot on screen at the same time.
+  // One row per robot now, closed by default; opening one is the only
+  // way to see that robot's equation and condition. Index comes from the
+  // full ROBOTS array, not the filtered one, so which robot is open
+  // survives switching between "All 6" and "Needs attention."
+  const rows = ROBOTS.map((r,i) => ({r,i})).filter(({r}) => !attention || r.short).map(({r,i}) => {
+    const open = S.openRobot === i;
     const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
-    const wornChip = spentParts
-      ? '<span style="font-size:11.5px;font-weight:700;color:var(--fg1)">'+spentParts+(spentParts === 1 ? ' part past life' : ' parts past life')+'</span>'
-      : '';
     const chip = r.short ? 'under its lease' : (r.benchmark ? 'benchmark rate' : 'covered');
     const chipFg = r.short ? 'var(--fg1)' : 'var(--fg2)';
     const dutyFill = r.short ? 'repeating-linear-gradient(135deg,var(--hatch2) 0 2px,transparent 2px 5px)' : 'var(--ink)';
-    return '<div style="border-top:1px solid var(--hair);padding:26px 4px">'
-      + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-bottom:16px">'
-        + '<span style="font-size:15.5px;font-weight:'+(r.short?700:600)+';color:var(--fg1)">'+r.name+'</span>'
-        + '<span style="font-size:13px;color:var(--fg3)">'+r.model+'</span>'
-        + '<span style="font-size:11.5px;font-weight:700;color:'+chipFg+'">'+chip+'</span>'
-        + wornChip
-        + '<span style="margin-left:auto;display:flex;align-items:baseline;gap:10px">'
-          + '<span style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+ROBOT_DELTA[r.name]+' vs July</span>'
-          + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.cov+'</span></span></div>'
-      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center">'
+    // Same wording the fully-reported condition block already uses for
+    // an all-clear ("Every part is inside its rated life"), and the same
+    // per-part count the row header used to show as its own chip, so
+    // this line isn't a third way of saying either thing.
+    const conditionLine = !r.parts
+      ? 'condition not reported by '+(r.model||'').split(' ')[0]
+      : spentParts
+        ? spentParts+(spentParts === 1 ? ' part past life' : ' parts past life')
+        : 'all parts within rated life';
+
+    const summary = '<div data-act="toggleRobot" data-i="'+i+'" class="hv-fade" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
+      + '<div style="min-width:180px"><div style="font-size:15.5px;font-weight:'+(open||r.short?700:600)+';color:var(--fg1)">'+r.name+'</div>'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
+      + '<div style="min-width:130px"><span style="font-size:11.5px;font-weight:700;color:'+chipFg+'">'+chip+'</span></div>'
+      + '<div style="min-width:80px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.duty+'</div>'
+      + '<div style="min-width:170px;font-size:12.5px;font-weight:'+(spentParts?700:500)+';color:'+(spentParts?'var(--fg1)':'var(--fg3)')+'">'+conditionLine+'</div>'
+      + '<span style="margin-left:auto;display:flex;align-items:baseline;gap:10px">'
+        + '<span style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+ROBOT_DELTA[r.name]+' vs July</span>'
+        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.cov+'</span></span>'
+      + '<span style="font-size:13px;color:var(--fg3);width:12px;text-align:center">'+(open?'–':'+')+'</span>'
+    + '</div>';
+
+    const detail = !open ? '' : '<div style="padding:0 4px 26px">'
+      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:4px">'
         + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
           + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
         + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+r.eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
+
+    return '<div style="border-top:1px solid var(--hair)">' + summary + detail + '</div>';
   }).join('');
 
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:24px">'
@@ -1350,7 +1370,7 @@ function viewRobots(){
     + '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
         + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Fleet</h2>'
-        + '<span style="font-size:13px;color:var(--fg3)">Each row carries the equation behind its number, and the condition it&#39;s in.</span></div>'
+        + '<span style="font-size:13px;color:var(--fg3)">Open a robot for the equation and condition behind its number.</span></div>'
       + rows + '</div>'
     + '<div style="padding:0;margin-bottom:48px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
@@ -2082,6 +2102,7 @@ const ACTIONS = {
   go: (el) => goView(el.dataset.view),
   attention: () => goView('robots', { robotFilter:'attention' }),
   allRobots: () => goView('robots', { robotFilter:'all' }),
+  toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
