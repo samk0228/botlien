@@ -253,17 +253,17 @@ const ROBOT_DELTA = {
   'Servi 3 (banquet)':'+0.74', 'Scrubber 50':'+0.08', 'Scrubber 75 (nights)':'+0.61'
 };
 
+// Coverage, "under its lease," "benchmark rate," and the equation string
+// used to be typed here per robot. All four are computeStatement() output
+// now (see viewRobots), read live off CONFIRM/BENCH and Setup's overlays,
+// so this only carries what an invoice edit has no business changing:
+// name, model, duty telemetry, and condition.
 const ROBOTS = [
-  { name:'Servi 1 (front)', model:'Bear Servi', cov:'2.76x', duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h', short:false,
-    eq:'3,780 runs started x $0.73 = $2,759.40 / invoice $999.00 = 2.76x' },
-  { name:'Servi 2 (patio)', model:'Bear Servi', cov:'0.66x', duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h', short:true,
-    eq:'900 runs started x $0.73 = $657.00 / invoice $999.00 = 0.66x' },
-  { name:'P3 runner', model:'Pudu P3', cov:'2.85x', duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h', short:false,
-    eq:'3,900 runs started x $0.73 = $2,847.00 / invoice $999.00 = 2.85x' },
-  { name:'Servi 3 (banquet)', model:'Bear Servi', cov:'2.54x', duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h', short:false,
-    eq:'3,480 runs started x $0.73 = $2,540.40 / invoice $999.00 = 2.54x' },
-  { name:'Scrubber 50', model:'Gausium S50 · priced by the hour', cov:'3.75x', duty:'duty 50%', dutyPct:'50%', hours:'120h of 240h', short:false, benchmark:true,
-    eq:'120.0 active hours x $25.00 = $3,000.00 / invoice $800.00 = 3.75x',
+  { name:'Servi 1 (front)', model:'Bear Servi', duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h' },
+  { name:'Servi 2 (patio)', model:'Bear Servi', duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h' },
+  { name:'P3 runner', model:'Pudu P3', duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h' },
+  { name:'Servi 3 (banquet)', model:'Bear Servi', duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h' },
+  { name:'Scrubber 50', model:'Gausium S50 · priced by the hour', duty:'duty 50%', dutyPct:'50%', hours:'120h of 240h',
     parts:[
       { name:'squeegee', left:71, used:'73h of 250h' },
       { name:'filter', left:67, used:'99h of 300h' },
@@ -271,8 +271,7 @@ const ROBOTS = [
       { name:'side brush', left:64, used:'180h of 500h' }
     ],
     hand:'6%', temp:'31°C' },
-  { name:'Scrubber 75 (nights)', model:'Gausium S75 · priced by the hour', cov:'1.91x', duty:'duty 26%', dutyPct:'26%', hours:'61.2h of 240h', short:false, benchmark:true,
-    eq:'61.2 active hours x $25.00 = $1,530.00 / invoice $800.00 = 1.91x',
+  { name:'Scrubber 75 (nights)', model:'Gausium S75 · priced by the hour', duty:'duty 26%', dutyPct:'26%', hours:'61.2h of 240h',
     parts:[
       { name:'squeegee', left:4, used:'240h of 250h' },
       { name:'filter', left:1, used:'297h of 300h' },
@@ -287,13 +286,18 @@ const RATES = [
   { work:'Floor cleaning', wage:'$25.00 / hr', does:'1 hour / hr', rate:'$25.00 per hour', source:'benchmark' }
 ];
 
+// Work, invoice, rate, and wage used to be typed here as static strings,
+// duplicate copies of numbers computeStatement() already knows from
+// CONFIRM/BENCH. Setup's rows read those live now (see viewSetup), so this
+// only still needs to carry what's genuinely specific to Setup: the robot's
+// display name and model, and its operating-hours-per-day default.
 const SETUP = [
-  { name:'Servi 1 (front)', model:'Bear Servi', task:'Tray delivery', invoice:'$999.00', rate:'$0.73 / run', derive:'$22.00/hr ÷ 30 runs per hour', wage:'$22.00 / hr', hours:'12.0 h' },
-  { name:'Servi 2 (patio)', model:'Bear Servi', task:'Tray delivery', invoice:'$999.00', rate:'$0.73 / run', derive:'$22.00/hr ÷ 30 runs per hour', wage:'$22.00 / hr', hours:'12.0 h' },
-  { name:'P3 runner', model:'Pudu P3', task:'Tray delivery', invoice:'$999.00', rate:'$0.73 / run', derive:'$22.00/hr ÷ 30 runs per hour', wage:'$22.00 / hr', hours:'12.0 h' },
-  { name:'Servi 3 (banquet)', model:'Bear Servi', task:'Tray delivery', invoice:'$999.00', rate:'$0.73 / run', derive:'$22.00/hr ÷ 30 runs per hour', wage:'$22.00 / hr', hours:'12.0 h' },
-  { name:'Scrubber 50', model:'Gausium S50', task:'Cleaning cycles', invoice:'$800.00', rate:'$25.00 / hour', derive:'$25.00/hr ÷ 1 hour per hour', wage:'benchmark', hours:'8.0 h' },
-  { name:'Scrubber 75 (nights)', model:'Gausium S75', task:'Cleaning cycles', invoice:'$800.00', rate:'$25.00 / hour', derive:'$25.00/hr ÷ 1 hour per hour', wage:'benchmark', hours:'8.0 h' }
+  { name:'Servi 1 (front)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Servi 2 (patio)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'P3 runner', model:'Pudu P3', hours:'12.0 h' },
+  { name:'Servi 3 (banquet)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Scrubber 50', model:'Gausium S50', hours:'8.0 h' },
+  { name:'Scrubber 75 (nights)', model:'Gausium S75', hours:'8.0 h' }
 ];
 
 const WORK_CATEGORIES = [
@@ -335,13 +339,20 @@ const BENCH = {
 // different view of this same result, never its own arithmetic, so a
 // category or exclude change on the confirm screen can only ever move every
 // card in agreement with every other one.
-function computeStatement(){
+//
+// full=true skips the manualApplied and dashScope short-circuits below and
+// goes straight to the per-robot computation. Fleet needs that: it is
+// always Pier 4's six robots, same as before dashScope or a manual
+// estimate ever existed, so it can't be at the mercy of a Dashboard-only
+// scope filter or estimate mode that happens to be active on a page Fleet
+// isn't even showing.
+function computeStatement(full){
   // A manually-typed estimate has no per-robot rows behind it, just a count
   // and two dollar figures, so it cannot honestly fill in byCategory,
   // attention, or work-split. Those cards already know how to say "no
   // robots included yet" for an empty fleet; returning empty here reuses
   // that same honest state instead of inventing rows to fill them.
-  if (S.manualApplied){
+  if (!full && S.manualApplied){
     const count = Number(S.manualCount) || 0;
     const cost = Number(S.manualCost) || 0;
     const revenue = Number(S.manualRevenue) || 0;
@@ -358,7 +369,7 @@ function computeStatement(){
   // below. "all" and the other two sites only have a work/invoice total in
   // this demo, so every card that needs a per-robot breakdown degrades to
   // the same honest note the All 3 sites popup uses, nothing invented.
-  if (S.dashScope !== 0){
+  if (!full && S.dashScope !== 0){
     let totalValue, totalInvoice, scopeLabel;
     if (S.dashScope === 'all'){
       totalValue = Math.round(SITES.reduce((a,site) => a+site.work, 0) * 100) / 100;
@@ -377,18 +388,24 @@ function computeStatement(){
   const rows = CONFIRM.map((c,i) => {
     const work = S.confirmWork[i] ?? c.work;
     const b = BENCH[work] ?? BENCH['Tray delivery'];
+    // Wage and invoice come from Setup's per-robot overrides when one
+    // exists, the category benchmark otherwise, this is what makes an edit
+    // on Setup actually move the number here instead of just saving text
+    // nobody reads back.
+    const wage = S.robotWage[i] ?? (b.wageCentsHour / 100);
+    const benchmarkWage = S.robotWage[i] === undefined;
     // Rounded to the cent BEFORE multiplying by units, matching the real
     // backend's derivedRateCents: the rate is what an owner checks on a
     // napkin ("$22.00 ÷ 30 = $0.73"), so it has to be the same $0.73 that
     // gets multiplied, not an unrounded 73.33 that quietly drifts the total.
-    const rateCents = Math.round(b.wageCentsHour / b.humanUnitsPerHour);
+    const rateCents = Math.round((wage * 100) / b.humanUnitsPerHour);
     const value = Math.round(c.units * rateCents) / 100;
-    const invoice = b.invoiceCentsMonth / 100;
+    const invoice = S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100);
     const excluded = !!S.excluded[i];
     return {
       i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
       units: c.units, unit: c.units === 1 ? b.unit : b.unitPlural,
-      rate: rateCents / 100, value, invoice, excluded,
+      rate: rateCents / 100, value, invoice, excluded, wage, benchmarkWage,
       cov: invoice > 0 ? value / invoice : null,
     };
   });
@@ -484,6 +501,13 @@ const S = {
   manualMode: false, manualStage: 'form', manualCount: '', manualCost: '', manualRevenue: '', manualTouched: false, manualApplied: false,
   confirmWork: {}, confirmName: {}, confirmSeen: {}, confirmTriedSubmit: false,
   siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0, benchmarkOptIn: true,
+  // Per-robot overrides for Setup's editable inputs, same overlay pattern as
+  // confirmWork/confirmName above: undefined means "still the category
+  // benchmark," present means "this robot's own number," read by
+  // computeStatement() so an edit here is the one calculation the rest of
+  // the app already reads from, not a second copy of the math.
+  robotWage: { 0:22, 1:22, 2:22, 3:22 }, robotInvoice: {}, robotHours: {},
+  timezone: 'America/Los_Angeles', siteHours: '12.0',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
@@ -789,7 +813,11 @@ function appRail(){
       + dot
     + '</div>';
   };
-  const badge = '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">1</span>';
+  // Live count, not a number typed once: an edit on Setup that pushes a
+  // robot under its lease, or pulls it back over, has to show up here too,
+  // the same instant it shows up as a caution mark on Fleet.
+  const attnCount = computeStatement(true).rows.filter(r => !r.excluded && r.cov !== null && r.cov < 1).length;
+  const badge = !attnCount ? '' : '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">'+attnCount+'</span>';
 
   // Which site is in view already lives in the dashboard's own scope
   // filter (All 3 sites / Pier 4 / Marina / Airport, next to Customize),
@@ -1317,6 +1345,13 @@ function conditionBlock(r){
 }
 
 function viewRobots(){
+  // Coverage, chip, and the equation used to be a hardcoded string per
+  // robot. Now they're read off computeStatement(), the one calculation
+  // Dashboard already trusted, so a wage or invoice edit on Setup moves
+  // this page too instead of only moving the page that made the edit.
+  // Duty time and condition stay on ROBOTS: telemetry, not something an
+  // invoice edit has any business changing.
+  const stmt = computeStatement(true);
   // Condition used to be its own page, looping these same robots through
   // the same conditionBlock() every row below already calls. Merged in:
   // the per-robot bars stay exactly where they were, in the row, once.
@@ -1334,11 +1369,18 @@ function viewRobots(){
   // problem deserved. The caution mark on its name in the one list does
   // the same job at a glance, without hiding the other five.
   const rows = ROBOTS.map((r,i) => {
+    const s = stmt.rows[i];
+    const short = s.cov !== null && s.cov < 1;
     const open = S.openRobot === i;
     const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
-    const chip = r.short ? 'under its lease' : (r.benchmark ? 'benchmark rate' : 'covered');
-    const chipFg = r.short ? 'var(--fg1)' : 'var(--fg2)';
-    const dutyFill = r.short ? 'repeating-linear-gradient(135deg,var(--hatch2) 0 2px,transparent 2px 5px)' : 'var(--ink)';
+    const chip = short ? 'under its lease' : (s.benchmarkWage ? 'benchmark rate' : 'covered');
+    const chipFg = short ? 'var(--fg1)' : 'var(--fg2)';
+    const dutyFill = short ? 'repeating-linear-gradient(135deg,var(--hatch2) 0 2px,transparent 2px 5px)' : 'var(--ink)';
+    const covLabel = s.cov === null ? '—' : s.cov.toFixed(2)+'x';
+    const unitsPhrase = s.basis === 'active_hour'
+      ? s.units.toFixed(1)+' active hours'
+      : s.units.toLocaleString('en-US')+' '+s.unit+' started';
+    const eq = unitsPhrase+' x '+money(s.rate)+' = '+money(s.value)+' / invoice '+money(s.invoice)+' = '+covLabel;
     // Same wording the fully-reported condition block already uses for
     // an all-clear ("Every part is inside its rated life"), and the same
     // per-part count the row header used to show as its own chip, so
@@ -1348,17 +1390,17 @@ function viewRobots(){
       : spentParts
         ? spentParts+(spentParts === 1 ? ' part past life' : ' parts past life')
         : 'all parts within rated life';
-    const caution = !r.short ? '' : '<span title="Under its lease" style="display:inline-flex;color:var(--fg1)">'+ic('triangle-alert',15)+'</span>';
+    const caution = !short ? '' : '<span title="Under its lease" style="display:inline-flex;color:var(--fg1)">'+ic('triangle-alert',15)+'</span>';
 
     const summary = '<div data-act="toggleRobot" data-i="'+i+'" class="hv-fade" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
-      + '<div style="min-width:180px"><div style="display:flex;align-items:center;gap:7px;font-size:15.5px;font-weight:'+(open||r.short?700:600)+';color:var(--fg1)">'+r.name+caution+'</div>'
+      + '<div style="min-width:180px"><div style="display:flex;align-items:center;gap:7px;font-size:15.5px;font-weight:'+(open||short?700:600)+';color:var(--fg1)">'+r.name+caution+'</div>'
         + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
       + '<div style="min-width:130px"><span style="font-size:11.5px;font-weight:700;color:'+chipFg+'">'+chip+'</span></div>'
       + '<div style="min-width:80px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.duty+'</div>'
       + '<div style="min-width:170px;font-size:12.5px;font-weight:'+(spentParts?700:500)+';color:'+(spentParts?'var(--fg1)':'var(--fg3)')+'">'+conditionLine+'</div>'
       + '<span style="margin-left:auto;display:flex;align-items:baseline;gap:10px">'
         + '<span style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+ROBOT_DELTA[r.name]+' vs July</span>'
-        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.cov+'</span></span>'
+        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</span></span>'
       + '<span style="font-size:13px;color:var(--fg3);width:12px;text-align:center">'+(open?'–':'+')+'</span>'
     + '</div>';
 
@@ -1366,11 +1408,22 @@ function viewRobots(){
       + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:4px">'
         + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
           + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
-        + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+r.eq+'</div>'
+        + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
 
     return '<div style="border-top:1px solid var(--hair)">' + summary + detail + '</div>';
   }).join('');
+
+  // First flagged robot, computed fresh every render instead of a robot
+  // name and its dollar figures typed once, so an edit that pushes a
+  // different robot under its lease, or pulls this one back over, doesn't
+  // leave a paragraph that's still describing whichever robot needed
+  // attention when this was written.
+  const flagged = stmt.rows.find(s => !s.excluded && s.cov !== null && s.cov < 1);
+  const flaggedR = flagged ? ROBOTS[flagged.i] : null;
+  const flaggedUnitsPhrase = flagged && (flagged.basis === 'active_hour'
+    ? flagged.units.toFixed(1)+' active hours'
+    : flagged.units.toLocaleString('en-US')+' '+flagged.unit);
 
   return '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
@@ -1384,12 +1437,12 @@ function viewRobots(){
       + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">This is also the reading a lender wants, for a different reason. Deferred maintenance is what a repossessed scrubber&#39;s resale value actually turns on, and it is visible here months before it shows up in a payment.</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:0;max-width:88ch">'+silent.length+' of your robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it, so those rows carry no bars rather than an estimate guessed from hours run.</p>'
     + '</div>'
-    + '<div style="padding:0">'
+    + (!flagged ? '' : '<div style="padding:0">'
       + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">'
-        + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Servi 2 (patio) is under its lease</h2>'
-        + '<span style="font-size:13px;color:var(--fg3)">0.66x · duty 11% of 360h</span></div>'
-      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:86ch">It started 900 runs in 30 days, worth $657.00 of tray delivery at your rate, against a $999.00 invoice. Either the patio needs more of its shifts routed to this unit, or the unit belongs somewhere else in the room. Nothing here says what the runs earned, only what buying the same work costs.</p>'
-      + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Check this robot&#39;s inputs</button></div>';
+        + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">'+esc(flagged.name)+' is under its lease</h2>'
+        + '<span style="font-size:13px;color:var(--fg3)">'+flagged.cov.toFixed(2)+'x · '+esc(flaggedR.duty)+' of '+esc(flaggedR.hours.split(' of ')[1])+'</span></div>'
+      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:86ch">It started '+flaggedUnitsPhrase+' in 30 days, worth '+money(flagged.value)+' of '+esc(flagged.work.toLowerCase())+' at your rate, against a '+money(flagged.invoice)+' invoice. Either it needs more of its shifts, or it belongs somewhere else in the room. Nothing here says what the runs earned, only what buying the same work costs.</p>'
+      + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Check this robot&#39;s inputs</button></div>');
 }
 
 // Setup and Rates used to be two separate nav destinations. Both are the
@@ -1397,30 +1450,41 @@ function viewRobots(){
 // now: per-robot inputs first, then the work-type rates those per-robot
 // replacement figures are themselves derived from, one Save for the form.
 function viewSetup(){
+  const stmt = computeStatement(true);
+  // These five fields used to be static divs styled to look like inputs,
+  // nothing to click into, nothing typed ever went anywhere. Real inputs
+  // now, reading and writing the same per-robot overlays computeStatement()
+  // reads, so what's typed here is the number Fleet and Dashboard show,
+  // not a second copy of it that only this page believes.
   const rows = SETUP.map((r,i) => {
     const open = S.openSetup === i;
-    const summary = r.task+' · '+r.invoice+' / mo · '+r.rate+' · '+r.hours+' / day';
+    const s = stmt.rows[i];
+    const b = BENCH[s.work];
+    const hoursVal = S.robotHours[i] ?? parseFloat(r.hours);
+    const summary = s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day';
     let panel = '';
     if (open){
       panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</div>'
-          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">'+r.task+ic('chevron-down',14,'color:var(--fg3)')+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.invoice+'</div></div>'
+        + '<div><label for="confirmWork-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</label>'
+          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===s.work?' selected':'')+'>'+esc(w)+'</option>').join('')
+          + '</select></div>'
+        + '<div><label for="setupInvoice-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</label>'
+          + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
-          + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+r.derive+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.wage+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.hours+'</div></div>'
+          + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+money(s.rate)+' / '+b.unit+'</div>'
+          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour</div></div>'
+        + '<div><label for="setupWage-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</label>'
+          + '<input id="setupWage-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.wage.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
+        + '<div><label for="setupHours-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</label>'
+          + '<input id="setupHours-'+i+'" data-i="'+i+'" type="number" min="0" step="0.5" inputmode="decimal" value="'+hoursVal+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
       + '</div>';
     }
     return '<div style="border-top:1px solid var(--hair)">'
       + '<div data-act="toggleSetup" data-i="'+i+'" class="hv-fade" style="display:flex;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
         + '<div style="min-width:180px"><div style="font-size:14.5px;font-weight:'+(open?700:600)+';color:var(--fg1)">'+r.name+'</div>'
           + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
-        + '<div style="font-size:13.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+summary+'</div>'
+        + '<div id="setupSummary-'+i+'" style="font-size:13.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+summary+'</div>'
         + '<span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--fg3)">'+(open?'editing':'edit')+'</span>'
         + '<span style="font-size:13px;color:var(--fg3);width:12px;text-align:center">'+(open?'–':'+')+'</span></div>'
       + panel + '</div>';
@@ -1750,21 +1814,31 @@ function viewAlerts(){
 }
 
 function viewSettings(){
-  const field = (label, value, mono) =>
-    '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">'+label+'</div>'
-    + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)'+(mono?';font-variant-numeric:tabular-nums':'')+'">'+value+'</div></div>';
+  // Site name, timezone, hours, and Name below used to be static divs
+  // styled to look like fields, nothing was actually there to click into.
+  // Real inputs now, bound to real state (siteName already existed,
+  // written by the onboarding wizard's own site-name field, this page
+  // just never read it back). Email keeps its own "Change email" flow on
+  // purpose, a confirmation-link swap isn't the same action as typing
+  // over a field, so it stays out of this pattern.
+  const field = (label, id, value, mono) =>
+    '<div><label for="'+id+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">'+label+'</label>'
+    + '<input id="'+id+'" type="text"'+(mono?' inputmode="decimal"':'')+' value="'+esc(value)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit'+(mono?';font-variant-numeric:tabular-nums':'')+'"></div>';
 
   return '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Site</h2>'
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">These feed the math. Timezone decides which day a run counts toward; operating hours are what utilization is measured against.</p>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">'
-      + field('Site name','Harbor Grill, Pier 4') + field('Timezone','America/Los_Angeles') + field('Operating hours / day','12.0 h',true)
+      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone) + field('Operating hours / day','settingsSiteHours',S.siteHours,true)
     + '</div></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Account</h2>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;margin-bottom:20px">'
-      + field('Name','Sam Ortega') + field('Email','sam@harborgrill.com') + '</div>'
+      + field('Name','ownerName',S.ownerName || 'Sam Ortega')
+      + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Email</div>'
+        + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">sam@harborgrill.com</div></div>'
+    + '</div>'
     + '<button type="button" data-act="notInDemo" data-what="changeEmail" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Change email</button>'
     + (S.notInDemo === 'changeEmail' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2);max-width:70ch">Sends a confirmation link to the new address before anything moves. The old address keeps working until that link is opened, so a typo cannot lock you out.</div>' : '')
     + '<div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--hair)">'
@@ -1940,6 +2014,22 @@ function applySensitivity(){
   if (btn) btn.textContent = 'Use ' + S.throughput + ' as my number';
 }
 
+// Patches one Setup row's derived rate and summary line in place after a
+// wage/invoice/hours/work edit, same reason applySensitivity patches
+// instead of calling set(): a full re-render mid-keystroke would blow
+// away focus and cursor position in the very input being typed into.
+function applySetupRow(i){
+  if (S.view !== 'setup') return;
+  const put = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const s = computeStatement(true).rows[i];
+  if (!s) return;
+  const b = BENCH[s.work];
+  put('setupRate-'+i, money(s.rate)+' / '+b.unit);
+  put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour');
+  const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
+  put('setupSummary-'+i, s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day');
+}
+
 /* Real masonry for the dashboard grid. Grid and flexbox both size a row by
  * its tallest member, whatever else is in that row either stretches to
  * match it (dead space inside the short card) or stops short of it (dead
@@ -2108,7 +2198,7 @@ const ACTIONS = {
   // Jumps to Fleet with the flagged robot's row already open, not to a
   // filtered view, Fleet no longer has one, one caution mark in the full
   // list does that job now.
-  attention: () => goView('robots', { openRobot: ROBOTS.findIndex(r => r.short) }),
+  attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
@@ -2172,6 +2262,8 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'siteName'){ S.siteName = e.target.value; return; }
   if (e.target.id === 'ownerName'){ S.ownerName = e.target.value; return; }
   if (e.target.id === 'businessName'){ S.businessName = e.target.value; return; }
+  if (e.target.id === 'settingsTimezone'){ S.timezone = e.target.value; return; }
+  if (e.target.id === 'settingsSiteHours'){ S.siteHours = e.target.value; return; }
   if (e.target.id === 'manualCount'){ S.manualCount = e.target.value; return; }
   if (e.target.id === 'manualCost'){ S.manualCost = e.target.value; return; }
   if (e.target.id === 'manualRevenue'){ S.manualRevenue = e.target.value; return; }
@@ -2194,6 +2286,25 @@ document.addEventListener('input', (e) => {
     const note = document.getElementById('savedNote');
     if (note) note.remove();
     applySensitivity();
+    return;
+  }
+  if (/^setupWage-\d+$/.test(e.target.id)){
+    const i = Number(e.target.id.slice(10));
+    S.robotWage[i] = Number(e.target.value) || 0;
+    applySetupRow(i);
+    return;
+  }
+  if (/^setupInvoice-\d+$/.test(e.target.id)){
+    const i = Number(e.target.id.slice(13));
+    S.robotInvoice[i] = Number(e.target.value) || 0;
+    applySetupRow(i);
+    return;
+  }
+  if (/^setupHours-\d+$/.test(e.target.id)){
+    const i = Number(e.target.id.slice(11));
+    S.robotHours[i] = Number(e.target.value) || 0;
+    applySetupRow(i);
+    return;
   }
 });
 
@@ -2211,6 +2322,11 @@ document.addEventListener('change', (e) => {
   if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
   const i = Number(e.target.id.slice(12));
   S.confirmWork[i] = e.target.value;
+  // This select is also Setup's "What it does" field (same overlay, same
+  // id pattern, reused rather than duplicated). applySetupRow is a no-op
+  // when Setup isn't the page currently rendered, its ids just aren't
+  // in the document, so this is safe to call unconditionally.
+  applySetupRow(i);
 });
 
 // Opening a "how this is calculated" accordion grows its own card without
