@@ -560,6 +560,11 @@ const S = {
   timezone: 'America/Los_Angeles', siteHours: '12.0',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
+  // ?demo=1 (see bootScreen) sets this once, at load, and nothing in-app
+  // ever flips it, no login/logout crosses the public demo into or out of
+  // a real account. Dashboard/Fleet/Numbers all still work normally on
+  // real mock data, this only gates Settings and the sidebar identity.
+  demoMode: false,
   dashLayout: ['kpi','cost','recap','util','attn','work','sens','venuebench'], dashHidden: [], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
@@ -910,13 +915,14 @@ function appRail(){
     + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:18px;height:22px;object-fit:contain;filter:brightness(0)">'
     + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-fg)">'+ic('panel-left',15)+'</span>'
   + '</div>';
+  const bizName = S.demoMode ? 'Demo Business' : 'Harbor Grill Group';
   const brand = collapsed
-    ? '<div title="Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
+    ? '<div title="'+bizName+'" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
       + brandIcon
     + '</div>'
     : '<div style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px">'
       + brandIcon
-      + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">Harbor Grill Group</span>'
+      + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">'+bizName+'</span>'
       + '</div>';
 
   // Hamburger only exists below 900px (.bl-mobile-toggle), everything it
@@ -977,23 +983,26 @@ function appRail(){
           + avatarBadge(32)
           + '<i style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--sb-primary);border:2px solid var(--sb-bg)"></i>'
         + '</div>'
-        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.accountEmail)+'</span></div>')
+        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(S.demoMode?'Demo Account':'Sam Ortega')+'</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.demoMode?'demo@botlien.com':S.accountEmail)+'</span></div>')
         + (collapsed ? '' : ic('chevron-down',14,'color:inherit;flex:none'))
       + '</div>'
       + (S.profileOpen
         ? '<div style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 10px">'
             + avatarBadge(32)
-            + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.accountEmail)+'</span></div>'
+            + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(S.demoMode?'Demo Account':'Sam Ortega')+'</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.demoMode?'demo@botlien.com':S.accountEmail)+'</span></div>'
           + '</div>'
           + '<div style="height:1px;background:var(--hair);margin:2px 0"></div>'
           + '<div data-act="go" data-view="alerts" class="hv-ghost" style="position:relative;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'
             + ic('bell',15,'color:var(--fg3)') + 'Notifications'
             + '<i style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--ink)"></i>'
           + '</div>'
-          + '<div data-act="go" data-view="settings" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('settings',15,'color:var(--fg3)')+'Settings</div>'
-          + '<div style="height:1px;background:var(--hair);margin:2px 0"></div>'
-          + '<div data-act="logOut" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('log-out',15,'color:var(--fg3)')+'Log out</div>'
+          // Settings and Log out both lead somewhere a public demo
+          // shouldn't: Settings is real account/billing-adjacent surface,
+          // and Log out would drop a visitor into the real sign-in/
+          // onboarding flow, exactly what demo mode is supposed to skip.
+          + (S.demoMode ? '' : '<div data-act="go" data-view="settings" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('settings',15,'color:var(--fg3)')+'Settings</div>')
+          + (S.demoMode ? '' : '<div style="height:1px;background:var(--hair);margin:2px 0"></div><div data-act="logOut" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('log-out',15,'color:var(--fg3)')+'Log out</div>')
         + '</div>'
         : '')
       + '</div>'
@@ -2366,6 +2375,10 @@ const CLOSED_UI_STATE = {
 };
 
 function goView(view, extra){
+  // No sidebar link reaches Settings in demo mode, this is just the
+  // backstop, a stray '?view=settings' deep link (or anything else that
+  // ever calls goView('settings')) can't get there either.
+  if (S.demoMode && view === 'settings') return;
   set(Object.assign({ stage:'app', view, profileOpen:false, mobileNavOpen:false }, CLOSED_UI_STATE, extra || {}));
 }
 
@@ -2721,6 +2734,18 @@ document.addEventListener('dragend', () => {
 function bootScreen(){
   let q;
   try { q = new URLSearchParams(location.search); } catch(e){ return; }
+
+  // '?demo=1' is the public, no-account entry point (botlien.com/demo
+  // proxies here with that appended): straight into a populated Dashboard,
+  // no auth, no onboarding, and it wins over '?screen=' / '?view=' below
+  // rather than composing with them, a demo link should never accidentally
+  // land somewhere half-configured.
+  if (q.get('demo')){
+    S.stage = 'app';
+    S.view = 'dashv2';
+    S.demoMode = true;
+    return;
+  }
 
   const screen = q.get('screen');
   if (screen && AUTH_SCREENS.some(([k]) => k === screen)){
