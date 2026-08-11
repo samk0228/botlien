@@ -1257,28 +1257,34 @@ function noRobotNote(){
   return 'No robots included yet.';
 }
 
+// Named "Needs attention," so it has to actually mean that: robots under
+// 1x coverage, not the whole fleet ranked. It used to render every
+// included robot (the whole point of `sorted` staying separate below was
+// just to compute `max` for the bar scale, not to list all of them), which
+// looked fine at 6 robots on Pier 4 alone but read as "here's the entire
+// fleet" once All 3 sites pulled in the full 13.
 function attentionCard(){
   const s = computeStatement();
   const withCov = s.included.filter(r => r.cov !== null);
   const sorted = withCov.slice().sort((a,b) => b.cov - a.cov);
+  const flaggedList = sorted.filter(r => r.cov < 1);
   const max = sorted.length ? Math.max.apply(null, sorted.map(r => r.cov)) * 1.05 : 1;
-  const rows = sorted.map(r => {
-    const short = r.cov < 1;
+  const rows = flaggedList.map(r => {
     const pct = Math.min(100, (r.cov / max) * 100);
     return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0">'
-      + '<span style="width:118px;flex:none;font-size:12.5px;font-weight:600;color:'+(short?'var(--fg1)':'var(--fg2)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</span>'
-      + '<div style="flex:1;height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+(short?'var(--fg1)':'var(--hair3)')+'"></div></div>'
+      + '<span style="width:118px;flex:none;font-size:12.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name)+'</span>'
+      + '<div style="flex:1;height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:var(--fg1)"></div></div>'
       + '<span style="width:44px;flex:none;text-align:right;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.cov.toFixed(2)+'x</span>'
     + '</div>';
   }).join('');
-  const flagged = sorted.find(r => r.cov < 1);
+  const flagged = flaggedList[0];
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:2px">'
       + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1)">Needs attention</div>'
       + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:none;border:none;cursor:pointer">All robots →</button>'
     + '</div>'
     + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
-    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">'+noRobotNote()+'</div>')+'</div>'
+    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">Nothing under its lease right now, every included robot is covering its cost.</div>')+'</div>'
   + '</div>';
 }
 
