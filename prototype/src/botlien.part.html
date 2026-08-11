@@ -1667,14 +1667,20 @@ function viewSites(){
   const work = SITES.reduce((a,s) => a + s.work, 0);
   const inv = SITES.reduce((a,s) => a + s.invoice, 0);
   const robots = SITES.reduce((a,s) => a + s.robots, 0);
-  const max = Math.max.apply(null, SITES.map(s => s.work / s.invoice));
+  const groupCov = work / inv;
+  // Best to worst, same convention as Needs attention on the Coverage page,
+  // so the weakest site is easy to spot without reading every card.
+  const ranked = SITES.map((s,i) => Object.assign({}, s, { i, cov: s.work / s.invoice })).sort((a,b) => b.cov - a.cov);
+  const max = ranked[0].cov;
+  const best = ranked[0], worst = ranked[ranked.length - 1];
+  const spread = (best.cov - worst.cov).toFixed(2);
   return '<div style="padding:0 0 8px;margin-bottom:56px">'
     + '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
       + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
-        + '<div style="font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+(work/inv).toFixed(2)+'x</div>'
+        + '<div style="font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+groupCov.toFixed(2)+'x</div>'
         + '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">group coverage · '+robots+' robots · 3 sites</span>'
       + '</div>'
-      + '<div style="font-size:13px;color:var(--fg2);margin-bottom:14px">'+money(work)+' of work performed vs. '+money(inv)+' leased, summed across all 3 sites</div>'
+      + '<div style="font-size:13px;color:var(--fg2);margin-bottom:14px">'+money(work)+' of work performed vs. '+money(inv)+' leased, summed across all 3 sites. '+esc(worst.name)+' runs lowest of the three at '+worst.cov.toFixed(2)+'x, below the '+groupCov.toFixed(2)+'x group figure.</div>'
       + '<details class="bl-acc">'
         + '<summary style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg3)">'
           + '<span class="chev" style="display:inline-flex">'+ic('chevron-down',13)+'</span>How this number is calculated'
@@ -1683,23 +1689,25 @@ function viewSites(){
       + '</details>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:20px">'
-      + SITES.map((s,i) => {
-        const cov = s.work / s.invoice;
-        return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-          + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:2px">'
+      + ranked.map((s) => {
+        const belowAvg = s.cov < groupCov;
+        return '<div data-act="pickSite" data-i="'+s.i+'" class="hv-ghost" style="cursor:pointer;border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+          + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:2px">'
             + '<span style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+s.name+'</span>'
-            + (S.site===i ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">you are here</span>' : '')
+            + (S.site===s.i ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">you are here</span>' : '')
+            + (belowAvg ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">below group average</span>' : '')
           + '</div>'
           + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+s.robots+' robots</div>'
-          + '<div style="font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:10px">'+cov.toFixed(2)+'x</div>'
-          + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+((cov/max)*100).toFixed(1)+'%;background:var(--fg1)"></div></div>'
-          + '<div style="font-family:inherit;font-size:12px;color:var(--fg2);overflow-x:auto;white-space:nowrap;margin-bottom:14px">'+money(s.work)+' / '+money(s.invoice)+' = '+cov.toFixed(2)+'x</div>'
-          + '<button type="button" data-act="pickSite" data-i="'+i+'" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:none;border:none;cursor:pointer;padding:0">'+(S.site===i?'Viewing this site':'View this site')+' →</button>'
+          + '<div style="font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:10px">'+s.cov.toFixed(2)+'x</div>'
+          + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+((s.cov/max)*100).toFixed(1)+'%;background:var(--fg1)"></div></div>'
+          + '<div style="font-size:12.5px;color:var(--fg2);margin-bottom:8px">'+money(s.work)+' of work performed vs. '+money(s.invoice)+' leased</div>'
+          + '<div style="font-family:inherit;font-size:12px;color:var(--fg3);overflow-x:auto;white-space:nowrap;margin-bottom:14px">'+money(s.work)+' / '+money(s.invoice)+' = '+s.cov.toFixed(2)+'x</div>'
+          + '<span style="font-size:12px;font-weight:600;color:var(--fg2)">'+(S.site===s.i?'Viewing this site':'View this site')+' →</span>'
         + '</div>'; }).join('')
     + '</div>'
     + '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">What the spread says</div>'
-      + '<div style="font-size:13px;color:var(--fg2);line-height:1.65">Marina at 1.92x is not a worse deal, it is a shorter service. Its three robots run 9 hours a day against Pier 4&#39;s 12, on the same invoice. Moving one Marina unit to Airport, which is already at 2.81x on the same lease, would raise the group without renegotiating anything.</div>'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">The spread between sites</div>'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.65">'+esc(best.name)+' runs highest at '+best.cov.toFixed(2)+'x. '+esc(worst.name)+' runs lowest at '+worst.cov.toFixed(2)+'x, a spread of '+spread+'x between them. Coverage compares work performed against lease cost, not headcount or hours directly, two similarly-sized sites can still land in different places on this scale.</div>'
     + '</div>'
   + '</div>';
 }
