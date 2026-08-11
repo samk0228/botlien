@@ -2747,12 +2747,15 @@ function bootScreen(){
   let q;
   try { q = new URLSearchParams(location.search); } catch(e){ return; }
 
-  // '?demo=1' is the public, no-account entry point (botlien.com/demo
-  // proxies here with that appended): straight into a populated Dashboard,
-  // no auth, no onboarding, and it wins over '?screen=' / '?view=' below
-  // rather than composing with them, a demo link should never accidentally
-  // land somewhere half-configured.
-  if (q.get('demo')){
+  // '?demo=1' is the direct entry point, useful for testing straight
+  // against the Fly app. The real botlien.com/demo route is a server-side
+  // proxy, so it can't put that in the visitor's own address bar, it
+  // injects a global flag into the HTML instead (see handleDemoPreview in
+  // the website Worker) - checked here too, whichever fired wins. Straight
+  // into a populated Dashboard, no auth, no onboarding, and it wins over
+  // '?screen=' / '?view=' below rather than composing with them, a demo
+  // link should never accidentally land somewhere half-configured.
+  if (q.get('demo') || window.__botlienDemo){
     S.stage = 'app';
     S.view = 'dashv2';
     S.demoMode = true;
