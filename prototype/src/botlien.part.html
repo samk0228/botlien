@@ -513,7 +513,7 @@ const S = {
   // benchmark," present means "this robot's own number," read by
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
-  robotWage: { 0:22, 1:22, 2:22, 3:22 }, robotInvoice: {}, robotHours: {},
+  robotWage: { 0:22, 1:22, 2:22, 3:22 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
   timezone: 'America/Los_Angeles', siteHours: '12.0',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -1434,16 +1434,28 @@ function viewRobots(){
     + '<div style="padding:0;margin-bottom:48px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
         + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Why condition sits next to the money</h2></div>'
-      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Gausium reports the wear state of every consumable. It is the only direct measurement of condition either vendor exposes, and it is the difference between a scrubber that cleans and one that pushes dirty water around while still reporting active hours. Scrubber 75 has all four consumables at or under 8% of their rating, one of them past it, and returns 1.91x, the lowest of your two scrubbers, related facts neither the invoice nor the run count would tell you on their own. A squeegee past its life still logs active hours, so the work is counted at full rate while the floor gets worse.</p>'
-      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">This is also the reading a lender wants, for a different reason. Deferred maintenance is what a repossessed scrubber&#39;s resale value actually turns on, and it is visible here months before it shows up in a payment.</p>'
+      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Gausium is the only vendor that reports consumable wear directly, the difference between a scrubber that cleans and one pushing dirty water around while still logging active hours. Scrubber 75 proves it: all four parts under 8% of rating, and the lowest coverage of your two scrubbers, a connection the invoice alone wouldn&#39;t show. It&#39;s also what a lender reads for resale value, visible here months before it shows up in a payment.</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:0;max-width:88ch">'+silent.length+' of your robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it, so those rows carry no bars rather than an estimate guessed from hours run.</p>'
     + '</div>'
     + (!flagged ? '' : '<div style="padding:0">'
       + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">'
         + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">'+esc(flagged.name)+' is under its lease</h2>'
         + '<span style="font-size:13px;color:var(--fg3)">'+flagged.cov.toFixed(2)+'x · '+esc(flaggedR.duty)+' of '+esc(flaggedR.hours.split(' of ')[1])+'</span></div>'
-      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:86ch">It started '+flaggedUnitsPhrase+' in 30 days, worth '+money(flagged.value)+' of '+esc(flagged.work.toLowerCase())+' at your rate, against a '+money(flagged.invoice)+' invoice. Either it needs more of its shifts, or it belongs somewhere else in the room. Nothing here says what the runs earned, only what buying the same work costs.</p>'
+      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:86ch">'+flaggedUnitsPhrase+' in 30 days came to '+money(flagged.value)+' of '+esc(flagged.work.toLowerCase())+' against a '+money(flagged.invoice)+' invoice. Either it needs more shifts, or it belongs somewhere else. This is what buying the work costs, not what it earned.</p>'
       + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Check this robot&#39;s inputs</button></div>');
+}
+
+// The values themselves already apply the moment they're typed, computeStatement()
+// reads live state, not a saved copy. This button is reassurance, not a
+// commit step: something to press that says "done with this one" and
+// answers back, so editing a field doesn't leave you wondering whether it
+// took. Resets to "Save" the moment this row is touched again, see the
+// setupSaved reset in the input/change handlers below.
+function setupSaveButton(i){
+  const saved = !!S.setupSaved[i];
+  return '<button type="button" data-act="saveSetupRow" data-i="'+i+'" id="setupSaveBtn-'+i+'" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(saved?'var(--ghost2)':'var(--ink)')+';color:'+(saved?'var(--fg1)':'var(--ink-fg)')+'">'
+    + (saved ? ic('check',14)+'Saved' : 'Save')
+  + '</button>';
 }
 
 // Setup and Rates used to be two separate nav destinations. Both are the
@@ -1479,6 +1491,9 @@ function viewSetup(){
           + '<input id="setupWage-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.wage.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><label for="setupHours-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</label>'
           + '<input id="setupHours-'+i+'" data-i="'+i+'" type="number" min="0" step="0.5" inputmode="decimal" value="'+hoursVal+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">&nbsp;</div>'
+          + setupSaveButton(i)
+        + '</div>'
       + '</div>';
     }
     return '<div style="border-top:1px solid var(--hair)">'
@@ -1501,7 +1516,7 @@ function viewSetup(){
   + '<div style="padding:0;margin-bottom:56px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Where the rates come from</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Edit either side and the rate follows.</span></div>'
+      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Change a robot&#39;s Loaded wage above to move its rate.</span></div>'
     + '<div style="overflow-x:auto;min-width:0"><div style="min-width:720px">'
       + '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
       + RATES.map((v,i) => '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:20px 4px;border-top:1px solid var(--hair);align-items:baseline">'
@@ -2029,6 +2044,11 @@ function applySetupRow(i){
   put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour');
   const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
   put('setupSummary-'+i, s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day');
+  // An edit after Save undoes the reassurance: back to "Save" until they
+  // confirm this row again.
+  delete S.setupSaved[i];
+  const btn = document.getElementById('setupSaveBtn-'+i);
+  if (btn) btn.outerHTML = setupSaveButton(i);
 }
 
 /* Real masonry for the dashboard grid. Grid and flexbox both size a row by
@@ -2210,6 +2230,7 @@ const ACTIONS = {
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   saveThroughput: () => set({ savedThroughput:true }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
+  saveSetupRow: (el) => { const i = Number(el.dataset.i); set({ setupSaved: Object.assign({}, S.setupSaved, { [i]: true }) }); },
   save: () => {
     if (S.saving) return;
     set({ saving:true });
