@@ -391,6 +391,23 @@ const BENCH = {
   'Laundry handling':       { wageCentsHour:1900, humanUnitsPerHour:1,  invoiceCentsMonth:90000, unit:'active hour', unitPlural:'active hours', basis:'active_hour' },
 };
 
+// Purchase-equivalent cost per work category, roughly what a mission-basis
+// service robot or an active-hour scrubber actually costs to buy, not what
+// it leases for. Separate from BENCH's wageCentsHour/invoiceCentsMonth on
+// purpose: those price the WORK a robot does, this prices the ASSET itself,
+// a different question the tax shield page needs an answer to that nothing
+// else on this dashboard ever asks. Same category keys as BENCH, so every
+// CONFIRM row already has one to look up by, in cents.
+const EQUIP_COST = {
+  'Tray delivery':            1800000,
+  'Bussing and dish return':  1800000,
+  'Floor cleaning':           2800000,
+  'Order picking':            3200000,
+  'Putaway and replenishment':3200000,
+  'Room and guest delivery':  1800000,
+  'Laundry handling':         2200000,
+};
+
 // The one calculation the whole dashboard reads from. Every card below is a
 // different view of this same result, never its own arithmetic, so a
 // category or exclude change on the confirm screen can only ever move every
@@ -465,6 +482,44 @@ function computeStatement(full){
     rows, included, totalValue, totalInvoice, coverage,
     byCategory: Object.values(byCategory).sort((a,b) => b.value - a.value),
     mode: 'full',
+  };
+}
+
+// Same "one calculation" discipline as computeStatement above, every
+// figure on the Tax shield page reads from this, nothing recomputes on
+// its own. Scope follows S.dashScope, the same site filter Dashboard
+// already has, on purpose, so switching sites there and switching here
+// stay one idea instead of two. A robot's equipment cost comes from
+// EQUIP_COST by work category, same lookup shape as BENCH.
+//
+// Depreciation: bonus/Section 179 expenses the full cost in year one;
+// standard 5-year MACRS uses the IRS half-year-convention first-year
+// factor for 5-year property, 20%. Interest: a flat first-year estimate,
+// full equipment cost financed at the assumed rate, no amortization
+// schedule, deliberately simple for an illustrative figure, not a loan
+// calculator. Tax shield is what those two deductions are worth at the
+// assumed tax rate; net cost is equipment cost minus that shield.
+function computeTaxShield(){
+  const siteFilter = S.dashScope === 'all' ? null : Number(S.dashScope);
+  const rows = siteFilter === null ? CONFIRM : CONFIRM.filter(c => c.site === siteFilter);
+  const byCategory = {};
+  let totalCostCents = 0;
+  rows.forEach(c => {
+    const costCents = EQUIP_COST[c.work] || 0;
+    totalCostCents += costCents;
+    const cat = byCategory[c.work] || (byCategory[c.work] = { work:c.work, count:0, costCents:0 });
+    cat.count++;
+    cat.costCents += costCents;
+  });
+  const depRate = S.taxDepMethod === 'macrs5' ? 0.20 : 1;
+  const depreciationCents = totalCostCents * depRate;
+  const interestCents = totalCostCents * (S.taxInterestRate / 100);
+  const shieldCents = (depreciationCents + interestCents) * (S.taxRate / 100);
+  return {
+    robotCount: rows.length,
+    totalCostCents, depreciationCents, interestCents, shieldCents,
+    netCostCents: totalCostCents - shieldCents,
+    byCategory: Object.values(byCategory).sort((a,b) => b.costCents - a.costCents),
   };
 }
 
@@ -565,12 +620,13 @@ const S = {
   // a real account. Dashboard/Fleet/Numbers all still work normally on
   // real mock data, this only gates Settings and the sidebar identity.
   demoMode: false,
-  dashLayout: ['kpi','cost','recap','util','attn','work','sens','venuebench'], dashHidden: [], dashEdit: false,
+  dashLayout: ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'], dashHidden: [], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, howTo: '', period: 0, periodMenu: false, notInDemo: '',
   dashScope: 'all', dashScopeMenu: false, rateHistory: false,
+  taxRate: 25, taxInterestRate: 9, taxDepMethod: 'bonus',
   avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
   avatarImage: '',
@@ -1303,6 +1359,48 @@ function workSplitCard(){
   + '</div>';
 }
 
+// Same reason as every other card here: one calculation (computeTaxShield),
+// this card is just a view of it, never its own arithmetic. Rate/method
+// inputs live-patch via applyTaxShield below instead of calling set(), same
+// reason Setup's inputs do, a full re-render mid-keystroke would blow away
+// focus in the very field being typed into.
+function taxShieldCard(){
+  const t = computeTaxShield();
+  const m = (cents) => money(cents / 100);
+  const depBtn = (id, label) => '<button type="button" data-act="setTaxDep" data-method="'+id+'" style="padding:8px 12px;border-radius:4px;border:1px solid '+(S.taxDepMethod===id?'var(--fg1)':'var(--hair2)')+';background:'+(S.taxDepMethod===id?'var(--ghost2)':'transparent')+';color:var(--fg1);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">'+label+'</button>';
+  const catRows = t.byCategory.map(k => '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--hair);font-size:12.5px">'
+    + '<span style="color:var(--fg1);font-weight:600">'+esc(k.work)+' &middot; '+k.count+' '+(k.count===1?'robot':'robots')+'</span>'
+    + '<span style="color:var(--fg2);font-variant-numeric:tabular-nums">'+m(k.costCents)+'</span>'
+  + '</div>').join('');
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Tax shield &amp; depreciation</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+' instead of leasing them would be worth at tax time. Illustrative, not tax advice.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:18px">'
+      + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Year-1 tax shield</div><div id="taxShieldValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.shieldCents)+'</div></div>'
+      + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Effective first-year cost</div><div id="taxNetCostValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.netCostCents)+'</div></div>'
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-bottom:16px">'
+      + '<div><label for="taxRateInput" style="display:block;font-size:11px;font-weight:700;color:var(--fg3);margin-bottom:6px">Tax rate</label>'
+        + '<div style="display:flex;align-items:center;gap:4px;font-size:14px;color:var(--fg1)"><input id="taxRateInput" type="text" inputmode="decimal" value="'+S.taxRate+'" style="width:44px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums">%</div></div>'
+      + '<div><label for="taxInterestInput" style="display:block;font-size:11px;font-weight:700;color:var(--fg3);margin-bottom:6px">Financing rate</label>'
+        + '<div style="display:flex;align-items:center;gap:4px;font-size:14px;color:var(--fg1)"><input id="taxInterestInput" type="text" inputmode="decimal" value="'+S.taxInterestRate+'" style="width:44px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums">%</div></div>'
+      + '<div style="display:flex;gap:8px">' + depBtn('bonus','Bonus / Sec. 179') + depBtn('macrs5','5-yr MACRS') + '</div>'
+    + '</div>'
+    + '<div id="taxShieldTrace">' + taxShieldTrace(t) + '</div>'
+    + (catRows ? '<div style="margin-top:16px">'+catRows+'</div>' : '<div style="margin-top:6px;font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
+    + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Assumed equipment cost by work type, a simplified first-year interest estimate (no amortization schedule), and the standard first-year depreciation factors. Not tax advice, actual eligibility and schedules depend on your fleet and situation.</div>'
+  + '</div>';
+}
+function taxShieldTrace(t){
+  const m = (cents) => money(cents / 100);
+  const depLabel = S.taxDepMethod === 'macrs5' ? '20% (5-yr MACRS)' : '100% (bonus / Sec. 179)';
+  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
+    + m(t.totalCostCents)+' equipment cost &times; '+depLabel+' depreciation = '+m(t.depreciationCents)+'<br>'
+    + m(t.totalCostCents)+' financed &times; '+S.taxInterestRate+'% rate = '+m(t.interestCents)+' interest<br>'
+    + '('+m(t.depreciationCents)+' + '+m(t.interestCents)+') &times; '+S.taxRate+'% tax rate = '+m(t.shieldCents)+' shield'
+  + '</div>';
+}
+
 // Every block on the dashboard, keyed once, so the dashboard is just "which
 // keys, in what order, hidden or not" rather than a hardcoded page. Adding a
 // block anywhere else in the app later means adding one entry here.
@@ -1313,10 +1411,11 @@ const DASH_BLOCKS = {
   util:      { label: 'Utilization',          render: utilizationCard },
   attn:      { label: 'Needs attention',      render: attentionCard },
   work:      { label: 'Where the work is',    render: workSplitCard },
+  taxshield: { label: 'Tax shield & depreciation', render: taxShieldCard },
   sens:      { label: 'Rate assumption',      render: sensitivityCard },
   venuebench:{ label: 'Benchmark vs other venues', render: benchmarkVenueCard },
 };
-const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','sens','venuebench'];
+const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'];
 const DASH_HIDDEN_DEFAULT = [];
 let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render (see dragstart/dragover/dragend below)
 
@@ -2220,6 +2319,22 @@ function render(){
   }
 }
 
+// Same live-patch reason as applySensitivity below: a full re-render on
+// every keystroke in the rate/interest inputs would blow away focus in the
+// very field being typed into. The trace block gets its whole innerHTML
+// replaced rather than patched span-by-span, its percentage figures are
+// baked into surrounding sentence text, not isolated in their own spans.
+function applyTaxShield(){
+  const put = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  if (S.view !== 'dashv2') return;
+  const t = computeTaxShield();
+  const m = (cents) => money(cents / 100);
+  put('taxShieldValue', m(t.shieldCents));
+  put('taxNetCostValue', m(t.netCostCents));
+  const trace = document.getElementById('taxShieldTrace');
+  if (trace) trace.innerHTML = taxShieldTrace(t);
+}
+
 /* The slider patches the statement in place. A full re-render on every input
    event would replace the range element mid-drag and the thumb would stop
    tracking the pointer. */
@@ -2402,6 +2517,7 @@ const ACTIONS = {
   toggleRail: () => set({ railCollapsed: !S.railCollapsed }),
   toggleMobileNav: () => set({ mobileNavOpen: !S.mobileNavOpen }),
   toggleDashEdit: () => set({ dashEdit: !S.dashEdit }),
+  setTaxDep: (el) => set({ taxDepMethod: el.dataset.method }),
   dashHide: (el) => set({ dashHidden: S.dashHidden.concat(el.dataset.id) }),
   dashShow: (el) => set({ dashHidden: S.dashHidden.filter(id => id !== el.dataset.id) }),
   dashReset: () => set({ dashLayout: DASH_ORDER_DEFAULT.slice(), dashHidden: DASH_HIDDEN_DEFAULT.slice() }),
@@ -2599,6 +2715,16 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'sensRange'){
     S.throughput = Number(e.target.value);
     applySensitivity();
+    return;
+  }
+  if (e.target.id === 'taxRateInput'){
+    S.taxRate = Number(e.target.value) || 0;
+    applyTaxShield();
+    return;
+  }
+  if (e.target.id === 'taxInterestInput'){
+    S.taxInterestRate = Number(e.target.value) || 0;
+    applyTaxShield();
     return;
   }
   if (/^setupWage-\d+$/.test(e.target.id)){
