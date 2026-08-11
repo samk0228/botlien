@@ -490,7 +490,7 @@ const S = {
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
-  siteMenu: false, sitePopup: null, dashScope: 'all', dashScopeMenu: false, scheduled: true, shareMade: false, rateHistory: false
+  sitePopup: null, dashScope: 'all', dashScopeMenu: false, scheduled: true, shareMade: false, rateHistory: false
 };
 
 let timers = { resend: null, send: null, signin: null, upload: null, save: null, export: null, cred: null };
@@ -791,18 +791,11 @@ function appRail(){
   };
   const badge = '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">1</span>';
 
-  // The app (Coverage, Robots, Rates, Setup) is always Pier 4, the one
-  // site this demo carries full robot-level telemetry for. It is the one
-  // unified dashboard, not a different page per site, so the brand button
-  // reads Pier 4 no matter what was last opened on the All 3 sites page.
-  const site = SITES[0];
-  const menu = (S.siteMenu && !collapsed)
-    ? '<div style="position:absolute;top:64px;left:0;right:0;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:50">'
-      + '<div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--fg3);border-bottom:1px solid var(--hair)">Harbor Grill Group</div>'
-      + SITES.map((s,i) => '<div data-act="focusSite" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13.5px;font-weight:'+(i===0?700:500)+';color:var(--fg1)">'
-        + s.name+'<span style="margin-left:auto;font-size:12px;color:var(--fg3);font-variant-numeric:tabular-nums">'+s.cov+'</span></div>').join('')
-      + '<div data-act="go" data-view="sites" class="hv-ghost" style="padding:11px 14px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">All 3 sites together</div></div>'
-    : '';
+  // Which site is in view already lives in the dashboard's own scope
+  // filter (All 3 sites / Pier 4 / Marina / Airport, next to Customize),
+  // so a second site switcher up here was showing the same choice twice.
+  // The brand block is just identity now: who the account belongs to, not
+  // a control. No dropdown, no chevron, no data-act.
 
   // shadcn's SidebarRail: an invisible 4px drag-strip along the border, a
   // second way to collapse besides the external trigger (see appHeader),
@@ -810,24 +803,16 @@ function appRail(){
   // hover.
   const rail = '<button type="button" data-act="toggleRail" class="bl-rail" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-2px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
 
-  // TeamSwitcher pattern: a coloured icon block (not the whole row) inside
-  // a plain hover-highlight button, chevron on the right implies it opens
-  // a menu. The whole row used to be its own bordered box; that box now
-  // lives only around the icon, matching the reference exactly.
   const brand = collapsed
-    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;cursor:pointer">'
+    ? '<div title="Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
       + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
         + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
       + '</div></div>'
-    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer">'
+    : '<div style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px">'
       + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
         + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
       + '</div>'
-      + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden">'
-        + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">'+site.name+' · '+site.robots+'</span>'
-        + '<span style="font-size:11.5px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbor Grill Group</span>'
-      + '</div>'
-      + ic('chevron-down',15,'margin-left:auto;color:var(--sb-muted)')
+      + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">Harbor Grill Group</span>'
       + '</div>';
 
   // Hamburger only exists below 900px (.bl-mobile-toggle), everything it
@@ -849,7 +834,7 @@ function appRail(){
   // toward the right edge, not a centering bug at all, a padding bug.
   return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
     + rail
-    + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + menu + '</div>'
+    + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + '</div>'
     // Plain block stacking, not flex: a flex child's cross-axis width is
     // subject to the flex sizing algorithm no matter what display the
     // child itself declares, which is what was quietly shrinking the ul to
@@ -2257,26 +2242,22 @@ const ACTIONS = {
   attention: () => goView('robots', { robotFilter:'attention' }),
   allRobots: () => goView('robots', { robotFilter:'all' }),
   setupBenchmark: () => goView('setup', { openSetup:4 }),
-  toggleProfile: () => set({ profileOpen: !S.profileOpen, siteMenu:false, periodMenu:false }),
-  toggleSite: () => set({ siteMenu: !S.siteMenu, profileOpen:false, periodMenu:false }),
-  // Never switches what the dashboard shows, that is always Pier 4. This
-  // just jumps to All 3 sites with the picked one's popup already open.
-  focusSite: (el) => goView('sites', { sitePopup: Number(el.dataset.i), siteMenu:false }),
+  toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
   openSitePopup: (el) => set({ sitePopup: Number(el.dataset.i) }),
   closeSitePopup: () => set({ sitePopup: null }),
-  toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, siteMenu:false, periodMenu:false, exportMenu:false }),
+  toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false, exportMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
   // Swallows clicks inside the popup card so they do not bubble to the
   // backdrop behind it and close the popup they landed on.
   noop: () => {},
-  togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, siteMenu:false }),
+  togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
   pickPeriod: (el) => set({ period: Number(el.dataset.i), periodMenu:false }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
   toggleSchedule: () => set({ scheduled: !S.scheduled, exportMenu:false }),
   shareLink: () => set({ shareMade:true, exportMenu:false }),
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   saveThroughput: () => set({ savedThroughput:true }),
-  toggleExport: () => { if (!S.exporting) set({ exportMenu: !S.exportMenu, profileOpen:false, siteMenu:false, periodMenu:false }); },
+  toggleExport: () => { if (!S.exporting) set({ exportMenu: !S.exportMenu, profileOpen:false, periodMenu:false }); },
   exportCsv: () => download('csv'),
   exportPdf: () => download('pdf'),
   dismissExport: () => set({ exportDone:false, exportFailed:false }),
