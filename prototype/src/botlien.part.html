@@ -459,7 +459,7 @@ const S = {
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
-  siteMenu: false, site: 0, scheduled: true, shareMade: false, rateHistory: false
+  siteMenu: false, sitePopup: null, scheduled: true, shareMade: false, rateHistory: false
 };
 
 let timers = { resend: null, send: null, signin: null, upload: null, save: null, export: null, cred: null };
@@ -1644,6 +1644,10 @@ function viewStates(){
 // inline text. This page used to be its own older hero-plus-equals-sign
 // template; that template is gone everywhere else now, so this should not
 // be the one place it still shows up.
+//
+// Clicking a card opens a real popup (see sitePopupOverlay), not an
+// in-page navigation and not an inline expand, everything stays visually
+// anchored to this page, dimmed behind the popup, nothing scrolls away.
 function viewSites(){
   const work = SITES.reduce((a,s) => a + s.work, 0);
   const inv = SITES.reduce((a,s) => a + s.invoice, 0);
@@ -1655,10 +1659,6 @@ function viewSites(){
   const max = ranked[0].cov;
   const best = ranked[0], worst = ranked[ranked.length - 1];
   const spread = (best.cov - worst.cov).toFixed(2);
-  // Pier 4's real flagged robot, computed the same way Needs attention does
-  // on the dashboard, not a separate claim invented for this card.
-  const pier4 = computeStatement();
-  const flagged = pier4.included.filter(r => r.cov !== null).find(r => r.cov < 1);
   return '<div style="padding:0 0 8px;margin-bottom:56px">'
     + '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
       + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
@@ -1677,32 +1677,59 @@ function viewSites(){
       + ranked.map((s) => {
         const belowAvg = s.cov < groupCov;
         const isPier4 = s.i === 0;
-        const detail = isPier4
-          ? (flagged
-            ? '<div style="font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:14px">'+esc(flagged.name)+' is running under its lease at '+flagged.cov.toFixed(2)+'x, the one thing here worth a closer look.</div>'
-            : '<div style="font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:14px">Every included robot is covering its lease this period.</div>')
-            + '<button type="button" data-act="go" data-view="dashv2" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg1);background:none;border:1px solid var(--hair2);border-radius:3px;padding:8px 14px;cursor:pointer">Open full dashboard →</button>'
-          : '<div style="font-size:13px;color:var(--fg2);line-height:1.6">This demo only tracks robot-level detail for Pier 4. The number above is '+esc(s.name)+'&#39;s full site total, real, just not broken down further here.</div>';
-        return '<details class="bl-acc"'+(S.site===s.i?' open':'')+' style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-          + '<summary style="cursor:pointer;list-style:none">'
-            + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:2px">'
-              + '<span style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+s.name+'</span>'
-              + (isPier4 ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">the main dashboard</span>' : '')
-              + (belowAvg ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">below group average</span>' : '')
-              + '<span class="chev" style="display:inline-flex;margin-left:auto;color:var(--fg3)">'+ic('chevron-down',15)+'</span>'
-            + '</div>'
-            + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+s.robots+' robots</div>'
-            + '<div style="font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:10px">'+s.cov.toFixed(2)+'x</div>'
-            + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:'+((s.cov/max)*100).toFixed(1)+'%;background:var(--fg1)"></div></div>'
-            + '<div style="font-size:12.5px;color:var(--fg2);margin-bottom:8px">'+money(s.work)+' of work performed vs. '+money(s.invoice)+' leased</div>'
-            + '<div style="font-family:inherit;font-size:12px;color:var(--fg3);overflow-x:auto;white-space:nowrap">'+money(s.work)+' / '+money(s.invoice)+' = '+s.cov.toFixed(2)+'x</div>'
-          + '</summary>'
-          + '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)">'+detail+'</div>'
-        + '</details>'; }).join('')
+        return '<div data-act="openSitePopup" data-i="'+s.i+'" class="hv-ghost" style="cursor:pointer;border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+          + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:2px">'
+            + '<span style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+s.name+'</span>'
+            + (isPier4 ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">the main dashboard</span>' : '')
+            + (belowAvg ? '<span style="font-size:11px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:2px 7px;border-radius:3px">below group average</span>' : '')
+          + '</div>'
+          + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+s.robots+' robots</div>'
+          + '<div style="font-size:26px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:10px">'+s.cov.toFixed(2)+'x</div>'
+          + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:'+((s.cov/max)*100).toFixed(1)+'%;background:var(--fg1)"></div></div>'
+          + '<span style="font-size:12px;font-weight:600;color:var(--fg2)">See details →</span>'
+        + '</div>'; }).join('')
     + '</div>'
     + '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
       + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">The spread between sites</div>'
       + '<div style="font-size:13px;color:var(--fg2);line-height:1.65">'+esc(best.name)+' runs highest at '+best.cov.toFixed(2)+'x. '+esc(worst.name)+' runs lowest at '+worst.cov.toFixed(2)+'x, a spread of '+spread+'x between them. Coverage compares work performed against lease cost, not headcount or hours directly, two similarly-sized sites can still land in different places on this scale.</div>'
+    + '</div>'
+  + '</div>'
+  + sitePopupOverlay();
+}
+
+// A real modal: dimmed backdrop, floating card, nothing else on the page
+// moves or scrolls out from behind it. Self-contained on purpose, no link
+// out to the Coverage dashboard even for Pier 4, this popup is meant to be
+// everything All 3 sites needs without leaving the page.
+function sitePopupOverlay(){
+  if (S.sitePopup === null) return '';
+  const i = S.sitePopup;
+  const s = SITES[i];
+  const cov = s.work / s.invoice;
+  const isPier4 = i === 0;
+  let detail;
+  if (isPier4){
+    // Same computation Needs attention uses on the dashboard, not a
+    // separate claim invented for this popup.
+    const stmt = computeStatement();
+    const flagged = stmt.included.filter(r => r.cov !== null).find(r => r.cov < 1);
+    detail = flagged
+      ? esc(flagged.name)+' is running under its lease at '+flagged.cov.toFixed(2)+'x, the one thing here worth a closer look.'
+      : 'Every included robot is covering its lease this period.';
+  } else {
+    detail = 'This demo only tracks robot-level detail for Pier 4. The number above is '+esc(s.name)+'&#39;s full site total, real, just not broken down further here.';
+  }
+  return '<div data-act="closeSitePopup" style="position:fixed;inset:0;background:rgba(10,10,10,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px">'
+    + '<div data-act="noop" role="dialog" aria-modal="true" style="background:var(--menu);border-radius:8px;max-width:420px;width:100%;max-height:calc(100vh - 48px);overflow-y:auto;padding:26px 26px 24px;box-shadow:0 20px 60px rgba(10,10,10,.32)">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:2px">'
+        + '<span style="font-size:16px;font-weight:700;color:var(--fg1)">'+s.name+'</span>'
+        + '<button type="button" data-act="closeSitePopup" aria-label="Close" style="flex:none;width:28px;height:28px;border-radius:5px;border:1px solid var(--hair2);background:transparent;cursor:pointer;color:var(--fg2);font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">&times;</button>'
+      + '</div>'
+      + '<div style="font-size:12px;color:var(--fg3);margin-bottom:18px">'+s.robots+' robots'+(isPier4 ? ' · the main dashboard' : '')+'</div>'
+      + '<div style="font-size:34px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:10px">'+cov.toFixed(2)+'x</div>'
+      + '<div style="font-size:13px;color:var(--fg2);margin-bottom:8px">'+money(s.work)+' of work performed vs. '+money(s.invoice)+' leased</div>'
+      + '<div style="font-family:inherit;font-size:12px;color:var(--fg3);overflow-x:auto;white-space:nowrap;margin-bottom:18px">'+money(s.work)+' / '+money(s.invoice)+' = '+cov.toFixed(2)+'x</div>'
+      + '<div style="padding-top:16px;border-top:1px solid var(--hair);font-size:13px;color:var(--fg2);line-height:1.6">'+detail+'</div>'
     + '</div>'
   + '</div>';
 }
@@ -2102,8 +2129,13 @@ const ACTIONS = {
   toggleProfile: () => set({ profileOpen: !S.profileOpen, siteMenu:false, periodMenu:false }),
   toggleSite: () => set({ siteMenu: !S.siteMenu, profileOpen:false, periodMenu:false }),
   // Never switches what the dashboard shows, that is always Pier 4. This
-  // just jumps to All 3 sites with the picked one pre-expanded there.
-  focusSite: (el) => goView('sites', { site: Number(el.dataset.i), siteMenu:false }),
+  // just jumps to All 3 sites with the picked one's popup already open.
+  focusSite: (el) => goView('sites', { sitePopup: Number(el.dataset.i), siteMenu:false }),
+  openSitePopup: (el) => set({ sitePopup: Number(el.dataset.i) }),
+  closeSitePopup: () => set({ sitePopup: null }),
+  // Swallows clicks inside the popup card so they do not bubble to the
+  // backdrop behind it and close the popup they landed on.
+  noop: () => {},
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, siteMenu:false }),
   pickPeriod: (el) => set({ period: Number(el.dataset.i), periodMenu:false }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
@@ -2222,6 +2254,7 @@ document.addEventListener('toggle', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target && e.target.id === 'authEmail') submitEmail();
+  if (e.key === 'Escape' && S.sitePopup !== null) ACTIONS.closeSitePopup();
 });
 
 /* Dashboard block reordering. Reorder happens once, on drop, not live on
