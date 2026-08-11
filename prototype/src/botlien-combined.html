@@ -211,10 +211,17 @@ const PERIODS = [
   { label:'Mar 4 – Apr 3, 2026', cov:1.88, status:'closed', closed:'Closed Apr 4' }
 ];
 
+// Identity only. Work, invoice, and coverage per site used to be typed
+// here as static numbers with nothing behind them, which is exactly why
+// the dashboard's site scope filter could only ever show Pier 4's real
+// arithmetic and had to degrade everything else to a single total.
+// computeStatement() derives all three live from CONFIRM+BENCH now (see
+// the site parameter there), same as Pier 4 always has, so this can't
+// drift out of sync with the numbers actually shown.
 const SITES = [
-  { name:'Pier 4',  robots:6, work:13333.80, invoice:5596.00, cov:'2.38x', current:true },
-  { name:'Marina',  robots:3, work:5372.16,  invoice:2798.00, cov:'1.92x', current:false },
-  { name:'Airport', robots:4, work:10669.57, invoice:3797.00, cov:'2.81x', current:false }
+  { name:'Pier 4' },
+  { name:'Marina' },
+  { name:'Airport' }
 ];
 
 /* "What to fix first". Ported from src/tips.mjs, which allows a tip to claim
@@ -311,13 +318,26 @@ const WORK_CATEGORIES = [
 // is that same number pre-formatted for display, kept in sync by hand here
 // since there are only six rows, not derived, so a units edit and a seen
 // edit are two edits, not one, if this table is ever hand-edited again.
+//
+// site indexes into SITES (0 Pier 4, 1 Marina, 2 Airport). All 13 robots
+// live in one table so computeStatement() can filter to one site, or skip
+// the filter for "all 3 sites," instead of Pier 4 being the only site with
+// real robots behind it and every other scope degrading to a single
+// pre-typed total.
 const CONFIRM = [
-  { name:'Servi 1 (front)', units:3780, seen:'3,780 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Servi 2 (patio)', units:900, seen:'900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'P3 runner', units:3900, seen:'3,900 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Servi 3 (banquet)', units:3480, seen:'3,480 runs started · Aug 4 – Sep 3', work:'Tray delivery' },
-  { name:'Scrubber 50', units:120.0, seen:'120.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning' },
-  { name:'Scrubber 75 (nights)', units:61.2, seen:'61.2 active hours · Aug 4 – Sep 3', work:'Floor cleaning' }
+  { name:'Servi 1 (front)', units:3780, seen:'3,780 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
+  { name:'Servi 2 (patio)', units:900, seen:'900 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
+  { name:'P3 runner', units:3900, seen:'3,900 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
+  { name:'Servi 3 (banquet)', units:3480, seen:'3,480 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
+  { name:'Scrubber 50', units:120.0, seen:'120.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:0 },
+  { name:'Scrubber 75 (nights)', units:61.2, seen:'61.2 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:0 },
+  { name:'Servi 1 (Marina)', units:2600, seen:'2,600 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:1 },
+  { name:'Servi 2 (Marina)', units:2100, seen:'2,100 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:1 },
+  { name:'Scrubber (Marina)', units:75.0, seen:'75.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:1 },
+  { name:'Servi 1 (Airport)', units:3700, seen:'3,700 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
+  { name:'Servi 2 (Airport)', units:3550, seen:'3,550 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
+  { name:'Servi 3 (Airport)', units:3200, seen:'3,200 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
+  { name:'Scrubber (Airport)', units:90.0, seen:'90.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:2 }
 ];
 
 // Same seven categories and the same rates as the real backend's
@@ -364,28 +384,15 @@ function computeStatement(full){
       mode: 'estimate', manualCount: count, manualCost: cost, manualRevenue: revenue,
     };
   }
-  // The Coverage page's site toggle. dashScope 0 is Pier 4, the only site
-  // with real per-robot telemetry, so it alone gets the full computation
-  // below. "all" and the other two sites only have a work/invoice total in
-  // this demo, so every card that needs a per-robot breakdown degrades to
-  // the same honest note the All 3 sites popup uses, nothing invented.
-  if (!full && S.dashScope !== 0){
-    let totalValue, totalInvoice, scopeLabel;
-    if (S.dashScope === 'all'){
-      totalValue = Math.round(SITES.reduce((a,site) => a+site.work, 0) * 100) / 100;
-      totalInvoice = Math.round(SITES.reduce((a,site) => a+site.invoice, 0) * 100) / 100;
-      scopeLabel = 'all 3 sites';
-    } else {
-      const site = SITES[S.dashScope];
-      totalValue = site.work; totalInvoice = site.invoice; scopeLabel = site.name;
-    }
-    const coverage = totalInvoice > 0 ? totalValue / totalInvoice : null;
-    return {
-      rows: [], included: [], totalValue, totalInvoice, coverage, byCategory: [],
-      mode: 'siteOnly', scopeLabel,
-    };
-  }
-  const rows = CONFIRM.map((c,i) => {
+  // Which site's robots feed the computation below. full is always Pier 4
+  // (Fleet and Setup are single-site pages, not at the mercy of whatever
+  // scope Dashboard happens to have selected). Otherwise it's whatever
+  // Dashboard's own scope filter says, including no filter at all for
+  // "all 3 sites," every site's robots used to live in this same table
+  // together, now they actually do.
+  const siteFilter = full ? 0 : (S.dashScope === 'all' ? null : S.dashScope);
+  const entries = siteFilter === null ? CONFIRM.map((c,i) => ({c,i})) : CONFIRM.map((c,i) => ({c,i})).filter(({c}) => c.site === siteFilter);
+  const rows = entries.map(({c,i}) => {
     const work = S.confirmWork[i] ?? c.work;
     const b = BENCH[work] ?? BENCH['Tray delivery'];
     // Wage and invoice come from Setup's per-robot overrides when one
@@ -736,7 +743,7 @@ function authStage(){
       + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 24px">Someone at harborgrill.com set up a workspace with 3 sites. Joining it keeps one set of rates and one statement. Starting your own would split the fleet in two.</p>'
       + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
         + '<div style="font-size:14px;font-weight:600;color:var(--fg1)">Harbor Grill Group</div>'
-        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:4px">Owner Sam Ortega · Pier 4, Marina, Airport · 12 robots</div></div>'
+        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:4px">Owner Sam Ortega · Pier 4, Marina, Airport · 13 robots</div></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
         + '<button type="button" data-act="requestAccess" class="hv-dim9 press9" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:700">Ask Sam for access</button>'
         + '<button type="button" data-act="authScreen" data-key="landed-new" style="padding:14px 20px;border-radius:4px;border:none;background:transparent;color:var(--fg2);cursor:pointer;font-size:13.5px;font-weight:600;text-decoration:underline;text-underline-offset:3px">Start a separate workspace</button></div>'
@@ -1029,20 +1036,14 @@ function coverageKpiCard(){
   const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
   const tag = s.mode === 'estimate'
     ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
-    : s.mode === 'siteOnly'
-    ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">'+esc(s.scopeLabel)+'</span>'
     : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">first period, no trend yet</span>';
   const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
       : money(s.totalInvoice)+' of lease cost from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+'. Add what the work is worth per robot to see a coverage ratio.')
-    : s.mode === 'siteOnly'
-    ? money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased, at '+esc(s.scopeLabel)
     : money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased';
   const detail = s.mode === 'estimate'
     ? 'One number spread evenly across '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+', not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement, priced at category benchmarks until you set your own numbers.'
-    : s.mode === 'siteOnly'
-    ? 'This demo only tracks robot-level detail for Pier 4. The number above is '+esc(s.scopeLabel)+'&#39;s real total, just not broken down further here. Switch back to Pier 4 to see the arithmetic behind it.'
     : 'Replacement cost of the work performed, divided by the lease. Not revenue, not profit, not labor you stopped paying for, just what it would have cost to buy this work another way, priced at category benchmarks until you set your own numbers. Change a robot&#39;s kind of work or exclude one on the confirm screen and this recalculates from those '+s.included.length+' robots, nothing here is fixed.';
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
@@ -1064,10 +1065,8 @@ function coverageKpiCard(){
 // reasons: no robots imported yet, or this demo simply not tracking that
 // site per robot. Saying "No robots included yet" for the latter would
 // read as if the site has no fleet at all, which is not true.
-function noRobotNote(s){
-  return s.mode === 'siteOnly'
-    ? 'This demo only tracks robot-level detail for Pier 4, not for '+esc(s.scopeLabel)+'.'
-    : 'No robots included yet.';
+function noRobotNote(){
+  return 'No robots included yet.';
 }
 
 function attentionCard(){
@@ -1091,7 +1090,7 @@ function attentionCard(){
       + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:none;border:none;cursor:pointer">All robots →</button>'
     + '</div>'
     + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
-    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">'+noRobotNote(s)+'</div>')+'</div>'
+    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">'+noRobotNote()+'</div>')+'</div>'
   + '</div>';
 }
 
@@ -1108,7 +1107,7 @@ function workSplitCard(){
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Where the work is</div>'
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">Share of work serviced, by kind, this period</div>'
-    + (rows || '<div style="font-size:13px;color:var(--fg3)">'+noRobotNote(s)+'</div>')
+    + (rows || '<div style="font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
   + '</div>';
 }
 
@@ -1134,9 +1133,11 @@ const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','sens','ow
 const DASH_HIDDEN_DEFAULT = ['ownbench'];
 let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render
 
-// The one unified dashboard: always Pier 4, the only site this demo has
-// full robot-level telemetry for. Marina and Airport are compared, not
-// switched into, via the scope filter next to Customize (S.dashScope).
+// The one unified dashboard: which site's telemetry it reads is the scope
+// filter next to Customize (S.dashScope), Pier 4, Marina, and Airport all
+// carry the same real per-robot detail now, "all 3 sites" sums across
+// whichever aren't excluded rather than reading one site's total three
+// times over.
 function viewDashV2(){
   const hidden = S.dashLayout.filter(id => S.dashHidden.includes(id));
   const visible = S.dashLayout.filter(id => !S.dashHidden.includes(id));
@@ -1158,10 +1159,10 @@ function viewDashV2(){
 
 // One filter button with a dropdown, same pattern as the period picker up
 // top: current selection on the button face, chevron, click opens a list
-// of every option below it. Filters the Coverage page only, Robots/Rates/
-// Setup stay Pier 4 always since that is the only site this demo has real
-// per-robot telemetry for. Loads on "All 3 sites," the combined figure,
-// not any one site's own.
+// of every option below it. Filters the Dashboard only, Fleet and Numbers
+// stay Pier 4 always, by choice, not because the other two sites lack
+// data behind them now. Loads on "All 3 sites," the combined figure, not
+// any one site's own.
 function scopeToggle(){
   const scopes = [{k:'all', label:'All 3 sites'}].concat(SITES.map((s,i) => ({k:String(i), label:s.name})));
   const current = scopes.find(sc => sc.k === String(S.dashScope));
@@ -1218,8 +1219,8 @@ function sensitivityCard(){
   const base = sensBase();
   if (!base){
     const s = computeStatement();
-    const note = s.mode === 'siteOnly'
-      ? noRobotNote(s)
+    const note = s.included.length === 0
+      ? noRobotNote()
       : 'Every included robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test. This card appears once a per-run or per-pick robot is in the fleet.';
     return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
       + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>'
@@ -1260,7 +1261,7 @@ function sensitivityCard(){
 
 function costCard(){
   const s = computeStatement();
-  if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—',noRobotNote(s),'','')+'</div>';
+  if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—',noRobotNote(),'','')+'</div>';
   // The dashboard's biggest category by value, since "cost per task" only
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
