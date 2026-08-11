@@ -38,6 +38,13 @@ input{font-family:inherit}
 .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
 .hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
 .bl-rail:hover{background:var(--sb-border)}
+/* Sidebar collapse toggle lives on the brand badge itself now, not as a
+   button that sits in the header the whole time. Logo and chevron are both
+   always in the DOM, only one ever shown, hover flips which. */
+.bl-brand-toggle{cursor:pointer}
+.bl-brand-toggle .bl-brand-chev{display:none}
+.bl-brand-toggle:hover .bl-brand-logo{display:none}
+.bl-brand-toggle:hover .bl-brand-chev{display:flex}
 .hv-fg1:hover{color:var(--fg1)}
 .hv-dim:hover{opacity:.86}
 .hv-dim9:hover{opacity:.9}
@@ -77,7 +84,6 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
   [data-side]{position:static !important;height:auto !important;min-width:0;padding:14px 16px 0 !important;border-right:none !important;border-bottom:1px solid var(--hair)}
   [data-main]{min-width:0}
   .bl-mobile-toggle{display:flex}
-  .bl-rail-toggle{display:none !important}
   [data-nav],[data-side-foot]{display:none !important}
   [data-side].bl-mobile-open [data-nav],[data-side].bl-mobile-open [data-side-foot]{display:flex !important;flex-direction:column !important;overflow-x:visible !important}
   [data-side].bl-mobile-open [data-nav] > div,[data-side].bl-mobile-open [data-side-foot] > div{white-space:normal}
@@ -788,24 +794,29 @@ function appRail(){
   // Which site is in view already lives in the dashboard's own scope
   // filter (All 3 sites / Pier 4 / Marina / Airport, next to Customize),
   // so a second site switcher up here was showing the same choice twice.
-  // The brand block is just identity now: who the account belongs to, not
-  // a control. No dropdown, no chevron, no data-act.
+  // The brand block is identity, not a site picker, no dropdown. Its icon
+  // is still a control though: it's the sidebar collapse toggle now (see
+  // brandIcon below), not a separate permanent button.
 
   // shadcn's SidebarRail: an invisible 4px drag-strip along the border, a
-  // second way to collapse besides the external trigger (see appHeader),
-  // cursor swaps to a resize cursor and the border itself highlights on
-  // hover.
+  // second way to collapse besides the brand badge, cursor swaps to a
+  // resize cursor and the border itself highlights on hover.
   const rail = '<button type="button" data-act="toggleRail" class="bl-rail" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-2px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
 
+  // The collapse/expand control used to also live as a bordered chevron
+  // button that sat in the header permanently (see appHeader). Now it's
+  // just this badge: hover swaps the logo for a chevron, click toggles,
+  // unhover swaps it back. One control instead of two.
+  const brandIcon = (rot) => '<div data-act="toggleRail" class="bl-brand-toggle" title="'+(collapsed?'Expand sidebar':'Collapse sidebar')+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
+    + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
+    + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-primary-fg)">'+ic('chevron-down',15,'transform:rotate('+rot+'deg)')+'</span>'
+  + '</div>';
   const brand = collapsed
     ? '<div title="Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
-      + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
-        + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
-      + '</div></div>'
+      + brandIcon(-90)
+    + '</div>'
     : '<div style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px">'
-      + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
-        + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
-      + '</div>'
+      + brandIcon(90)
       + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">Harbor Grill Group</span>'
       + '</div>';
 
@@ -907,14 +918,10 @@ function appHeader(){
           + '</div>'
         : '')
     + '</div>';
-  // The sidebar's own collapse control now lives here, outside the
-  // sidebar, matching the reference: a small bordered icon button in the
-  // main content's own header rather than a control the sidebar hosts on
-  // itself. Desktop only, mobile already has its own hamburger for this.
-  const trigger = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="Toggle Sidebar" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--hair2);border-radius:8px;cursor:pointer;color:var(--fg2)">'
-    + ic('chevron-down', 15, 'transform:rotate('+(S.railCollapsed?'-90deg':'90deg')+')') + '</div>';
-  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">' + trigger + '</div>'
-    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
+  // The collapse control used to also live here as a permanent bordered
+  // button. It's the brand badge's job now (hover it, see the chevron,
+  // click it), so nothing sits in the header just to toggle the sidebar.
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
       + '<h1 style="font-size:clamp(24px,5vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.1;margin:0;color:var(--fg1)">'+COPY[view][0]+'</h1>'
       + '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'
         + periodPicker
