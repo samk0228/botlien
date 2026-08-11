@@ -950,8 +950,18 @@ function appRail(){
   // with the chart bleeding through even though z-index:50 sits right on
   // them. That z-index only wins comparisons inside the aside's own
   // context; it can't out-rank a sibling context that has none at all.
+  // Sits above the brand row, not inside it: this is about leaving the
+  // demo entirely, a different action than the brand badge's own click
+  // (which just toggles the sidebar). '/' is relative to wherever this
+  // is served, botlien.com/demo → botlien.com/, so it always resolves to
+  // the real marketing site regardless of host.
+  const demoBanner = !S.demoMode ? '' : '<a href="/" title="Exit demo, back to botlien.com" style="display:flex;align-items:center;gap:7px;justify-content:'+(collapsed?'center':'flex-start')+';margin:8px 8px 0;padding:7px 8px;border:1px solid var(--sb-border);border-radius:6px;font-size:11px;font-weight:700;color:var(--sb-fg);text-decoration:none;cursor:pointer">'
+    + ic('home',14) + (collapsed ? '' : '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Demo &middot; Home</span>')
+  + '</a>';
+
   return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;z-index:10;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
     + rail
+    + demoBanner
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + '</div>'
     // Plain block stacking, not flex: a flex child's cross-axis width is
     // subject to the flex sizing algorithm no matter what display the
