@@ -61,20 +61,32 @@ async function handleSoftwarePreview(request) {
 }
 
 // Public, no-account demo: same isolated Fly app as /software above, same
-// mock data, just with the prototype's own '?demo=1' flag forced onto the
-// upstream request so it boots straight into a populated Dashboard with
-// Settings blocked (see S.demoMode in the prototype itself). Whatever query
-// string a visitor's link carries is preserved and demo=1 layered on top,
-// never the other way around, this route always means the locked-down view.
+// mock data. Boots straight into a populated Dashboard with Settings
+// blocked (see S.demoMode in the prototype). That flag is normally read
+// from '?demo=1' in the page's own URL, but this is a server-side proxy:
+// appending demo=1 to the upstream fetch only affects what THIS WORKER
+// requests from Fly, it never touches the visitor's own address bar, so
+// the prototype's client-side `location.search` check would always see a
+// plain, empty '/demo' and never find it. Injecting a global flag into the
+// HTML itself is what actually crosses that gap, this is the one thing
+// that makes the route work, everything else about it is decorative.
 async function handleDemoPreview(request) {
   const url = new URL(request.url);
   const upstream = new URL(url.pathname.replace(/^\/demo/, "") || "/", "https://botlien-ui-preview.fly.dev");
   upstream.search = url.search;
-  upstream.searchParams.set("demo", "1");
   const response = await fetch(upstream.toString(), { headers: request.headers });
   const headers = new Headers(response.headers);
   headers.delete("content-security-policy");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  const contentType = headers.get("content-type") || "";
+  if (!contentType.includes("text/html")) {
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
+  const html = await response.text();
+  const injected = html.includes("<head>")
+    ? html.replace("<head>", "<head><script>window.__botlienDemo=true;</script>")
+    : "<script>window.__botlienDemo=true;</script>" + html;
+  headers.delete("content-length");
+  return new Response(injected, { status: response.status, statusText: response.statusText, headers });
 }
 
 export default {
