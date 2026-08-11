@@ -449,13 +449,12 @@ const BUTTON_STATES = [
   { action:'Email me a sign-in link', disabled:'The email field is empty or malformed. The reason sits under the field, before you press it.', pending:'Reads "Sending your link…" with the button held, never a frozen screen.', failed:'"We couldn’t send that email. Try again, or write to info@botlien.com."' },
   { action:'Choose a file', disabled:'Never disabled. Nothing else on this screen can be done first.', pending:'Filename and percentage read out while rows are read.', failed:'The columns we accept, and a two-row sample of what was found, then Try another file.' },
   { action:'Continue as…', disabled:'No business type chosen yet, so it reads "Choose one to continue".', pending:'Names the choice while the work kinds load.', failed:'Stays on the question with the choice kept, so nothing is retyped.' },
-  { action:'Export statement', disabled:'Never disabled while a period has telemetry; on an empty statement it is not shown at all.', pending:'Reads "Building your file…" beside the format you picked.', failed:'"We couldn’t build that PDF." The CSV is offered instead, in the same line.' },
   { action:'Save and see my numbers', disabled:'Never disabled. Every input is prefilled, so accepting is always possible.', pending:'Reads "Saving your inputs…" while the period is recomputed.', failed:'"That didn’t save. Your inputs are still here, try again."' }
 ];
 
 const COPY = {
   dashv2:['Dashboard',''],
-  robots:['Robot by robot','Coverage for each unit, its duty time against the hours you declared, and the equation behind the figure. One robot is running under its lease.'],
+  robots:['Fleet','Coverage for each unit, its duty time against the hours you declared, the equation behind the figure, and what state it&#39;s actually in. One robot is running under its lease.'],
   rates:['Rates','A rate is a loaded wage divided by what a person gets through in an hour. Both sides are yours to set, and the division is shown, not summarized.'],
   setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark. One screen, no wizard, and you can accept it as-is.'],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
@@ -465,9 +464,7 @@ const COPY = {
   business:['What kind of business is this?','It sets the kinds of work we price your robots against, and the rate we start from. You can change it later.'],
   creds:['Request credentials','Vendor API access is issued by hand and can take weeks. The file drop gives you the same statement today.'],
   empty:['Dashboard','Nothing has been imported for this period yet, so there is no arithmetic to show.'],
-  sites:['All 3 sites','One period, one set of rates, three locations. The group figure is the sum of the work over the sum of the invoices, never an average of averages.'],
-  alerts:['Notifications','What Botlien sends without being asked, who receives it, and what has to happen first. Nothing here fires on a schedule you did not choose.'],
-  condition:['Condition','What state the machines are actually in, read from the robot rather than inferred from how long it ran. Only your Gausium units report it.']
+  alerts:['Notifications','What Botlien sends without being asked, who receives it, and what has to happen first. Nothing here fires on a schedule you did not choose.']
 };
 
 /* ─────────────────────────  STATE  ───────────────────────── */
@@ -485,16 +482,14 @@ const S = {
 
   onboarding: false, view: 'dashv2', openSetup: 0, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
-  exportMenu: false, exporting: false, exportDone: false, exportFailed: false, exportFile: '',
   upload: 'idle', upPct: 0, saving: false, robotFilter: 'all',
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
-  dashScope: 'all', dashScopeMenu: false, scheduled: true, shareMade: false, rateHistory: false
+  dashScope: 'all', dashScopeMenu: false, rateHistory: false
 };
 
-let timers = { resend: null, send: null, signin: null, upload: null, save: null, export: null, cred: null };
-let pdfRetried = false;
+let timers = { resend: null, send: null, signin: null, upload: null, save: null, cred: null };
 
 function set(patch){ Object.assign(S, patch); render(); }
 
@@ -850,8 +845,7 @@ function appRail(){
     + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:8px;overflow-y:auto;overflow-x:hidden">'
       + (collapsed ? '' : '<div style="padding:0 8px;height:32px;margin-bottom:4px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
       + item('dashv2','equal','Dashboard')
-      + item('robots','boxes','Robot by robot', badge)
-      + item('condition','sliders-horizontal','Condition', '<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">1</span>')
+      + item('robots','boxes','Fleet', badge)
       + item('rates','ruler','Rates')
       + item('setup','sliders-horizontal','Setup')
       + item('start','upload','Import usage')
@@ -892,50 +886,20 @@ function appRail(){
     + '</div></aside>';
 }
 
+// No export entry point anywhere yet (header button, the account-settings
+// download section) until there is a real, curated export experience to
+// send people to. A button that opens a "CSV or PDF" menu was standing in
+// for a page that does not exist; better to have no export affordance at
+// all than one that promises more than a demo download.
 function appHeader(){
   const view = S.view;
   const p = PERIODS[S.period];
-  // Picking a reporting period, or being told one is "30 days on record,"
-  // presumes a confirmed fleet with a statement behind it. That's only
-  // true on the actual report pages, so the whole period block (and the
-  // export button, which needs the same thing) is scoped to just those.
-  const showExport = view === 'dashv2' || view === 'robots' || view === 'rates';
-  let ex = '';
-  if (showExport){
-    ex = '<div style="position:relative">'
-      + '<button type="button" data-act="toggleExport" class="hv-dim press" style="display:inline-flex;align-items:center;gap:9px;padding:12px 18px;border-radius:4px;border:none;cursor:'+(S.exporting?'default':'pointer')+';font-size:13.5px;font-weight:700;color:var(--ink-fg);background:var(--ink);opacity:'+(S.exporting?0.8:1)+'">'
-        + (S.exporting ? spinner(13) : '') + (S.exporting ? 'Building your file…' : 'Export statement') + '</button>'
-      + (S.exportMenu
-        ? '<div style="position:absolute;top:48px;right:0;width:300px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:40">'
-          + '<div data-act="exportCsv" class="hv-ghost" style="padding:14px 18px;cursor:pointer;border-bottom:1px solid var(--hair)"><div style="font-size:13.5px;font-weight:700;color:var(--fg1)">CSV</div><div style="font-size:12px;color:var(--fg3);margin-top:3px;line-height:1.5">One row per robot, with an arithmetic column.</div></div>'
-          + '<div data-act="exportPdf" class="hv-ghost" style="padding:14px 18px;cursor:pointer;border-bottom:1px solid var(--hair)"><div style="font-size:13.5px;font-weight:700;color:var(--fg1)">PDF</div><div style="font-size:12px;color:var(--fg3);margin-top:3px;line-height:1.5">The statement as printed, equations included.</div></div>'
-          + '<div data-act="toggleSchedule" class="hv-ghost" style="padding:14px 18px;cursor:pointer;border-bottom:1px solid var(--hair)"><div style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+(S.scheduled?'Stop the monthly email':'Email it every month')+'</div><div style="font-size:12px;color:var(--fg3);margin-top:3px;line-height:1.5">'+(S.scheduled?'On the 1st to Sam and Priya, the morning after a period closes.':'Sends itself when a period closes, so nobody has to remember.')+'</div></div>'
-          + '<div data-act="shareLink" class="hv-ghost" style="padding:14px 18px;cursor:pointer"><div style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+(S.shareMade?'Link copied':'Give my accountant a link')+'</div><div style="font-size:12px;color:var(--fg3);margin-top:3px;line-height:1.5">Read only, closed periods, no sign-in. Revocable from Settings.</div></div></div>'
-        : '')
-      + '</div>';
-  }
-
-  let banner = '';
-  if (S.exportDone){
-    banner += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 18px;border:1px solid var(--hair2);border-radius:4px;margin-bottom:32px">'
-      + ic('check',16,'color:var(--fg1)')
-      + '<span style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">Downloaded '+S.exportFile+'</span>'
-      + '<span style="font-size:12.5px;color:var(--fg3)">Includes the arithmetic column.</span>'
-      + '<button type="button" data-act="dismissExport" class="hv-ghost" style="margin-left:auto;padding:8px 12px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12.5px;font-weight:600">Dismiss</button></div>';
-  }
-  if (S.exportFailed){
-    banner += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 18px;border:1px solid var(--hair3);border-radius:4px;margin-bottom:32px">'
-      + '<span style="font-size:13.5px;color:var(--fg1)">We couldn&#39;t build that PDF. The CSV is ready now, or try the PDF again.</span>'
-      + '<button type="button" data-act="exportCsv" class="hv-ghost" style="margin-left:auto;padding:8px 12px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12.5px;font-weight:600">Download CSV instead</button>'
-      + '<button type="button" data-act="dismissExport" class="hv-fg1" style="padding:8px 12px;border-radius:3px;border:none;background:transparent;color:var(--fg2);cursor:pointer;font-size:12.5px;font-weight:600">Dismiss</button></div>';
-  }
-
   // The period picker (and the "N days on record" line under it) only
   // makes sense on pages that actually show a period-scoped statement.
   // Settings, credentials, notifications, condition, and the UI-states
   // reference page aren't reports, so a date control there is a claim
   // about data that page doesn't have.
-  const showPeriod = showExport;
+  const showPeriod = view === 'dashv2' || view === 'robots' || view === 'rates';
   const periodPicker = !showPeriod ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
       + (S.periodMenu
@@ -958,7 +922,6 @@ function appHeader(){
       + '<h1 style="font-size:clamp(24px,5vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.1;margin:0;color:var(--fg1)">'+COPY[view][0]+'</h1>'
       + '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'
         + periodPicker
-        + ex
       + '</div></div>'
     + (COPY[view][1] ? '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>' : '')
     + (!showPeriod ? '' :
@@ -967,33 +930,7 @@ function appHeader(){
         + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
         + (p.status==='open'
           ? 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.'
-          : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>')
-    + banner;
-}
-
-function viewCondition(){
-  const reporting = ROBOTS.filter(r => r.parts);
-  const silent = ROBOTS.filter(r => !r.parts);
-  return '<div style="padding:0;margin-bottom:48px">'
-    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
-      + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Consumable life remaining</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Read from the robot, not estimated from hours run.</span></div>'
-    + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:88ch">Gausium reports the wear state of every consumable. It is the only direct measurement of condition either vendor exposes, and it is the difference between a scrubber that cleans and one that pushes dirty water around while still reporting active hours.</p>'
-    + reporting.map(r => '<div style="border-top:1px solid var(--hair);padding:22px 4px">'
-      + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:14px">'
-        + '<span style="font-size:15.5px;font-weight:600;color:var(--fg1)">'+r.name+'</span>'
-        + '<span style="font-size:13px;color:var(--fg3)">'+r.model.split(' · ')[0]+'</span>'
-        + '<span style="margin-left:auto;font-size:13px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.cov+' · '+r.hours+'</span></div>'
-      + conditionBlock(r) + '</div>').join('')
-    + '<div style="border-top:1px solid var(--hair);padding:20px 4px;font-size:13px;line-height:1.7;color:var(--fg2)">'
-      + silent.length + ' of your robots report nothing about condition: '
-      + silent.map(r => r.name).join(', ')
-      + '. Bear and Pudu do not expose it, so those rows stay empty rather than being filled with an estimate from hours run.</div>'
-    + '</div>'
-    + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
-      + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 12px;color:var(--fg1)">Why this sits next to the money</h2>'
-      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Scrubber 75 has all four consumables at or under 8% of their rating, one of them past it, and returns 1.91x, the lowest of your two scrubbers. Those two facts are related, and neither the invoice nor the run count would tell you so. A squeegee past its life still logs active hours, so the work is counted at full rate while the floor gets worse.</p>'
-      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0;max-width:88ch">This is also the reading a lender wants, for a different reason. Deferred maintenance is what a repossessed scrubber&#39;s resale value actually turns on, and it is visible here months before it shows up in a payment.</p></div>';
+          : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>');
 }
 
 // Badge, shadcn's small status-pill pattern: a filled variant for the state
@@ -1373,6 +1310,12 @@ function conditionBlock(r){
 
 function viewRobots(){
   const attention = S.robotFilter === 'attention';
+  // Condition used to be its own page, looping these same robots through
+  // the same conditionBlock() every row below already calls. Merged in:
+  // the per-robot bars stay exactly where they were, in the row, once.
+  // What's added here is only the context that page had and no row does,
+  // why condition matters and who isn't reporting it.
+  const silent = ROBOTS.filter(r => !r.parts);
   const rows = ROBOTS.filter(r => !attention || r.short).map(r => {
     const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
     const wornChip = spentParts
@@ -1402,9 +1345,16 @@ function viewRobots(){
       + '<button type="button" data-act="attention" style="padding:9px 16px;border-radius:3px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(attention?'var(--ink)':'var(--ghost2)')+';color:'+(attention?'var(--ink-fg)':'var(--fg2)')+'">Needs attention · 1</button></div>'
     + '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
-        + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Robot by robot</h2>'
-        + '<span style="font-size:13px;color:var(--fg3)">Each row carries the equation that produced its number.</span></div>'
+        + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Fleet</h2>'
+        + '<span style="font-size:13px;color:var(--fg3)">Each row carries the equation behind its number, and the condition it&#39;s in.</span></div>'
       + rows + '</div>'
+    + '<div style="padding:0;margin-bottom:48px">'
+      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
+        + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Why condition sits next to the money</h2></div>'
+      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Gausium reports the wear state of every consumable. It is the only direct measurement of condition either vendor exposes, and it is the difference between a scrubber that cleans and one that pushes dirty water around while still reporting active hours. Scrubber 75 has all four consumables at or under 8% of their rating, one of them past it, and returns 1.91x, the lowest of your two scrubbers, related facts neither the invoice nor the run count would tell you on their own. A squeegee past its life still logs active hours, so the work is counted at full rate while the floor gets worse.</p>'
+      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">This is also the reading a lender wants, for a different reason. Deferred maintenance is what a repossessed scrubber&#39;s resale value actually turns on, and it is visible here months before it shows up in a payment.</p>'
+      + '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:0;max-width:88ch">'+silent.length+' of your robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it, so those rows carry no bars rather than an estimate guessed from hours run.</p>'
+    + '</div>'
     + '<div style="padding:0">'
       + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">'
         + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Servi 2 (patio) is under its lease</h2>'
@@ -1831,13 +1781,6 @@ function viewSettings(){
         + (S.notInDemo === 'upgrade' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2)">Shows the price for your 3 sites and 13 robots before anything is charged, then adds Marina and Airport to this statement.</div>' : '') + '</div>'
     + '</div></div>'
 
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 12px;color:var(--fg1)">Export</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg2);margin:0 0 18px;line-height:1.65">The same download offered on the statement. CSV carries an arithmetic column so every figure can be checked outside Botlien.</p>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:12px">'
-      + '<button type="button" data-act="exportCsv" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Download CSV</button>'
-      + '<button type="button" data-act="exportPdf" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Download PDF</button></div></div>'
-
   + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
     + '<h2 style="font-size:15px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg2)">Delete account</h2>'
     + '<p style="font-size:13px;color:var(--fg3);margin:0 0 16px;line-height:1.65;max-width:70ch">Deleting removes your imports, rates, invoices and statements. Nothing is recoverable and no copy is kept.</p>'
@@ -1859,7 +1802,6 @@ function appBody(){
     case 'creds': return viewCreds();
     case 'empty': return viewEmpty();
     case 'alerts': return viewAlerts();
-    case 'condition': return viewCondition();
     default: return '';
   }
 }
@@ -2051,21 +1993,8 @@ function runUpload(){
   }, 260);
 }
 
-function download(kind){
-  clearTimeout(timers.export);
-  set({ exportMenu:false, exporting:true, exportDone:false, exportFailed:false });
-  timers.export = setTimeout(() => {
-    if (kind === 'pdf' && !pdfRetried){
-      pdfRetried = true;
-      set({ exporting:false, exportFailed:true });
-    } else {
-      set({ exporting:false, exportDone:true, exportFile: kind === 'pdf' ? 'harbor-grill-coverage-aug-2026.pdf' : 'harbor-grill-coverage-aug-2026.csv' });
-    }
-  }, 900);
-}
-
 function goView(view, extra){
-  set(Object.assign({ stage:'app', view, profileOpen:false, exportMenu:false, exportDone:false, exportFailed:false, exportFile:'', mobileNavOpen:false }, extra || {}));
+  set(Object.assign({ stage:'app', view, profileOpen:false, mobileNavOpen:false }, extra || {}));
 }
 
 const ACTIONS = {
@@ -2146,19 +2075,13 @@ const ACTIONS = {
   allRobots: () => goView('robots', { robotFilter:'all' }),
   setupBenchmark: () => goView('setup', { openSetup:4 }),
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
-  toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false, exportMenu:false }),
+  toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
   pickPeriod: (el) => set({ period: Number(el.dataset.i), periodMenu:false }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
-  toggleSchedule: () => set({ scheduled: !S.scheduled, exportMenu:false }),
-  shareLink: () => set({ shareMade:true, exportMenu:false }),
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   saveThroughput: () => set({ savedThroughput:true }),
-  toggleExport: () => { if (!S.exporting) set({ exportMenu: !S.exportMenu, profileOpen:false, periodMenu:false }); },
-  exportCsv: () => download('csv'),
-  exportPdf: () => download('pdf'),
-  dismissExport: () => set({ exportDone:false, exportFailed:false }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
   save: () => {
     if (S.saving) return;
@@ -2200,7 +2123,7 @@ const ACTIONS = {
 document.addEventListener('click', (e) => {
   const el = e.target.closest && e.target.closest('[data-act]');
   if (!el) {
-    if (S.stage === 'app' && (S.profileOpen || S.exportMenu)) set({ profileOpen:false, exportMenu:false });
+    if (S.stage === 'app' && S.profileOpen) set({ profileOpen:false });
     return;
   }
   const fn = ACTIONS[el.dataset.act];
