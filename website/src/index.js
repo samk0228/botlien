@@ -60,6 +60,23 @@ async function handleSoftwarePreview(request) {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
+// Public, no-account demo: same isolated Fly app as /software above, same
+// mock data, just with the prototype's own '?demo=1' flag forced onto the
+// upstream request so it boots straight into a populated Dashboard with
+// Settings blocked (see S.demoMode in the prototype itself). Whatever query
+// string a visitor's link carries is preserved and demo=1 layered on top,
+// never the other way around, this route always means the locked-down view.
+async function handleDemoPreview(request) {
+  const url = new URL(request.url);
+  const upstream = new URL(url.pathname.replace(/^\/demo/, "") || "/", "https://botlien-ui-preview.fly.dev");
+  upstream.search = url.search;
+  upstream.searchParams.set("demo", "1");
+  const response = await fetch(upstream.toString(), { headers: request.headers });
+  const headers = new Headers(response.headers);
+  headers.delete("content-security-policy");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -70,6 +87,10 @@ export default {
 
     if (url.pathname === "/software" || url.pathname.startsWith("/software/")) {
       return handleSoftwarePreview(request);
+    }
+
+    if (url.pathname === "/demo" || url.pathname.startsWith("/demo/")) {
+      return handleDemoPreview(request);
     }
 
     const response = await env.ASSETS.fetch(request);
