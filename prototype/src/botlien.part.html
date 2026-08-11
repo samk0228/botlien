@@ -455,8 +455,7 @@ const BUTTON_STATES = [
 const COPY = {
   dashv2:['Dashboard',''],
   robots:['Fleet','Coverage for each unit, its duty time against the hours you declared, the equation behind the figure, and what state it&#39;s actually in. One robot is running under its lease.'],
-  rates:['Rates','A rate is a loaded wage divided by what a person gets through in an hour. Both sides are yours to set, and the division is shown, not summarized.'],
-  setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark. One screen, no wizard, and you can accept it as-is.'],
+  setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark, plus the work-type rates those inputs are derived from. One screen, no wizard, and you can accept it as-is.'],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
   states:['How figures read','Every state a figure or a button can be in, and the form it takes on the page. A missing input is stated plainly instead of being smoothed into a number.'],
   settings:['Settings','Site first, because timezone and operating hours feed the math. Everything else follows in the order you are likely to need it.'],
@@ -846,10 +845,6 @@ function appRail(){
       + (collapsed ? '' : '<div style="padding:0 8px;height:32px;margin-bottom:4px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
       + item('dashv2','equal','Dashboard')
       + item('robots','boxes','Fleet', badge)
-      + item('rates','ruler','Rates')
-      + item('setup','sliders-horizontal','Setup')
-      + item('start','upload','Import usage')
-      + item('states','list','How figures read')
     + '</nav>'
     // shadcn's NavUser pattern: the footer is ONE SidebarMenuButton (the
     // account trigger), not a stack of separate rows. Notifications and
@@ -899,7 +894,7 @@ function appHeader(){
   // Settings, credentials, notifications, condition, and the UI-states
   // reference page aren't reports, so a date control there is a claim
   // about data that page doesn't have.
-  const showPeriod = view === 'dashv2' || view === 'robots' || view === 'rates';
+  const showPeriod = view === 'dashv2' || view === 'robots';
   const periodPicker = !showPeriod ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
       + (S.periodMenu
@@ -1363,8 +1358,48 @@ function viewRobots(){
       + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Check this robot&#39;s inputs</button></div>';
 }
 
-function viewRates(){
-  return '<div style="padding:0;margin-bottom:56px">'
+// Setup and Rates used to be two separate nav destinations. Both are the
+// same job, what to assume when computing coverage, so they're one page
+// now: per-robot inputs first, then the work-type rates those per-robot
+// replacement figures are themselves derived from, one Save for the form.
+function viewSetup(){
+  const rows = SETUP.map((r,i) => {
+    const open = S.openSetup === i;
+    const summary = r.task+' · '+r.invoice+' / mo · '+r.rate+' · '+r.hours+' / day';
+    let panel = '';
+    if (open){
+      panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</div>'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">'+r.task+ic('chevron-down',14,'color:var(--fg3)')+'</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</div>'
+          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.invoice+'</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
+          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
+          + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+r.derive+'</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</div>'
+          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.wage+'</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</div>'
+          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.hours+'</div></div>'
+      + '</div>';
+    }
+    return '<div style="border-top:1px solid var(--hair)">'
+      + '<div data-act="toggleSetup" data-i="'+i+'" class="hv-fade" style="display:flex;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
+        + '<div style="min-width:180px"><div style="font-size:14.5px;font-weight:'+(open?700:600)+';color:var(--fg1)">'+r.name+'</div>'
+          + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
+        + '<div style="font-size:13.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+summary+'</div>'
+        + '<span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--fg3)">'+(open?'editing':'edit')+'</span>'
+        + '<span style="font-size:13px;color:var(--fg3);width:12px;text-align:center">'+(open?'–':'+')+'</span></div>'
+      + panel + '</div>';
+  }).join('');
+
+  return '<div style="padding:0;margin-bottom:48px">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
+      + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five inputs per robot</h2>'
+      + '<span style="font-size:13px;color:var(--fg3)">Everything is prefilled. Accept it as-is, or correct the two you care about.</span></div>'
+    + rows
+  + '</div>'
+
+  + '<div style="padding:0;margin-bottom:56px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Where the rates come from</h2>'
       + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Edit either side and the rate follows.</span></div>'
@@ -1396,53 +1431,14 @@ function viewRates(){
           + '</div></div>'
         : '')
     + '</div>'
-    + '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
-      + '<span style="font-size:13.5px;color:var(--fg2);flex:1;min-width:280px">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until you replace it.</span>'
-      + '<button type="button" data-act="setupBenchmark" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Set your real numbers</button></div>'
+    + '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until the input above is corrected.</div>'
+    + '<div style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$22.00 / hr ÷ 30 runs per hour = $0.73 per run<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div>'
   + '</div>'
-  + '<div style="padding:0"><div style="font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$22.00 / hr ÷ 30 runs per hour = $0.73 per run<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div></div>';
-}
 
-function viewSetup(){
-  const rows = SETUP.map((r,i) => {
-    const open = S.openSetup === i;
-    const summary = r.task+' · '+r.invoice+' / mo · '+r.rate+' · '+r.hours+' / day';
-    let panel = '';
-    if (open){
-      panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</div>'
-          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">'+r.task+ic('chevron-down',14,'color:var(--fg3)')+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.invoice+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
-          + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+r.derive+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.wage+'</div></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</div>'
-          + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+r.hours+'</div></div>'
-      + '</div>';
-    }
-    return '<div style="border-top:1px solid var(--hair)">'
-      + '<div data-act="toggleSetup" data-i="'+i+'" class="hv-fade" style="display:flex;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
-        + '<div style="min-width:180px"><div style="font-size:14.5px;font-weight:'+(open?700:600)+';color:var(--fg1)">'+r.name+'</div>'
-          + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
-        + '<div style="font-size:13.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+summary+'</div>'
-        + '<span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--fg3)">'+(open?'editing':'edit')+'</span>'
-        + '<span style="font-size:13px;color:var(--fg3);width:12px;text-align:center">'+(open?'–':'+')+'</span></div>'
-      + panel + '</div>';
-  }).join('');
-
-  return '<div style="padding:0;margin-bottom:56px">'
-    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
-      + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five inputs per robot</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Everything is prefilled. Accept it as-is, or correct the two you care about.</span></div>'
-    + rows
-    + '<div style="margin-top:28px;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
-      + '<button type="button" data-act="save" class="hv-dim press" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700;opacity:'+(S.saving?0.8:1)+'">'
-        + (S.saving ? spinner(13) : '') + (S.saving ? 'Saving your inputs…' : 'Save and see my numbers') + '</button>'
-      + '<span style="font-size:13px;color:var(--fg3)">Wage is optional. It only feeds the derivation shown under each rate.</span></div>'
-  + '</div>';
+  + '<div style="padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
+    + '<button type="button" data-act="save" class="hv-dim press" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700;opacity:'+(S.saving?0.8:1)+'">'
+      + (S.saving ? spinner(13) : '') + (S.saving ? 'Saving your inputs…' : 'Save and see my numbers') + '</button>'
+    + '<span style="font-size:13px;color:var(--fg3)">Wage is optional. It only feeds the derivation shown under each rate.</span></div>';
 }
 
 const HOW_TO = {
@@ -1732,6 +1728,11 @@ function viewSettings(){
     + '</div></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
+    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Setup</h2>'
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">The five inputs behind each robot&#39;s number, and the work-type rates they&#39;re derived from. What Dashboard and Fleet compute from, not what they show.</p>'
+    + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open Setup</button></div>'
+
+  + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Account</h2>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;margin-bottom:20px">'
       + field('Name','Sam Ortega') + field('Email','sam@harborgrill.com') + '</div>'
@@ -1767,7 +1768,12 @@ function viewSettings(){
     + SOURCES.map(d => '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:18px 2px;border-top:1px solid var(--hair)">'
       + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.6;min-width:0;overflow-x:auto;white-space:nowrap">'+d.line+'</div>'
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
-    + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import another file</button></div>'
+    + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
+
+  + '<div style="padding:0;margin-bottom:48px">'
+    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
+    + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Plan</h2>'
@@ -1792,7 +1798,6 @@ function appBody(){
   switch (S.view){
     case 'dashv2': return viewDashV2();
     case 'robots': return viewRobots();
-    case 'rates': return viewRates();
     case 'setup': return viewSetup();
     case 'start': return viewStart();
     case 'states': return viewStates();
@@ -2073,7 +2078,6 @@ const ACTIONS = {
   go: (el) => goView(el.dataset.view),
   attention: () => goView('robots', { robotFilter:'attention' }),
   allRobots: () => goView('robots', { robotFilter:'all' }),
-  setupBenchmark: () => goView('setup', { openSetup:4 }),
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
