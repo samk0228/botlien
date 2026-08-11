@@ -455,7 +455,7 @@ const BUTTON_STATES = [
 const COPY = {
   dashv2:['Dashboard',''],
   robots:['Fleet','Coverage for each unit, its duty time against the hours you declared, the equation behind the figure, and what state it&#39;s actually in. One robot is running under its lease.'],
-  setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark, plus the work-type rates those inputs are derived from. One screen, no wizard, and you can accept it as-is.'],
+  setup:['Numbers','Exactly five inputs per robot, prefilled from your export and our benchmark, plus the work-type rates those inputs are derived from. One screen, no wizard, and you can accept it as-is.'],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
   states:['How figures read','Every state a figure or a button can be in, and the form it takes on the page. A missing input is stated plainly instead of being smoothed into a number.'],
   settings:['Settings','Site first, because timezone and operating hours feed the math. Everything else follows in the order you are likely to need it.'],
@@ -845,6 +845,7 @@ function appRail(){
       + (collapsed ? '' : '<div style="padding:0 8px;height:32px;margin-bottom:4px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
       + item('dashv2','equal','Dashboard')
       + item('robots','boxes','Fleet', badge)
+      + item('setup','sliders-horizontal','Numbers')
     + '</nav>'
     // shadcn's NavUser pattern: the footer is ONE SidebarMenuButton (the
     // account trigger), not a stack of separate rows. Notifications and
@@ -1726,11 +1727,6 @@ function viewSettings(){
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">'
       + field('Site name','Harbor Grill, Pier 4') + field('Timezone','America/Los_Angeles') + field('Operating hours / day','12.0 h',true)
     + '</div></div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Setup</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">The five inputs behind each robot&#39;s number, and the work-type rates they&#39;re derived from. What Dashboard and Fleet compute from, not what they show.</p>'
-    + '<button type="button" data-act="go" data-view="setup" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open Setup</button></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Account</h2>'
