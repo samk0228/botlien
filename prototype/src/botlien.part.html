@@ -38,6 +38,13 @@ input{font-family:inherit}
 .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
 .hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
 .bl-rail:hover{background:var(--sb-border)}
+/* While actually dragging the rail (not just clicking it), the grid
+   column narrows live via direct style writes, not a re-render, so nav
+   labels need real overflow clipping to keep up instead of wrapping mid-
+   drag, and the resize cursor has to hold even when the pointer strays
+   off the 4px strip onto a nav row or the page underneath it. */
+body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:none}
+.bl-dragging [data-nav] *{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 /* Sidebar collapse toggle lives on the brand badge itself now, not as a
    button that sits in the header the whole time. Logo and chevron are both
    always in the DOM, only one ever shown, hover flips which. */
@@ -554,10 +561,14 @@ const S = {
   avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
   avatarImage: '',
-  avatarPickerOpen: false
+  avatarPickerOpen: false, avatarSaved: true,
+
+  accountEmail: 'sam@harborgrill.com',
+  emailChangeStage: 'idle', emailChangeNew: '', emailChangeCode: '',
+  emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
 };
 
-let timers = { resend: null, send: null, signin: null, upload: null, save: null, cred: null };
+let timers = { resend: null, send: null, signin: null, upload: null, save: null, cred: null, emailChange: null };
 
 // Profile photo, everywhere it's shown. Three states: a real uploaded
 // photo takes over the badge entirely when one's been picked, otherwise
@@ -887,9 +898,9 @@ function appRail(){
   // just this badge: hover swaps the logo for a sidebar glyph (reads as
   // "toggle the sidebar" more directly than a bare arrow did), click
   // toggles, unhover swaps it back. One control instead of two.
-  const brandIcon = '<div data-act="toggleRail" class="bl-brand-toggle" title="'+(collapsed?'Expand sidebar':'Collapse sidebar')+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
-    + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
-    + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-primary-fg)">'+ic('panel-left',15)+'</span>'
+  const brandIcon = '<div data-act="toggleRail" class="bl-brand-toggle" title="'+(collapsed?'Expand sidebar':'Collapse sidebar')+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;flex:none">'
+    + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:18px;height:22px;object-fit:contain;filter:brightness(0)">'
+    + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-fg)">'+ic('panel-left',15)+'</span>'
   + '</div>';
   const brand = collapsed
     ? '<div title="Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
@@ -917,7 +928,15 @@ function appRail(){
   // ALSO having 8px was doubling the inset to 16px a side, which is what
   // was quietly halving every collapsed icon's box and reading as shoved
   // toward the right edge, not a centering bug at all, a padding bug.
-  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
+  // z-index here, not just on the popups inside it: `sticky` gives the
+  // aside its own stacking context, but with none on the aside itself the
+  // dashboard's masonry cards (position:relative, later in the DOM inside
+  // data-main) win ties in the parent context and paint over it, popups
+  // included, so the profile dropdown or period picker read as translucent
+  // with the chart bleeding through even though z-index:50 sits right on
+  // them. That z-index only wins comparisons inside the aside's own
+  // context; it can't out-rank a sibling context that has none at all.
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;z-index:10;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
     + rail
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + '</div>'
     // Plain block stacking, not flex: a flex child's cross-axis width is
@@ -951,14 +970,14 @@ function appRail(){
           + avatarBadge(32)
           + '<i style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--sb-primary);border:2px solid var(--sb-bg)"></i>'
         + '</div>'
-        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
+        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.accountEmail)+'</span></div>')
         + (collapsed ? '' : ic('chevron-down',14,'color:inherit;flex:none'))
       + '</div>'
       + (S.profileOpen
         ? '<div style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 10px">'
             + avatarBadge(32)
-            + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>'
+            + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.accountEmail)+'</span></div>'
           + '</div>'
           + '<div style="height:1px;background:var(--hair);margin:2px 0"></div>'
           + '<div data-act="go" data-view="alerts" class="hv-ghost" style="position:relative;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'
@@ -1593,6 +1612,54 @@ function setupSaveButton(i){
   + '</button>';
 }
 
+// Same Save/Saved pattern as setupSaveButton above, one flag instead of a
+// per-row map since there's only ever one profile photo. Picking a color,
+// an icon, or uploading a photo all flip avatarSaved back to false.
+function avatarSaveButton(){
+  const saved = !!S.avatarSaved;
+  return '<button type="button" data-act="saveAvatar" style="display:inline-flex;align-items:center;gap:7px;padding:11px 18px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(saved?'var(--ghost2)':'var(--ink)')+';color:'+(saved?'var(--fg1)':'var(--ink-fg)')+'">'
+    + (saved ? ic('check',14)+'Saved' : 'Save photo')
+  + '</button>';
+}
+
+// The change-email flow, a real state machine like sign-in's own
+// email-link screens, not a "here's what this would do" stub: enter the
+// new address, we simulate sending a 6-digit code, entering the right
+// shape of code (demo has no real inbox to check against) flips
+// S.accountEmail over and every place it's shown reads the new value.
+function emailChangeBlock(){
+  if (S.emailChangeStage === 'idle') return '';
+  if (S.emailChangeStage === 'form'){
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.emailChangeNew.trim());
+    const disabled = S.emailChangeSending || !valid;
+    return '<div style="margin:0 0 24px;padding:16px 18px;border:1px solid var(--hair2);border-radius:6px;max-width:420px">'
+      + '<div style="font-size:12.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">New email</div>'
+      + '<input id="emailChangeInput" type="text" inputmode="email" autocomplete="email" placeholder="you@company.com" value="'+esc(S.emailChangeNew)+'" style="width:100%;font-size:14px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;margin-bottom:14px">'
+      + '<div style="display:flex;flex-wrap:wrap;gap:10px">'
+        + '<button type="button" data-act="sendEmailChangeCode"'+(disabled?' disabled':'')+' style="padding:10px 16px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:'+(disabled?'default':'pointer')+';opacity:'+(disabled?0.5:1)+';font-size:13px;font-weight:700">'+(S.emailChangeSending?'Sending…':'Send verification code')+'</button>'
+        + '<button type="button" data-act="cancelEmailChange" style="padding:10px 14px;border-radius:4px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--fg2)">Cancel</button>'
+      + '</div>'
+    + '</div>';
+  }
+  if (S.emailChangeStage === 'code'){
+    return '<div style="margin:0 0 24px;padding:16px 18px;border:1px solid var(--hair2);border-radius:6px;max-width:420px">'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:14px">We sent a 6-digit code to <b style="color:var(--fg1);font-weight:700">'+esc(S.emailChangeNew)+'</b>. Enter it below to confirm the change.</div>'
+      + '<input id="emailChangeCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="123456" value="'+esc(S.emailChangeCode)+'" style="width:100%;font-size:16px;letter-spacing:0.3em;font-variant-numeric:tabular-nums;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;margin-bottom:'+(S.emailChangeCodeErr?'6':'14')+'px">'
+      + (S.emailChangeCodeErr ? '<div style="font-size:12px;color:var(--fg1);margin-bottom:14px">That code doesn&#39;t look right. It&#39;s 6 digits, check your email and try again.</div>' : '')
+      + '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">'
+        + '<button type="button" data-act="confirmEmailChangeCode"'+(S.emailChangeVerifying?' disabled':'')+' style="padding:10px 16px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:'+(S.emailChangeVerifying?'default':'pointer')+';opacity:'+(S.emailChangeVerifying?0.5:1)+';font-size:13px;font-weight:700">'+(S.emailChangeVerifying?'Verifying…':'Confirm')+'</button>'
+        + '<button type="button" data-act="sendEmailChangeCode" style="padding:10px 12px;border-radius:4px;border:none;background:transparent;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--fg2)">Resend code</button>'
+        + '<button type="button" data-act="cancelEmailChange" style="padding:10px 12px;border-radius:4px;border:none;background:transparent;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--fg2)">Cancel</button>'
+      + '</div>'
+    + '</div>';
+  }
+  // 'done'
+  return '<div style="margin:0 0 24px;padding:14px 18px;border:1px solid var(--hair2);border-radius:6px;max-width:420px;display:flex;align-items:center;gap:10px">'
+    + ic('check',16)
+    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Email updated to <b style="color:var(--fg1);font-weight:700">'+esc(S.accountEmail)+'</b>.</div>'
+  + '</div>';
+}
+
 // Setup and Rates used to be two separate nav destinations. Both are the
 // same job, what to assume when computing coverage, so they're one page
 // now: per-robot inputs first, then the work-type rates those per-robot
@@ -1988,8 +2055,12 @@ function viewSettings(){
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;margin-bottom:20px">'
       + field('Name','ownerName',S.ownerName || 'Sam Ortega')
       + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Email</div>'
-        + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">sam@harborgrill.com</div></div>'
+        + '<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--hair2)">'
+          + '<span style="font-size:13.5px;color:var(--fg1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(S.accountEmail)+'</span>'
+          + '<button type="button" data-act="startEmailChange" class="hv-ghost" style="flex:none;padding:6px 12px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--fg1)">Change</button>'
+        + '</div></div>'
     + '</div>'
+    + emailChangeBlock()
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
       + avatarBadge(52)
       + '<div><div style="font-size:13px;font-weight:700;color:var(--fg1);margin-bottom:2px">Profile photo</div>'
@@ -2003,17 +2074,8 @@ function viewSettings(){
       + '<div data-act="triggerAvatarUpload" class="hv-ghost" title="Upload a photo" style="width:26px;height:26px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px dashed '+(S.avatarImage?'var(--fg1)':'var(--hair2)')+';color:var(--fg1)">'+ic('upload',13)+'</div>'
       + '<input id="avatarFileInput" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none">'
     + '</div>'
-    + '<button type="button" data-act="notInDemo" data-what="changeEmail" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Change email</button>'
-    + (S.notInDemo === 'changeEmail' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2);max-width:70ch">Sends a confirmation link to the new address before anything moves. The old address keeps working until that link is opened, so a typo cannot lock you out.</div>' : '')
-    + '<div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--hair)">'
-      + '<div style="font-size:13px;font-weight:700;color:var(--fg1);margin-bottom:4px">Signed in on these devices</div>'
-      + '<div style="font-size:12.5px;color:var(--fg3);margin-bottom:8px">Take a login back without changing anything else.</div>'
-      + SESSIONS.map(d => '<div style="display:flex;align-items:center;gap:16px;padding:16px 2px;border-top:1px solid var(--hair)">'
-        + '<div><div style="font-size:13.5px;font-weight:600;color:var(--fg1)">'+d.device+'</div>'
-        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:3px;font-variant-numeric:tabular-nums">'+d.last+'</div></div>'
-        + '<button type="button" data-act="logOut" class="hv-ghost" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12.5px;font-weight:600">Sign out</button></div>').join('')
-      + '<button type="button" data-act="logOut" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Sign out everywhere</button>'
-    + '</div></div>'
+    + avatarSaveButton()
+    + '</div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">People</h2>'
@@ -2041,18 +2103,6 @@ function viewSettings(){
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
     + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 20px;color:var(--fg1)">Plan</h2>'
-    + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:start">'
-      + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Current</div>'
-        + '<div style="font-size:15px;font-weight:700;color:var(--fg1)">Single site · 6 robots</div>'
-        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:4px;font-variant-numeric:tabular-nums">$49 / month</div></div>'
-      + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operator tier adds</div>'
-        + '<div style="font-size:13.5px;color:var(--fg2);line-height:1.7">Many sites in one statement, search across the whole fleet, live API sync, and per-site coverage side by side.</div>'
-        + '<button type="button" data-act="notInDemo" data-what="upgrade" class="hv-dim" style="margin-top:16px;padding:12px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Upgrade to Operator</button>'
-        + (S.notInDemo === 'upgrade' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2)">Shows the price for your 3 sites and 13 robots before anything is charged, then adds Marina and Airport to this statement.</div>' : '') + '</div>'
-    + '</div></div>'
 
   + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
     + '<h2 style="font-size:15px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg2)">Delete account</h2>'
@@ -2284,8 +2334,21 @@ function runUpload(){
   }, 260);
 }
 
+// Every page-scoped disclosure, dropdown, and edit-mode toggle resets to
+// its default closed state here, and again on logout below. Data the user
+// actually entered (rates, wages, settings, avatar, dashboard layout...)
+// is never in this list, only the transient stuff nobody wants to find
+// still open three pages, or one login, later. One shared object so the
+// two reset sites can't quietly drift apart.
+const CLOSED_UI_STATE = {
+  openRobot: -1, openSetup: 0, periodMenu: false, dashScopeMenu: false,
+  howTo: '', notInDemo: '', rateHistory: false, dashEdit: false,
+  emailChangeStage: 'idle', emailChangeNew: '', emailChangeCode: '',
+  emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
+};
+
 function goView(view, extra){
-  set(Object.assign({ stage:'app', view, profileOpen:false, mobileNavOpen:false }, extra || {}));
+  set(Object.assign({ stage:'app', view, profileOpen:false, mobileNavOpen:false }, CLOSED_UI_STATE, extra || {}));
 }
 
 const ACTIONS = {
@@ -2355,9 +2418,13 @@ const ACTIONS = {
   /* bridge */
   toApp: () => goView('dashv2', { onboarding:false, manualApplied:false }),
   logOut: () => {
-    clearInterval(timers.resend); clearInterval(timers.upload);
-    set({ stage:'auth', screen:'signedout', email:'', touched:false, sending:false,
-          onboardPicked:-1, picked:-1, profileOpen:false, view:'dashv2', authSessions: SESSIONS.slice(1) });
+    clearInterval(timers.resend); clearInterval(timers.upload); clearTimeout(timers.emailChange);
+    // Everything the user actually entered survives a logout, same as it
+    // already survived plain navigation, only the transient UI states in
+    // CLOSED_UI_STATE reset, so signing back in reads as "picking up where
+    // I left off," not "empty dropdowns are the only thing missing."
+    set(Object.assign({ stage:'auth', screen:'signedout', email:'', touched:false, sending:false,
+          onboardPicked:-1, picked:-1, profileOpen:false, mobileNavOpen:false, view:'dashv2', authSessions: SESSIONS.slice(1) }, CLOSED_UI_STATE));
   },
 
   /* app */
@@ -2368,9 +2435,32 @@ const ACTIONS = {
   attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
-  pickAvatarColor: (el) => set({ avatarColor: el.dataset.c, avatarImage: '' }),
-  pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i, avatarImage: '' }),
+  pickAvatarColor: (el) => set({ avatarColor: el.dataset.c, avatarImage: '', avatarSaved: false }),
+  pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i, avatarImage: '', avatarSaved: false }),
   triggerAvatarUpload: () => { const el = document.getElementById('avatarFileInput'); if (el) el.click(); },
+  saveAvatar: () => set({ avatarSaved: true }),
+  startEmailChange: () => set({ emailChangeStage: 'form', emailChangeNew: '', emailChangeCode: '', emailChangeCodeErr: false }),
+  cancelEmailChange: () => {
+    clearTimeout(timers.emailChange);
+    set({ emailChangeStage: 'idle', emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false });
+  },
+  sendEmailChangeCode: () => {
+    if (S.emailChangeSending) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.emailChangeNew.trim())) return;
+    set({ emailChangeSending: true });
+    clearTimeout(timers.emailChange);
+    timers.emailChange = setTimeout(() => set({ emailChangeSending: false, emailChangeStage: 'code', emailChangeCode: '', emailChangeCodeErr: false }), 700);
+  },
+  confirmEmailChangeCode: () => {
+    if (S.emailChangeVerifying) return;
+    const codeOk = /^\d{6}$/.test(S.emailChangeCode.trim());
+    set({ emailChangeVerifying: true });
+    clearTimeout(timers.emailChange);
+    timers.emailChange = setTimeout(() => {
+      if (!codeOk){ set({ emailChangeVerifying: false, emailChangeCodeErr: true }); return; }
+      set({ emailChangeVerifying: false, emailChangeStage: 'done', accountEmail: S.emailChangeNew.trim(), emailChangeCodeErr: false });
+    }, 700);
+  },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
@@ -2431,6 +2521,15 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'authEmail'){ set({ email: e.target.value, touched:true }); return; }
   if (e.target.id === 'siteName'){ S.siteName = e.target.value; return; }
   if (e.target.id === 'ownerName'){ S.ownerName = e.target.value; return; }
+  if (e.target.id === 'emailChangeInput'){
+    S.emailChangeNew = e.target.value;
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.emailChangeNew.trim());
+    const disabled = S.emailChangeSending || !valid;
+    const btn = document.querySelector('[data-act="sendEmailChangeCode"]');
+    if (btn){ btn.disabled = disabled; btn.style.opacity = disabled ? '0.5' : '1'; btn.style.cursor = disabled ? 'default' : 'pointer'; }
+    return;
+  }
+  if (e.target.id === 'emailChangeCodeInput'){ S.emailChangeCode = e.target.value; return; }
   if (e.target.id === 'businessName'){ S.businessName = e.target.value; return; }
   if (e.target.id === 'settingsTimezone'){ S.timezone = e.target.value; return; }
   if (e.target.id === 'settingsSiteHours'){ S.siteHours = e.target.value; return; }
@@ -2490,7 +2589,7 @@ document.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => set({ avatarImage: reader.result });
+    reader.onload = () => set({ avatarImage: reader.result, avatarSaved: false });
     reader.readAsDataURL(file);
     return;
   }
@@ -2550,6 +2649,45 @@ document.addEventListener('drop', (e) => {
   set({ dashLayout: order });
 });
 document.addEventListener('dragend', () => { dashDragId = null; });
+
+// Real drag on the sidebar rail, not just the click it already had. The
+// grid column's width is written directly on every mousemove, cheap
+// enough to do every pixel and, unlike the dashboard reorder above, has
+// no drag-source node that a re-render could tear out from under itself,
+// so a live preview is safe here. Releasing snaps to whichever of the
+// two states (48px icon rail, 256px full width) the drag ended nearer
+// to, then one real set() commits it and lets the normal render rebuild
+// the correct markup for that state. A drag under 4px never counts as a
+// drag at all, so the rail's own click-to-toggle still works untouched.
+(function(){
+  let dragging = false, moved = false, startX = 0, startW = 256, currentW = 256;
+  const MIN = 48, MAX = 256, THRESHOLD = (MIN + MAX) / 2;
+  document.addEventListener('mousedown', (e) => {
+    const rail = e.target.closest && e.target.closest('.bl-rail');
+    if (!rail) return;
+    dragging = true; moved = false; startX = e.clientX;
+    startW = S.railCollapsed ? MIN : MAX;
+    currentW = startW;
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    if (!moved && Math.abs(dx) > 4){ moved = true; document.body.classList.add('bl-dragging'); }
+    if (!moved) return;
+    currentW = Math.max(MIN, Math.min(MAX, startW + dx));
+    const grid = document.querySelector('[data-grid]');
+    if (grid) grid.style.gridTemplateColumns = currentW + 'px minmax(0,1fr)';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('bl-dragging');
+    if (!moved) return;
+    const collapsed = currentW < THRESHOLD;
+    if (collapsed !== S.railCollapsed) set({ railCollapsed: collapsed });
+    else render();
+  });
+})();
 
 /* Every screen the sign-in rail used to list, still addressable, just not
    advertised. `?screen=expired` opens the dead-link screen, `?view=rates` opens
