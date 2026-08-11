@@ -444,7 +444,7 @@ const BUTTON_STATES = [
 ];
 
 const COPY = {
-  dashv2:['Coverage',''],
+  dashv2:['Dashboard',''],
   robots:['Robot by robot','Coverage for each unit, its duty time against the hours you declared, and the equation behind the figure. One robot is running under its lease.'],
   rates:['Rates','A rate is a loaded wage divided by what a person gets through in an hour. Both sides are yours to set, and the division is shown, not summarized.'],
   setup:['Setup','Exactly five inputs per robot, prefilled from your export and our benchmark. One screen, no wizard, and you can accept it as-is.'],
@@ -454,7 +454,7 @@ const COPY = {
   confirm:['Confirm your fleet','Nothing below is required. Confirming takes you straight to your statement, priced at category benchmarks until you set your own numbers.'],
   business:['What kind of business is this?','It sets the kinds of work we price your robots against, and the rate we start from. You can change it later.'],
   creds:['Request credentials','Vendor API access is issued by hand and can take weeks. The file drop gives you the same statement today.'],
-  empty:['Coverage','Nothing has been imported for this period yet, so there is no arithmetic to show.'],
+  empty:['Dashboard','Nothing has been imported for this period yet, so there is no arithmetic to show.'],
   sites:['All 3 sites','One period, one set of rates, three locations. The group figure is the sum of the work over the sum of the invoices, never an average of averages.'],
   alerts:['Notifications','What Botlien sends without being asked, who receives it, and what has to happen first. Nothing here fires on a schedule you did not choose.'],
   condition:['Condition','What state the machines are actually in, read from the robot rather than inferred from how long it ran. Only your Gausium units report it.']
@@ -817,7 +817,7 @@ function appRail(){
     + '<div style="position:relative;margin-bottom:16px;display:flex;gap:10px;align-items:stretch">' + brand + mobileToggle + menu + '</div>'
     + toggle
     + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;margin-top:14px">'
-      + item('dashv2','equal','Coverage')
+      + item('dashv2','equal','Dashboard')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
       + item('condition','sliders-horizontal','Condition', '<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--fg1)">1</span>')
