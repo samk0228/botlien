@@ -783,7 +783,7 @@ function appRail(){
     const n = nav(k);
     const justify = collapsed ? 'justify-content:center;' : '';
     const dot = (collapsed && extra) ? '<span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--sb-accent-fg)"></span>' : '';
-    return '<div data-act="go" data-view="'+k+'" class="hv-sb" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:8px;'+(collapsed?'width:32px;height:32px;padding:8px':'height:32px;box-sizing:border-box;padding:8px')+';border-radius:8px;cursor:pointer;font-size:14px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
+    return '<div data-act="go" data-view="'+k+'" class="hv-sb" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;box-sizing:border-box;width:100%;height:32px;'+justify+'gap:8px;padding:8px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
       + ic(icon,16)
       + (collapsed ? '' : label+(extra||''))
       + dot
@@ -842,12 +842,29 @@ function appRail(){
   // off the real component at ui.shadcn.com/docs/components/base/sidebar
   // (padding:0, border-radius:0, box-shadow:none on the container), the
   // floating look from a prior pass was the wrong variant.
-  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border);padding:8px">'
+  // No padding on the aside itself: the header row, nav, and footer each
+  // carry their own 8px (matching shadcn's real SidebarHeader/Content/
+  // Footer, each p-2 independently, container itself at padding:0). Aside
+  // ALSO having 8px was doubling the inset to 16px a side, which is what
+  // was quietly halving every collapsed icon's box and reading as shoved
+  // toward the right edge, not a centering bug at all, a padding bug.
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
     + rail
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + menu + '</div>'
-    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow-y:auto;overflow-x:hidden">'
-      + (collapsed ? '' : '<div style="padding:0 8px;height:32px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
-      + '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0">'
+    // Plain block stacking, not flex: a flex child's cross-axis width is
+    // subject to the flex sizing algorithm no matter what display the
+    // child itself declares, which is what was quietly shrinking the ul to
+    // a fraction of nav's width and pushing every icon toward the right
+    // edge instead of centering it. Block guarantees full-width, no quirk.
+    // Flattened: no <ul> wrapper. It measured itself as a fraction of
+    // nav's own width no matter how explicitly it was told to fill 100%
+    // (nav is itself a flex child of the aside, and something about that
+    // nesting kept resolving the ul's width against the wrong box), which
+    // left every fixed-width collapsed icon overflowing out of a too-narrow
+    // ul and reading as shoved toward the right edge. One fewer box in the
+    // chain removes the whole problem instead of chasing it.
+    + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:8px;overflow-y:auto;overflow-x:hidden">'
+      + (collapsed ? '' : '<div style="padding:0 8px;height:32px;margin-bottom:4px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
       + item('dashv2','equal','Dashboard')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
@@ -856,7 +873,7 @@ function appRail(){
       + item('setup','sliders-horizontal','Setup')
       + item('start','upload','Import usage')
       + item('states','list','How figures read')
-    + '</ul></nav>'
+    + '</nav>'
     // Account and notifications used to live in a topbar of their own,
     // floating over every page. Moved down here instead: this is the one
     // spot in the app that is already "who you are and what needs you,"
