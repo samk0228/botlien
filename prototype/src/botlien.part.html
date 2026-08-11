@@ -505,8 +505,8 @@ const BUTTON_STATES = [
 
 const COPY = {
   dashv2:['Dashboard',''],
-  robots:['Fleet','Coverage for each unit, its duty time against the hours you declared, the equation behind the figure, and what state it&#39;s actually in. One robot is running under its lease.'],
-  setup:['Numbers','Exactly five inputs per robot, prefilled from your export and our benchmark, plus the work-type rates those inputs are derived from. One screen, no wizard, and you can accept it as-is.'],
+  robots:['Fleet',''],
+  setup:['Numbers','5 inputs per robot.'],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
   states:['How figures read','Every state a figure or a button can be in, and the form it takes on the page. A missing input is stated plainly instead of being smoothed into a number.'],
   settings:['Settings','Site first, because timezone and operating hours feed the math. Everything else follows in the order you are likely to need it.'],
@@ -518,6 +518,13 @@ const COPY = {
 };
 
 /* ─────────────────────────  STATE  ───────────────────────── */
+
+// Six flat colors and six preset icons stand in for a real photo upload,
+// this is a demo. A signed-in account that never touches the picker still
+// needs a badge, so one color/icon pair is picked at random on load and
+// held in state rather than re-rolled on every render.
+const AVATAR_COLORS = ['#2f6f4f','#3a5a8c','#8c4a3a','#6b4a8c','#4a7a8c','#8c7a3a'];
+const AVATAR_ICONS = ['user','star','zap','shield','anchor','hexagon'];
 
 const S = {
   stage: 'auth',
@@ -542,11 +549,22 @@ const S = {
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
-  throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
-  dashScope: 'all', dashScopeMenu: false, rateHistory: false
+  throughput: 30, howTo: '', period: 0, periodMenu: false, notInDemo: '',
+  dashScope: 'all', dashScopeMenu: false, rateHistory: false,
+  avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+  avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
+  avatarPickerOpen: false
 };
 
 let timers = { resend: null, send: null, signin: null, upload: null, save: null, cred: null };
+
+// Profile photo, everywhere it's shown: a flat color with a preset icon on
+// top. Same two state fields drive the sidebar trigger, the profile
+// dropdown, and the picker's own preview in Settings.
+function avatarBadge(size){
+  const s = size || 32;
+  return '<div style="width:'+s+'px;height:'+s+'px;flex:none;border-radius:8px;background:'+S.avatarColor+';color:#fff;display:flex;align-items:center;justify-content:center">'+ic(S.avatarIcon, Math.round(s * 0.56))+'</div>';
+}
 
 function set(patch){ Object.assign(S, patch); render(); }
 
@@ -924,7 +942,8 @@ function appRail(){
     + '<div data-side-foot style="margin-top:auto;padding:8px">'
       + '<div style="position:relative">'
       + '<div data-act="toggleProfile" class="hv-sb" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'height:48px;box-sizing:border-box;padding:8px')+';gap:8px;border-radius:8px;cursor:pointer;background:'+(S.profileOpen?'var(--sb-accent)':'transparent')+';color:'+(S.profileOpen?'var(--sb-accent-fg)':'var(--sb-fg)')+'">'
-        + '<div style="position:relative;width:32px;height:32px;flex:none;border-radius:8px;background:var(--sb-accent-fg);color:var(--sb-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">HG'
+        + '<div style="position:relative;flex:none">'
+          + avatarBadge(32)
           + '<i style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--sb-primary);border:2px solid var(--sb-bg)"></i>'
         + '</div>'
         + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
@@ -933,7 +952,7 @@ function appRail(){
       + (S.profileOpen
         ? '<div style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 10px">'
-            + '<div style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--sb-accent-fg);color:var(--sb-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">HG</div>'
+            + avatarBadge(32)
             + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>'
           + '</div>'
           + '<div style="height:1px;background:var(--hair);margin:2px 0"></div>'
@@ -1366,13 +1385,7 @@ function sensitivityCard(){
       + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
       + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
       + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>'
-    + '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
-      + '<div style="flex:1;min-width:260px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
-      + '<button type="button" data-act="saveThroughput" class="hv-ghost" style="padding:9px 15px;border-radius:5px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--fg1);white-space:nowrap">Use '+t+' as my number</button>'
-    + '</div>'
-    + (S.savedThroughput
-      ? '<div id="savedNote" style="margin-top:14px;padding:12px 14px;border:1px solid var(--hair2);border-radius:5px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Saved. '+t+' '+unitLabel+' applies to '+esc(base.work.toLowerCase())+' going forward.</div>'
-      : '')
+    + '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
   + '</div>';
 }
 
@@ -1972,6 +1985,17 @@ function viewSettings(){
       + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Email</div>'
         + '<div style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2)">sam@harborgrill.com</div></div>'
     + '</div>'
+    + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
+      + avatarBadge(52)
+      + '<div><div style="font-size:13px;font-weight:700;color:var(--fg1);margin-bottom:2px">Profile photo</div>'
+        + '<div style="font-size:12px;color:var(--fg3)">A color and an icon. Random until you pick your own below.</div></div>'
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
+      + AVATAR_COLORS.map(c => '<div data-act="pickAvatarColor" data-c="'+c+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;background:'+c+';box-sizing:border-box;border:2px solid '+(S.avatarColor===c?'var(--fg1)':'transparent')+'"></div>').join('')
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">'
+      + AVATAR_ICONS.map(name => '<div data-act="pickAvatarIcon" data-i="'+name+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px solid '+(S.avatarIcon===name?'var(--fg1)':'var(--hair2)')+';color:var(--fg1)">'+ic(name,14)+'</div>').join('')
+    + '</div>'
     + '<button type="button" data-act="notInDemo" data-what="changeEmail" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Change email</button>'
     + (S.notInDemo === 'changeEmail' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2);max-width:70ch">Sends a confirmation link to the new address before anything moves. The old address keeps working until that link is opened, so a typo cannot lock you out.</div>' : '')
     + '<div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--hair)">'
@@ -2143,8 +2167,6 @@ function applySensitivity(){
   put('sensCovBig', c.cov.toFixed(2) + 'x');
   const slider = document.getElementById('sensRange');
   if (slider) slider.style.setProperty('--bl-fill', ((S.throughput - 15) / (60 - 15) * 100) + '%');
-  const btn = document.querySelector('[data-act="saveThroughput"]');
-  if (btn) btn.textContent = 'Use ' + S.throughput + ' as my number';
 }
 
 // Patches one Setup row's derived rate and summary line in place after a
@@ -2339,13 +2361,14 @@ const ACTIONS = {
   attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
+  pickAvatarColor: (el) => set({ avatarColor: el.dataset.c }),
+  pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i }),
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
   pickPeriod: (el) => set({ period: Number(el.dataset.i), periodMenu:false }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
-  saveThroughput: () => set({ savedThroughput:true }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
   saveSetupRow: (el) => { const i = Number(el.dataset.i); set({ setupSaved: Object.assign({}, S.setupSaved, { [i]: true }) }); },
   save: () => {
@@ -2421,9 +2444,6 @@ document.addEventListener('input', (e) => {
   }
   if (e.target.id === 'sensRange'){
     S.throughput = Number(e.target.value);
-    S.savedThroughput = false;
-    const note = document.getElementById('savedNote');
-    if (note) note.remove();
     applySensitivity();
     return;
   }
