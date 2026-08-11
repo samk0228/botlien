@@ -334,7 +334,28 @@ function computeStatement(){
     const coverage = revenue > 0 && totalInvoice > 0 ? totalValue / totalInvoice : null;
     return {
       rows: [], included: [], totalValue, totalInvoice, coverage, byCategory: [],
-      estimate: true, manualCount: count, manualCost: cost, manualRevenue: revenue,
+      mode: 'estimate', manualCount: count, manualCost: cost, manualRevenue: revenue,
+    };
+  }
+  // The Coverage page's site toggle. dashScope 0 is Pier 4, the only site
+  // with real per-robot telemetry, so it alone gets the full computation
+  // below. "all" and the other two sites only have a work/invoice total in
+  // this demo, so every card that needs a per-robot breakdown degrades to
+  // the same honest note the All 3 sites popup uses, nothing invented.
+  if (S.dashScope !== 0){
+    let totalValue, totalInvoice, scopeLabel;
+    if (S.dashScope === 'all'){
+      totalValue = Math.round(SITES.reduce((a,site) => a+site.work, 0) * 100) / 100;
+      totalInvoice = Math.round(SITES.reduce((a,site) => a+site.invoice, 0) * 100) / 100;
+      scopeLabel = 'all 3 sites';
+    } else {
+      const site = SITES[S.dashScope];
+      totalValue = site.work; totalInvoice = site.invoice; scopeLabel = site.name;
+    }
+    const coverage = totalInvoice > 0 ? totalValue / totalInvoice : null;
+    return {
+      rows: [], included: [], totalValue, totalInvoice, coverage, byCategory: [],
+      mode: 'siteOnly', scopeLabel,
     };
   }
   const rows = CONFIRM.map((c,i) => {
@@ -367,7 +388,7 @@ function computeStatement(){
   return {
     rows, included, totalValue, totalInvoice, coverage,
     byCategory: Object.values(byCategory).sort((a,b) => b.value - a.value),
-    estimate: false,
+    mode: 'full',
   };
 }
 
@@ -459,7 +480,7 @@ const S = {
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
-  siteMenu: false, sitePopup: null, scheduled: true, shareMade: false, rateHistory: false
+  siteMenu: false, sitePopup: null, dashScope: 'all', scheduled: true, shareMade: false, rateHistory: false
 };
 
 let timers = { resend: null, send: null, signin: null, upload: null, save: null, export: null, cred: null };
@@ -985,16 +1006,22 @@ function utilizationCard(){
 function coverageKpiCard(){
   const s = computeStatement();
   const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
-  const tag = s.estimate
+  const tag = s.mode === 'estimate'
     ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
+    : s.mode === 'siteOnly'
+    ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">'+esc(s.scopeLabel)+'</span>'
     : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">first period, no trend yet</span>';
-  const subhead = s.estimate
+  const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
       : money(s.totalInvoice)+' of lease cost from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+'. Add what the work is worth per robot to see a coverage ratio.')
+    : s.mode === 'siteOnly'
+    ? money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased, at '+esc(s.scopeLabel)
     : money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased';
-  const detail = s.estimate
+  const detail = s.mode === 'estimate'
     ? 'One number spread evenly across '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+', not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement, priced at category benchmarks until you set your own numbers.'
+    : s.mode === 'siteOnly'
+    ? 'This demo only tracks robot-level detail for Pier 4. The number above is '+esc(s.scopeLabel)+'&#39;s real total, just not broken down further here. Switch back to Pier 4 to see the arithmetic behind it.'
     : 'Replacement cost of the work performed, divided by the lease. Not revenue, not profit, not labor you stopped paying for, just what it would have cost to buy this work another way, priced at category benchmarks until you set your own numbers. Change a robot&#39;s kind of work or exclude one on the confirm screen and this recalculates from those '+s.included.length+' robots, nothing here is fixed.';
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
@@ -1008,8 +1035,18 @@ function coverageKpiCard(){
       + '</summary>'
       + '<div style="margin-top:10px;font-size:13px;line-height:1.65;color:var(--fg2)">'+detail+'</div>'
     + '</details>'
-    + (s.estimate ? '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)"><button type="button" data-act="startRealImport" class="hv-dim" style="padding:11px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Import my export</button></div>' : '')
+    + (s.mode === 'estimate' ? '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)"><button type="button" data-act="startRealImport" class="hv-dim" style="padding:11px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Import my export</button></div>' : '')
   + '</div>';
+}
+
+// A robot-level card with nothing to show has two honestly different
+// reasons: no robots imported yet, or this demo simply not tracking that
+// site per robot. Saying "No robots included yet" for the latter would
+// read as if the site has no fleet at all, which is not true.
+function noRobotNote(s){
+  return s.mode === 'siteOnly'
+    ? 'This demo only tracks robot-level detail for Pier 4, not for '+esc(s.scopeLabel)+'.'
+    : 'No robots included yet.';
 }
 
 function attentionCard(){
@@ -1033,7 +1070,7 @@ function attentionCard(){
       + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:none;border:none;cursor:pointer">All robots →</button>'
     + '</div>'
     + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
-    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">No robots included yet.</div>')+'</div>'
+    + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">'+noRobotNote(s)+'</div>')+'</div>'
   + '</div>';
 }
 
@@ -1050,7 +1087,7 @@ function workSplitCard(){
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Where the work is</div>'
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">Share of work serviced, by kind, this period</div>'
-    + (rows || '<div style="font-size:13px;color:var(--fg3)">No robots included yet.</div>')
+    + (rows || '<div style="font-size:13px;color:var(--fg3)">'+noRobotNote(s)+'</div>')
   + '</div>';
 }
 
@@ -1098,8 +1135,24 @@ function viewDashV2(){
   + '</div>';
 }
 
+// Toggle, not a dropdown: every option is one click away, same pattern as
+// the All robots / Needs attention toggle on the Robots page. Filters the
+// Coverage page only, Robots/Rates/Setup stay Pier 4 always since that is
+// the only site this demo has real per-robot telemetry for. Loads on "all
+// 3 sites" by default, the combined figure, not any one site's own.
+function scopeToggle(){
+  const scopes = [{k:'all', label:'All 3 sites'}].concat(SITES.map((s,i) => ({k:String(i), label:s.name})));
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-right:auto">'
+    + scopes.map(sc => {
+      const active = String(S.dashScope) === sc.k;
+      return '<button type="button" data-act="setDashScope" data-scope="'+sc.k+'" style="padding:8px 14px;border-radius:3px;border:none;cursor:pointer;font-size:12.5px;font-weight:700;background:'+(active?'var(--ink)':'var(--ghost2)')+';color:'+(active?'var(--ink-fg)':'var(--fg2)')+'">'+sc.label+'</button>';
+    }).join('')
+  + '</div>';
+}
+
 function dashToolbar(hidden){
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'
+    + scopeToggle()
     + (S.dashEdit ? hidden.map(id => '<button type="button" data-act="dashShow" data-id="'+id+'" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg2);background:var(--ghost);border:1px dashed var(--hair2);border-radius:5px;padding:7px 12px;cursor:pointer">+ '+DASH_BLOCKS[id].label+'</button>').join('') : '')
     + (S.dashEdit ? '<button type="button" data-act="dashReset" class="hv-ghost" style="font-size:12px;font-weight:600;color:var(--fg3);background:none;border:none;cursor:pointer;padding:8px 6px">Reset layout</button>' : '')
     + '<button type="button" data-act="toggleDashEdit" class="hv-dim press" style="font-size:12.5px;font-weight:700;color:'+(S.dashEdit?'var(--ink-fg)':'var(--fg1)')+';background:'+(S.dashEdit?'var(--ink)':'transparent')+';border:1px solid var(--hair2);border-radius:5px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px">'
@@ -1137,9 +1190,13 @@ function dashBlockWrap(id){
 function sensitivityCard(){
   const base = sensBase();
   if (!base){
+    const s = computeStatement();
+    const note = s.mode === 'siteOnly'
+      ? noRobotNote(s)
+      : 'Every included robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test. This card appears once a per-run or per-pick robot is in the fleet.';
     return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'
       + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>'
-      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">Every included robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test. This card appears once a per-run or per-pick robot is in the fleet.</div>'
+      + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">'+note+'</div>'
     + '</div>';
   }
   const min = Math.max(1, Math.round(base.benchUnitsPerHour * 0.5));
@@ -1176,7 +1233,7 @@ function sensitivityCard(){
 
 function costCard(){
   const s = computeStatement();
-  if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—','no robots included yet','','')+'</div>';
+  if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—',noRobotNote(s),'','')+'</div>';
   // The dashboard's biggest category by value, since "cost per task" only
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
@@ -2133,6 +2190,7 @@ const ACTIONS = {
   focusSite: (el) => goView('sites', { sitePopup: Number(el.dataset.i), siteMenu:false }),
   openSitePopup: (el) => set({ sitePopup: Number(el.dataset.i) }),
   closeSitePopup: () => set({ sitePopup: null }),
+  setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope) }),
   // Swallows clicks inside the popup card so they do not bubble to the
   // backdrop behind it and close the popup they landed on.
   noop: () => {},
