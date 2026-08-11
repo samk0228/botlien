@@ -15,8 +15,12 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
   --ghost:rgba(10,10,10,.04); --ghost2:rgba(10,10,10,.05);
   --hatch:rgba(10,10,10,.18); --hatch2:rgba(10,10,10,.35);
   --menu:#F6F6FB; --mark:none;
-  /* shadcn/ui sidebar tokens (new-york-v4, light), from `shadcn view sidebar` */
+  /* shadcn/ui sidebar tokens (new-york-v4, light), from `shadcn view
+     sidebar`. Light on purpose, matches the rest of the app; the
+     reference screenshot's structure and behaviour are what we're
+     matching, not its dark colour scheme or its blue accent. */
   --sb-bg:hsl(0 0% 98%); --sb-fg:hsl(240 5.3% 26.1%);
+  --sb-primary:var(--ink); --sb-primary-fg:var(--ink-fg);
   --sb-accent:hsl(240 4.8% 95.9%); --sb-accent-fg:hsl(240 5.9% 10%);
   --sb-border:hsl(220 13% 91%); --sb-muted:hsl(240 5.3% 26.1% / .65);
 }
@@ -802,21 +806,24 @@ function appRail(){
     : '';
 
   // shadcn's SidebarRail: an invisible 4px drag-strip along the border, a
-  // second way to collapse besides an explicit trigger, cursor swaps to a
-  // resize cursor and the border itself highlights on hover. Kept alongside
-  // the header chevron below rather than replacing it, an invisible-only
-  // control is easy to miss the first time.
-  const rail = '<button type="button" data-act="toggleRail" class="bl-rail bl-rail-toggle" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-2px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
+  // second way to collapse besides the external trigger (see appHeader),
+  // cursor swaps to a resize cursor and the border itself highlights on
+  // hover.
+  const rail = '<button type="button" data-act="toggleRail" class="bl-rail" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-9px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
 
-  const toggle = '<div data-act="toggleRail" class="hv-sb bl-rail-toggle" title="'+(collapsed?'Expand':'Collapse')+'" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;cursor:pointer;color:var(--sb-fg)">'
-    + ic('chevron-down', 16, 'transform:rotate('+(collapsed?'-90deg':'90deg')+')') + '</div>';
-
+  // TeamSwitcher pattern: a coloured icon block (not the whole row) inside
+  // a plain hover-highlight button, chevron on the right implies it opens
+  // a menu. The whole row used to be its own bordered box; that box now
+  // lives only around the icon, matching the reference exactly.
   const brand = collapsed
-    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:transparent;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer">'
-      + '<img src="'+LOGO+'" alt="Botlien" style="width:18px;height:21px;object-fit:contain;filter:var(--mark)">'
+    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;cursor:pointer">'
+      + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
+        + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
+      + '</div></div>'
+    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer">'
+      + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
+        + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
       + '</div>'
-    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px;background:transparent;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer">'
-      + '<img src="'+LOGO+'" alt="Botlien" style="width:22px;height:26px;object-fit:contain;filter:var(--mark)">'
       + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden">'
         + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">'+site.name+' · '+site.robots+'</span>'
         + '<span style="font-size:11.5px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbor Grill Group</span>'
@@ -830,11 +837,16 @@ function appRail(){
   const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-sb" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer;color:var(--sb-fg)">'
     + ic('equal', 16, S.mobileNavOpen ? 'transform:rotate(90deg)' : '') + '</div>';
 
-  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border);padding:'+(collapsed?'8px':'8px')+'">'
+  // variant="floating": rounded-lg, a real border, a soft shadow, and an
+  // 8px gap from the viewport edge on every side, the sidebar reads as its
+  // own floating card rather than a flush column. Height compensates for
+  // the top/bottom margin so it still reaches the full viewport.
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:8px;display:flex;flex-direction:column;height:calc(100vh - 16px);margin:8px;background:var(--sb-bg);color:var(--sb-fg);border:1px solid var(--sb-border);border-radius:8px;box-shadow:0 1px 2px rgba(10,10,10,.06),0 1px 3px rgba(10,10,10,.08);padding:8px">'
     + rail
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + menu + '</div>'
-    + '<div style="padding:0 8px 4px;display:flex;'+(collapsed?'justify-content:center':'')+'">' + toggle + '</div>'
-    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow:auto"><ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px">'
+    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow:auto">'
+      + (collapsed ? '' : '<div style="padding:4px 8px;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
+      + '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px">'
       + item('dashv2','equal','Dashboard')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
@@ -924,7 +936,14 @@ function appHeader(){
           + '</div>'
         : '')
     + '</div>';
-  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
+  // The sidebar's own collapse control now lives here, outside the
+  // sidebar, matching the reference: a small bordered icon button in the
+  // main content's own header rather than a control the sidebar hosts on
+  // itself. Desktop only, mobile already has its own hamburger for this.
+  const trigger = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="Toggle Sidebar" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--hair2);border-radius:6px;cursor:pointer;color:var(--fg2)">'
+    + ic('chevron-down', 15, 'transform:rotate('+(S.railCollapsed?'-90deg':'90deg')+')') + '</div>';
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">' + trigger + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
       + '<h1 style="font-size:clamp(24px,5vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.1;margin:0;color:var(--fg1)">'+COPY[view][0]+'</h1>'
       + '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'
         + periodPicker
@@ -1973,9 +1992,11 @@ function render(){
   /* The app keeps its rail, because navigation between Coverage, Robots, Rates
      and Settings is the product. Auth (and onboarding) has nowhere to
      navigate to, so it gets the whole width and the card centres in it. */
-  // 256px / 48px: shadcn/ui's own SIDEBAR_WIDTH / SIDEBAR_WIDTH_ICON (16rem
-  // / 3rem), pulled from `shadcn view sidebar`, not eyeballed.
-  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '48px minmax(0,1fr)' : '256px minmax(0,1fr)');
+  // 256px / 48px (shadcn's own SIDEBAR_WIDTH / SIDEBAR_WIDTH_ICON) plus 16px
+  // for the floating variant's own 8px margin on each side, same widening
+  // shadcn's real Sidebar does for floating/inset so the card itself still
+  // renders at full width instead of shrinking into its margin.
+  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '64px minmax(0,1fr)' : '272px minmax(0,1fr)');
 
   document.getElementById('root').innerHTML =
     '<div style="position:relative;min-height:100vh;background:var(--page);color:var(--fg1)">'
