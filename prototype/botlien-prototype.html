@@ -15,6 +15,10 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
   --ghost:rgba(10,10,10,.04); --ghost2:rgba(10,10,10,.05);
   --hatch:rgba(10,10,10,.18); --hatch2:rgba(10,10,10,.35);
   --menu:#F6F6FB; --mark:none;
+  /* shadcn/ui sidebar tokens (new-york-v4, light), from `shadcn view sidebar` */
+  --sb-bg:hsl(0 0% 98%); --sb-fg:hsl(240 5.3% 26.1%);
+  --sb-accent:hsl(240 4.8% 95.9%); --sb-accent-fg:hsl(240 5.9% 10%);
+  --sb-border:hsl(220 13% 91%); --sb-muted:hsl(240 5.3% 26.1% / .65);
 }
 /* One committed light palette. The page paints its own background and every
    colour explicitly, so it holds whatever theme the viewer is in. */
@@ -28,6 +32,8 @@ input{font-family:inherit}
 
 .hv-ghost:hover{background:var(--ghost)}
 .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
+.hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
+.bl-rail:hover{background:var(--sb-border)}
 .hv-fg1:hover{color:var(--fg1)}
 .hv-dim:hover{opacity:.86}
 .hv-dim9:hover{opacity:.9}
@@ -758,24 +764,28 @@ function authStage(){
 
 /* ─────────────────────────  APP VIEW  ───────────────────────── */
 
+// Menu button sizing/spacing/color below matches shadcn/ui's
+// sidebarMenuButtonVariants exactly (rounded-md, p-2, gap-2, text-sm,
+// size-4 icons; group-data-[collapsible=icon]:size-8 when collapsed),
+// pulled from `shadcn view sidebar`, not eyeballed off a screenshot.
 function appRail(){
   const collapsed = S.railCollapsed;
   const nav = (k) => ({
-    bg: S.view === k ? 'var(--ghost2)' : 'transparent',
-    fg: S.view === k ? 'var(--fg1)' : 'var(--fg2)',
-    fw: S.view === k ? 700 : 500
+    bg: S.view === k ? 'var(--sb-accent)' : 'transparent',
+    fg: S.view === k ? 'var(--sb-accent-fg)' : 'var(--sb-fg)',
+    fw: S.view === k ? 600 : 500
   });
   const item = (k, icon, label, extra) => {
     const n = nav(k);
     const justify = collapsed ? 'justify-content:center;' : '';
-    const dot = (collapsed && extra) ? '<span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--ink)"></span>' : '';
-    return '<div data-act="go" data-view="'+k+'" class="hv-fg1" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
-      + ic(icon,19)
+    const dot = (collapsed && extra) ? '<span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--sb-accent-fg)"></span>' : '';
+    return '<div data-act="go" data-view="'+k+'" class="hv-sb" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:8px;'+(collapsed?'width:32px;height:32px;padding:8px':'padding:8px')+';border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
+      + ic(icon,16)
       + (collapsed ? '' : label+(extra||''))
       + dot
     + '</div>';
   };
-  const badge = '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--fg1)">1</span>';
+  const badge = '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">1</span>';
   const nset = nav('settings');
 
   // The app (Coverage, Robots, Rates, Setup) is always Pier 4, the one
@@ -791,54 +801,62 @@ function appRail(){
       + '<div data-act="go" data-view="sites" class="hv-ghost" style="padding:11px 14px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">All 3 sites together</div></div>'
     : '';
 
-  const toggle = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="'+(collapsed?'Expand':'Collapse')+'" style="display:flex;align-items:center;justify-content:center;width:100%;padding:9px 0;border-radius:4px;cursor:pointer;color:var(--fg3)">'
+  // shadcn's SidebarRail: an invisible 4px drag-strip along the border, a
+  // second way to collapse besides an explicit trigger, cursor swaps to a
+  // resize cursor and the border itself highlights on hover. Kept alongside
+  // the header chevron below rather than replacing it, an invisible-only
+  // control is easy to miss the first time.
+  const rail = '<button type="button" data-act="toggleRail" class="bl-rail bl-rail-toggle" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-2px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
+
+  const toggle = '<div data-act="toggleRail" class="hv-sb bl-rail-toggle" title="'+(collapsed?'Expand':'Collapse')+'" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;cursor:pointer;color:var(--sb-fg)">'
     + ic('chevron-down', 16, 'transform:rotate('+(collapsed?'-90deg':'90deg')+')') + '</div>';
 
   const brand = collapsed
-    ? '<div data-act="toggleSite" class="hv-ghost" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;padding:12px 0;background:transparent;border:1px solid var(--hair);border-radius:4px;cursor:pointer">'
+    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:transparent;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer">'
+      + '<img src="'+LOGO+'" alt="Botlien" style="width:18px;height:21px;object-fit:contain;filter:var(--mark)">'
+      + '</div>'
+    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px;background:transparent;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer">'
       + '<img src="'+LOGO+'" alt="Botlien" style="width:22px;height:26px;object-fit:contain;filter:var(--mark)">'
-      + '</div>'
-    : '<div data-act="toggleSite" class="hv-ghost" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 14px;background:transparent;border:1px solid var(--hair);border-radius:4px;cursor:pointer">'
-      + '<img src="'+LOGO+'" alt="Botlien" style="width:26px;height:32px;object-fit:contain;filter:var(--mark)">'
       + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden">'
-        + '<span style="font-size:15px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+site.name+' · '+site.robots+'</span>'
-        + '<span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbor Grill Group</span>'
+        + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">'+site.name+' · '+site.robots+'</span>'
+        + '<span style="font-size:11.5px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbor Grill Group</span>'
       + '</div>'
-      + ic('chevron-down',15,'margin-left:auto;color:var(--fg3)')
+      + ic('chevron-down',15,'margin-left:auto;color:var(--sb-muted)')
       + '</div>';
 
   // Hamburger only exists below 900px (.bl-mobile-toggle), everything it
   // opens is the same nav and account rows that already render for desktop,
   // just hidden by default at that width until this flips the open class.
-  const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-ghost" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:44px;height:44px;flex:none;border:1px solid var(--hair);border-radius:4px;cursor:pointer;color:var(--fg1)">'
-    + ic('equal', 19, S.mobileNavOpen ? 'transform:rotate(90deg)' : '') + '</div>';
+  const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-sb" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer;color:var(--sb-fg)">'
+    + ic('equal', 16, S.mobileNavOpen ? 'transform:rotate(90deg)' : '') + '</div>';
 
-  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;padding:'+(collapsed?'22px 12px 28px':'22px 20px 28px')+'">'
-    + '<div style="position:relative;margin-bottom:16px;display:flex;gap:10px;align-items:stretch">' + brand + mobileToggle + menu + '</div>'
-    + toggle
-    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;margin-top:14px">'
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border);padding:'+(collapsed?'8px':'8px')+'">'
+    + rail
+    + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + menu + '</div>'
+    + '<div style="padding:0 8px 4px;display:flex;'+(collapsed?'justify-content:center':'')+'">' + toggle + '</div>'
+    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow:auto"><ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px">'
       + item('dashv2','equal','Dashboard')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
-      + item('condition','sliders-horizontal','Condition', '<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--fg1)">1</span>')
+      + item('condition','sliders-horizontal','Condition', '<span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">1</span>')
       + item('rates','ruler','Rates')
       + item('setup','sliders-horizontal','Setup')
       + item('start','upload','Import usage')
       + item('states','list','How figures read')
-    + '</nav>'
+    + '</ul></nav>'
     // Account and notifications used to live in a topbar of their own,
     // floating over every page. Moved down here instead: this is the one
     // spot in the app that is already "who you are and what needs you,"
     // Settings and Log out were already living right below it.
-    + '<div data-side-foot style="margin-top:auto;display:flex;flex-direction:column;gap:4px">'
-      + '<div data-act="go" data-view="alerts" class="hv-fg1" title="'+(collapsed?'Notifications':'')+'" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+(S.view==='alerts'?700:500)+';color:'+(S.view==='alerts'?'var(--fg1)':'var(--fg2)')+';background:'+(S.view==='alerts'?'var(--ghost2)':'transparent')+'">'
-        + ic('bell',19) + (collapsed?'':'Notifications')
-        + '<i style="position:absolute;'+(collapsed?'top:8px;right:8px':'top:13px;right:14px')+';width:7px;height:7px;border-radius:50%;background:var(--ink)"></i>'
+    + '<div data-side-foot style="margin-top:auto;display:flex;flex-direction:column;gap:4px;padding:8px">'
+      + '<div data-act="go" data-view="alerts" class="hv-sb" title="'+(collapsed?'Notifications':'')+'" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+(S.view==='alerts'?600:500)+';color:'+(S.view==='alerts'?'var(--sb-accent-fg)':'var(--sb-fg)')+';background:'+(S.view==='alerts'?'var(--sb-accent)':'transparent')+';gap:8px">'
+        + ic('bell',16) + (collapsed?'':'Notifications')
+        + '<i style="position:absolute;'+(collapsed?'top:6px;right:6px':'top:10px;right:10px')+';width:7px;height:7px;border-radius:50%;background:var(--sb-accent-fg)"></i>'
       + '</div>'
-      + '<div data-act="toggleProfile" class="hv-ghost-fg1" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:12px;padding:'+(collapsed?'8px':'8px 10px')+';border-radius:4px;cursor:pointer">'
-        + '<div style="width:30px;height:30px;flex:none;border-radius:4px;background:var(--ink);color:var(--ink-fg);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700">HG</div>'
-        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
-        + (collapsed ? '' : ic('chevron-down',14,'color:var(--fg3);flex:none'))
+      + '<div data-act="toggleProfile" class="hv-sb" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:8px;padding:8px;border-radius:6px;cursor:pointer">'
+        + '<div style="width:28px;height:28px;flex:none;border-radius:6px;background:var(--sb-accent-fg);color:var(--sb-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">HG</div>'
+        + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:var(--sb-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
+        + (collapsed ? '' : ic('chevron-down',14,'color:var(--sb-muted);flex:none'))
         + (S.profileOpen
           ? '<div style="position:absolute;bottom:calc(100% + 8px);left:0;width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
             + '<div style="padding:14px 16px;border-bottom:1px solid var(--hair)"><div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Sam Ortega</div><div style="font-size:12px;color:var(--fg3);margin-top:2px">sam@harborgrill.com</div></div>'
@@ -846,8 +864,8 @@ function appRail(){
             + '<div data-act="logOut" class="hv-ghost" style="padding:12px 16px;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">Log out</div></div>'
           : '')
       + '</div>'
-      + '<div data-act="go" data-view="settings" class="hv-ghost-fg1" title="'+(collapsed?'Settings':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',19)+(collapsed?'':'Settings')+'</div>'
-      + '<div data-act="logOut" class="hv-ghost-fg1" title="'+(collapsed?'Log out':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:14px;padding:'+(collapsed?'11px':'11px 14px')+';border-radius:4px;cursor:pointer;font-size:14.5px;font-weight:500;color:var(--fg2)">'+ic('log-out',19)+(collapsed?'':'Log out')+'</div>'
+      + '<div data-act="go" data-view="settings" class="hv-sb" title="'+(collapsed?'Settings':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';gap:8px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',16)+(collapsed?'':'Settings')+'</div>'
+      + '<div data-act="logOut" class="hv-sb" title="'+(collapsed?'Log out':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';gap:8px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;color:var(--sb-muted)">'+ic('log-out',16)+(collapsed?'':'Log out')+'</div>'
     + '</div></aside>';
 }
 
@@ -1955,7 +1973,9 @@ function render(){
   /* The app keeps its rail, because navigation between Coverage, Robots, Rates
      and Settings is the product. Auth (and onboarding) has nowhere to
      navigate to, so it gets the whole width and the card centres in it. */
-  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '72px minmax(0,1fr)' : '264px minmax(0,1fr)');
+  // 256px / 48px: shadcn/ui's own SIDEBAR_WIDTH / SIDEBAR_WIDTH_ICON (16rem
+  // / 3rem), pulled from `shadcn view sidebar`, not eyeballed.
+  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '48px minmax(0,1fr)' : '256px minmax(0,1fr)');
 
   document.getElementById('root').innerHTML =
     '<div style="position:relative;min-height:100vh;background:var(--page);color:var(--fg1)">'
