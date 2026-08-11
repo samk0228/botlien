@@ -783,7 +783,7 @@ function appRail(){
     const n = nav(k);
     const justify = collapsed ? 'justify-content:center;' : '';
     const dot = (collapsed && extra) ? '<span style="position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--sb-accent-fg)"></span>' : '';
-    return '<div data-act="go" data-view="'+k+'" class="hv-sb" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:8px;'+(collapsed?'width:32px;height:32px;padding:8px':'padding:8px')+';border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
+    return '<div data-act="go" data-view="'+k+'" class="hv-sb" title="'+(collapsed?label:'')+'" style="position:relative;display:flex;align-items:center;'+justify+'gap:8px;'+(collapsed?'width:32px;height:32px;padding:8px':'height:32px;box-sizing:border-box;padding:8px')+';border-radius:8px;cursor:pointer;font-size:14px;font-weight:'+n.fw+';color:'+n.fg+';background:'+n.bg+'">'
       + ic(icon,16)
       + (collapsed ? '' : label+(extra||''))
       + dot
@@ -809,18 +809,18 @@ function appRail(){
   // second way to collapse besides the external trigger (see appHeader),
   // cursor swaps to a resize cursor and the border itself highlights on
   // hover.
-  const rail = '<button type="button" data-act="toggleRail" class="bl-rail" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-9px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
+  const rail = '<button type="button" data-act="toggleRail" class="bl-rail" aria-label="Toggle Sidebar" title="Toggle Sidebar" style="position:absolute;top:0;bottom:0;right:-2px;width:4px;padding:0;border:none;background:transparent;cursor:ew-resize;z-index:20"></button>';
 
   // TeamSwitcher pattern: a coloured icon block (not the whole row) inside
   // a plain hover-highlight button, chevron on the right implies it opens
   // a menu. The whole row used to be its own bordered box; that box now
   // lives only around the icon, matching the reference exactly.
   const brand = collapsed
-    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;cursor:pointer">'
+    ? '<div data-act="toggleSite" class="hv-sb" title="'+site.name+' · Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;cursor:pointer">'
       + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
         + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
       + '</div></div>'
-    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer">'
+    : '<div data-act="toggleSite" class="hv-sb" style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer">'
       + '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
         + '<img src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
       + '</div>'
@@ -834,19 +834,20 @@ function appRail(){
   // Hamburger only exists below 900px (.bl-mobile-toggle), everything it
   // opens is the same nav and account rows that already render for desktop,
   // just hidden by default at that width until this flips the open class.
-  const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-sb" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--sb-border);border-radius:6px;cursor:pointer;color:var(--sb-fg)">'
+  const mobileToggle = '<div data-act="toggleMobileNav" class="bl-mobile-toggle hv-sb" title="'+(S.mobileNavOpen?'Close menu':'Menu')+'" style="align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--sb-border);border-radius:8px;cursor:pointer;color:var(--sb-fg)">'
     + ic('equal', 16, S.mobileNavOpen ? 'transform:rotate(90deg)' : '') + '</div>';
 
-  // variant="floating": rounded-lg, a real border, a soft shadow, and an
-  // 8px gap from the viewport edge on every side, the sidebar reads as its
-  // own floating card rather than a flush column. Height compensates for
-  // the top/bottom margin so it still reaches the full viewport.
-  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:8px;display:flex;flex-direction:column;height:calc(100vh - 16px);margin:8px;background:var(--sb-bg);color:var(--sb-fg);border:1px solid var(--sb-border);border-radius:8px;box-shadow:0 1px 2px rgba(10,10,10,.06),0 1px 3px rgba(10,10,10,.08);padding:8px">'
+  // variant="sidebar" (the default): flush against the edge, no rounding,
+  // no shadow, no margin, just a hairline right border. Measured directly
+  // off the real component at ui.shadcn.com/docs/components/base/sidebar
+  // (padding:0, border-radius:0, box-shadow:none on the container), the
+  // floating look from a prior pass was the wrong variant.
+  return '<aside data-side class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border);padding:8px">'
     + rail
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:8px 8px 4px">' + brand + mobileToggle + menu + '</div>'
-    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow:auto">'
-      + (collapsed ? '' : '<div style="padding:4px 8px;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
-      + '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px">'
+    + '<nav data-nav style="display:flex;flex-direction:column;gap:4px;padding:8px;overflow-y:auto;overflow-x:hidden">'
+      + (collapsed ? '' : '<div style="padding:0 8px;height:32px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
+      + '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0">'
       + item('dashv2','equal','Dashboard')
       + item('sites','boxes','All 3 sites')
       + item('robots','boxes','Robot by robot', badge)
@@ -860,13 +861,13 @@ function appRail(){
     // floating over every page. Moved down here instead: this is the one
     // spot in the app that is already "who you are and what needs you,"
     // Settings and Log out were already living right below it.
-    + '<div data-side-foot style="margin-top:auto;display:flex;flex-direction:column;gap:4px;padding:8px">'
-      + '<div data-act="go" data-view="alerts" class="hv-sb" title="'+(collapsed?'Notifications':'')+'" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+(S.view==='alerts'?600:500)+';color:'+(S.view==='alerts'?'var(--sb-accent-fg)':'var(--sb-fg)')+';background:'+(S.view==='alerts'?'var(--sb-accent)':'transparent')+';gap:8px">'
+    + '<div data-side-foot style="margin-top:auto;display:flex;flex-direction:column;gap:0;padding:8px">'
+      + '<div data-act="go" data-view="alerts" class="hv-sb" title="'+(collapsed?'Notifications':'')+'" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'height:32px;box-sizing:border-box;padding:8px')+';border-radius:8px;cursor:pointer;font-size:14px;font-weight:'+(S.view==='alerts'?600:500)+';color:'+(S.view==='alerts'?'var(--sb-accent-fg)':'var(--sb-fg)')+';background:'+(S.view==='alerts'?'var(--sb-accent)':'transparent')+';gap:8px">'
         + ic('bell',16) + (collapsed?'':'Notifications')
         + '<i style="position:absolute;'+(collapsed?'top:6px;right:6px':'top:10px;right:10px')+';width:7px;height:7px;border-radius:50%;background:var(--sb-accent-fg)"></i>'
       + '</div>'
-      + '<div data-act="toggleProfile" class="hv-sb" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'')+'gap:8px;padding:8px;border-radius:6px;cursor:pointer">'
-        + '<div style="width:28px;height:28px;flex:none;border-radius:6px;background:var(--sb-accent-fg);color:var(--sb-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">HG</div>'
+      + '<div data-act="toggleProfile" class="hv-sb" style="position:relative;display:flex;align-items:center;'+(collapsed?'justify-content:center;':'height:48px;box-sizing:border-box;')+'gap:8px;padding:8px;border-radius:8px;cursor:pointer">'
+        + '<div style="width:28px;height:28px;flex:none;border-radius:8px;background:var(--sb-accent-fg);color:var(--sb-bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">HG</div>'
         + (collapsed ? '' : '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden;flex:1"><span style="font-size:13.5px;font-weight:600;color:var(--sb-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sam Ortega</span><span style="font-size:11px;color:var(--sb-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">sam@harborgrill.com</span></div>')
         + (collapsed ? '' : ic('chevron-down',14,'color:var(--sb-muted);flex:none'))
         + (S.profileOpen
@@ -876,8 +877,8 @@ function appRail(){
             + '<div data-act="logOut" class="hv-ghost" style="padding:12px 16px;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">Log out</div></div>'
           : '')
       + '</div>'
-      + '<div data-act="go" data-view="settings" class="hv-sb" title="'+(collapsed?'Settings':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';gap:8px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',16)+(collapsed?'':'Settings')+'</div>'
-      + '<div data-act="logOut" class="hv-sb" title="'+(collapsed?'Log out':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'padding:8px')+';gap:8px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;color:var(--sb-muted)">'+ic('log-out',16)+(collapsed?'':'Log out')+'</div>'
+      + '<div data-act="go" data-view="settings" class="hv-sb" title="'+(collapsed?'Settings':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'height:32px;box-sizing:border-box;padding:8px')+';gap:8px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:'+nset.fw+';color:'+nset.fg+';background:'+nset.bg+'">'+ic('settings',16)+(collapsed?'':'Settings')+'</div>'
+      + '<div data-act="logOut" class="hv-sb" title="'+(collapsed?'Log out':'')+'" style="display:flex;align-items:center;'+(collapsed?'justify-content:center;width:32px;height:32px;padding:8px':'height:32px;box-sizing:border-box;padding:8px')+';gap:8px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--sb-muted)">'+ic('log-out',16)+(collapsed?'':'Log out')+'</div>'
     + '</div></aside>';
 }
 
@@ -940,7 +941,7 @@ function appHeader(){
   // sidebar, matching the reference: a small bordered icon button in the
   // main content's own header rather than a control the sidebar hosts on
   // itself. Desktop only, mobile already has its own hamburger for this.
-  const trigger = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="Toggle Sidebar" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--hair2);border-radius:6px;cursor:pointer;color:var(--fg2)">'
+  const trigger = '<div data-act="toggleRail" class="hv-ghost bl-rail-toggle" title="Toggle Sidebar" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:none;border:1px solid var(--hair2);border-radius:8px;cursor:pointer;color:var(--fg2)">'
     + ic('chevron-down', 15, 'transform:rotate('+(S.railCollapsed?'-90deg':'90deg')+')') + '</div>';
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">' + trigger + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:24px">'
@@ -1992,11 +1993,11 @@ function render(){
   /* The app keeps its rail, because navigation between Coverage, Robots, Rates
      and Settings is the product. Auth (and onboarding) has nowhere to
      navigate to, so it gets the whole width and the card centres in it. */
-  // 256px / 48px (shadcn's own SIDEBAR_WIDTH / SIDEBAR_WIDTH_ICON) plus 16px
-  // for the floating variant's own 8px margin on each side, same widening
-  // shadcn's real Sidebar does for floating/inset so the card itself still
-  // renders at full width instead of shrinking into its margin.
-  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '64px minmax(0,1fr)' : '272px minmax(0,1fr)');
+  // 256px / 48px: shadcn's own SIDEBAR_WIDTH / SIDEBAR_WIDTH_ICON, and the
+  // real docs demo (variant="sidebar", the default, measured directly off
+  // ui.shadcn.com/docs/components/base/sidebar) is flush against the edge,
+  // no floating margin to compensate for. That was the wrong variant.
+  const cols = (onAuth || inOnboarding) ? 'minmax(0,1fr)' : (S.railCollapsed ? '48px minmax(0,1fr)' : '256px minmax(0,1fr)');
 
   document.getElementById('root').innerHTML =
     '<div style="position:relative;min-height:100vh;background:var(--page);color:var(--fg1)">'
