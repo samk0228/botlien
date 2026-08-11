@@ -487,7 +487,7 @@ const S = {
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
-  upload: 'idle', upPct: 0, saving: false, robotFilter: 'all',
+  upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
   throughput: 30, savedThroughput: false, howTo: '', period: 0, periodMenu: false, notInDemo: '',
@@ -1313,7 +1313,6 @@ function conditionBlock(r){
 }
 
 function viewRobots(){
-  const attention = S.robotFilter === 'attention';
   // Condition used to be its own page, looping these same robots through
   // the same conditionBlock() every row below already calls. Merged in:
   // the per-robot bars stay exactly where they were, in the row, once.
@@ -1323,10 +1322,14 @@ function viewRobots(){
   // Six full rows, equation and condition bars included, all open at
   // once, was everything about every robot on screen at the same time.
   // One row per robot now, closed by default; opening one is the only
-  // way to see that robot's equation and condition. Index comes from the
-  // full ROBOTS array, not the filtered one, so which robot is open
-  // survives switching between "All 6" and "Needs attention."
-  const rows = ROBOTS.map((r,i) => ({r,i})).filter(({r}) => !attention || r.short).map(({r,i}) => {
+  // way to see that robot's equation and condition.
+  //
+  // No filter toggle anymore either. It split the fleet into two lists
+  // for what's really a one-robot-out-of-six case, and needing a
+  // separate view to find the flagged robot was more clicks than the
+  // problem deserved. The caution mark on its name in the one list does
+  // the same job at a glance, without hiding the other five.
+  const rows = ROBOTS.map((r,i) => {
     const open = S.openRobot === i;
     const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
     const chip = r.short ? 'under its lease' : (r.benchmark ? 'benchmark rate' : 'covered');
@@ -1341,9 +1344,10 @@ function viewRobots(){
       : spentParts
         ? spentParts+(spentParts === 1 ? ' part past life' : ' parts past life')
         : 'all parts within rated life';
+    const caution = !r.short ? '' : '<span title="Under its lease" style="display:inline-flex;color:var(--fg1)">'+ic('triangle-alert',15)+'</span>';
 
     const summary = '<div data-act="toggleRobot" data-i="'+i+'" class="hv-fade" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
-      + '<div style="min-width:180px"><div style="font-size:15.5px;font-weight:'+(open||r.short?700:600)+';color:var(--fg1)">'+r.name+'</div>'
+      + '<div style="min-width:180px"><div style="display:flex;align-items:center;gap:7px;font-size:15.5px;font-weight:'+(open||r.short?700:600)+';color:var(--fg1)">'+r.name+caution+'</div>'
         + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
       + '<div style="min-width:130px"><span style="font-size:11.5px;font-weight:700;color:'+chipFg+'">'+chip+'</span></div>'
       + '<div style="min-width:80px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.duty+'</div>'
@@ -1364,10 +1368,7 @@ function viewRobots(){
     return '<div style="border-top:1px solid var(--hair)">' + summary + detail + '</div>';
   }).join('');
 
-  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:24px">'
-      + '<button type="button" data-act="allRobots" style="padding:9px 16px;border-radius:3px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(attention?'var(--ghost2)':'var(--ink)')+';color:'+(attention?'var(--fg2)':'var(--ink-fg)')+'">All 6 robots</button>'
-      + '<button type="button" data-act="attention" style="padding:9px 16px;border-radius:3px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(attention?'var(--ink)':'var(--ghost2)')+';color:'+(attention?'var(--ink-fg)':'var(--fg2)')+'">Needs attention · 1</button></div>'
-    + '<div style="padding:0;margin-bottom:56px">'
+  return '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
         + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Fleet</h2>'
         + '<span style="font-size:13px;color:var(--fg3)">Open a robot for the equation and condition behind its number.</span></div>'
@@ -2100,8 +2101,10 @@ const ACTIONS = {
 
   /* app */
   go: (el) => goView(el.dataset.view),
-  attention: () => goView('robots', { robotFilter:'attention' }),
-  allRobots: () => goView('robots', { robotFilter:'all' }),
+  // Jumps to Fleet with the flagged robot's row already open, not to a
+  // filtered view, Fleet no longer has one, one caution mark in the full
+  // list does that job now.
+  attention: () => goView('robots', { openRobot: ROBOTS.findIndex(r => r.short) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
