@@ -45,6 +45,14 @@ input{font-family:inherit}
    off the 4px strip onto a nav row or the page underneath it. */
 body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:none}
 .bl-dragging [data-nav] *{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* previewDashOrder writes left/top directly on every card crossed during a
+   dashboard reorder drag, this transition is what turns those into the
+   sliding "make room" animation instead of an instant jump, on every other
+   card, the one actually being dragged, its slot animates too while a
+   separate native ghost follows the cursor. Also smooths the plain
+   hide/show/resize reflow path, which was never why it was added but is a
+   fair side benefit. */
+.dash-block{transition:left .18s ease, top .18s ease}
 /* Sidebar collapse toggle lives on the brand badge itself now, not as a
    button that sits in the header the whole time. Logo and chevron are both
    always in the DOM, only one ever shown, hover flips which. */
@@ -552,7 +560,7 @@ const S = {
   timezone: 'America/Los_Angeles', siteHours: '12.0',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
-  dashLayout: ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'], dashHidden: ['ownbench'], dashEdit: false,
+  dashLayout: ['kpi','cost','recap','util','attn','work','sens','venuebench'], dashHidden: [], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
@@ -952,7 +960,6 @@ function appRail(){
     // ul and reading as shoved toward the right edge. One fewer box in the
     // chain removes the whole problem instead of chasing it.
     + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:8px;overflow-y:auto;overflow-x:hidden">'
-      + (collapsed ? '' : '<div style="padding:0 8px;height:32px;margin-bottom:4px;display:flex;align-items:center;font-size:12px;font-weight:500;color:var(--sb-muted)">Platform</div>')
       + item('dashv2','equal','Dashboard')
       + item('robots','boxes','Fleet', badge)
       + item('setup','sliders-horizontal','Numbers')
@@ -1282,16 +1289,11 @@ const DASH_BLOCKS = {
   attn:      { label: 'Needs attention',      render: attentionCard },
   work:      { label: 'Where the work is',    render: workSplitCard },
   sens:      { label: 'Rate assumption',      render: sensitivityCard },
-  ownbench:  { label: 'Trend vs your own past', render: benchmarkOwnCard },
   venuebench:{ label: 'Benchmark vs other venues', render: benchmarkVenueCard },
 };
-const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','sens','ownbench','venuebench'];
-// 'ownbench' (trend vs your own past) starts hidden, not removed: with one
-// period on record it would say the exact same "no history yet" thing recap
-// already says, right next to it. Reachable any time from Customize, just
-// not cluttering the first look with a duplicate.
-const DASH_HIDDEN_DEFAULT = ['ownbench'];
-let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render
+const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','sens','venuebench'];
+const DASH_HIDDEN_DEFAULT = [];
+let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render (see dragstart/dragover/dragend below)
 
 // The one unified dashboard: which site's telemetry it reads is the scope
 // filter next to Customize (S.dashScope), Pier 4, Marina, and Airport all
@@ -1425,18 +1427,6 @@ function costCard(){
   const label = 'Cost per '+b.unit;
   const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = $'+(b.wageCentsHour/100).toFixed(2)+'/hr ÷ '+b.humanUnitsPerHour;
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig(label, rate, note, '', '')+'</div>';
-}
-
-// Same reason as Coverage over time: a trend against your own past needs a
-// past. First period, honestly, has none yet.
-function benchmarkOwnCard(){
-  const s = computeStatement();
-  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against your own past</div>'
-      + '<div style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</div>'
-      + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">No prior period to compare yet, this is the first one. Once a second period closes, this becomes a real trend instead of one point.</div>'
-    + '</div>';
 }
 
 // The percentile, median, and cohort size are inherently about OTHER
@@ -2255,10 +2245,18 @@ function applySetupRow(i){
  * entirely: each card gets measured at its real width, then placed at the
  * top of whichever column is shortest right now. A short card's neighbor
  * lands right under it, it never waits on a taller card two columns over. */
-function layoutDashMasonry(){
+// Column-packs the EXISTING dash-block nodes in `order` (ids, hidden ones
+// filtered out), writing left/top directly rather than touching innerHTML.
+// That split is what lets a live drag preview reuse this: reordering mid-
+// drag never recreates the node the browser is tracking as the drag
+// source, only the plain reflow-on-resize/hide/reset path and the actual
+// post-drop render() ever call this through layoutDashMasonry below.
+function previewDashOrder(order){
   const container = document.getElementById('dashGrid');
   if (!container) return;
-  const cards = Array.prototype.slice.call(container.children);
+  const cards = order.filter(id => !S.dashHidden.includes(id))
+    .map(id => container.querySelector('[data-dash-id="'+id+'"]'))
+    .filter(Boolean);
   if (!cards.length){ container.style.height = '0px'; return; }
 
   const gap = 20, minColWidth = 320;
@@ -2280,6 +2278,20 @@ function layoutDashMasonry(){
     colHeights[ci] = colHeights[ci] + card.offsetHeight + gap;
   });
   container.style.height = (Math.max.apply(null, colHeights) - gap) + 'px';
+}
+function layoutDashMasonry(){ previewDashOrder(S.dashLayout); }
+
+// Same splice the old single-shot drop handler used, pulled out so the
+// live dragover preview can run it repeatedly against a running order
+// (not always the last-committed S.dashLayout) as the pointer crosses
+// different cards mid-gesture.
+function reorderedDashLayout(order, dragged, target){
+  const next = order.slice();
+  const from = next.indexOf(dragged), to = next.indexOf(target);
+  if (from === -1 || to === -1 || from === to) return null;
+  next.splice(from, 1);
+  next.splice(to, 0, dragged);
+  return next;
 }
 // Column count depends on viewport width, so a resize can change it. No
 // masonry library here to subscribe to, a short debounce on window resize
@@ -2340,8 +2352,14 @@ function runUpload(){
 // is never in this list, only the transient stuff nobody wants to find
 // still open three pages, or one login, later. One shared object so the
 // two reset sites can't quietly drift apart.
+// openSetup here is -1 (nothing open), not the 0 that S starts on. S's own
+// initial 0 is the nice first-ever-visit touch, Servi 1 (front) pre-
+// expanded so Numbers doesn't look empty the very first time. Reusing
+// that same 0 here meant leaving and coming back always re-opened that
+// exact row, which reads as "it never closed" since it's the same name
+// every time, not as a reset.
 const CLOSED_UI_STATE = {
-  openRobot: -1, openSetup: 0, periodMenu: false, dashScopeMenu: false,
+  openRobot: -1, openSetup: -1, periodMenu: false, dashScopeMenu: false,
   howTo: '', notInDemo: '', rateHistory: false, dashEdit: false,
   emailChangeStage: 'idle', emailChangeNew: '', emailChangeCode: '',
   emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
@@ -2617,38 +2635,44 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target && e.target.id === 'authEmail') submitEmail();
 });
 
-/* Dashboard block reordering. Reorder happens once, on drop, not live on
-   every dragover, this build has no virtual DOM so a re-render mid-drag
-   would tear down the very node the browser is tracking as the drag
-   source. One render at the end is the version that cannot get that wrong. */
+/* Dashboard block reordering, iOS-homescreen style: neighbors slide out of
+   the way live as the dragged card crosses them, not a silent reorder that
+   only shows up on drop. That still can't go through render()/set() mid-
+   drag, this build has no virtual DOM, so a re-render would tear down the
+   very node the browser is tracking as the drag source. previewDashOrder
+   sidesteps that: it repositions the existing nodes' left/top directly, no
+   innerHTML touched, so dashover can call it on every card it crosses.
+   dashend is the one moment an actual set() commits the final order. */
+let dashDragOrder = null; // the running live-preview order, committed on dragend
+let dashOverTarget = null; // last id dragged over, so steady hover over one card doesn't re-pack every event
 document.addEventListener('dragstart', (e) => {
   const el = e.target.closest && e.target.closest('.dash-block');
   if (!el) return;
   dashDragId = el.dataset.dashId;
+  dashDragOrder = S.dashLayout.slice();
+  dashOverTarget = null;
   if (e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dashDragId); } catch(err){} }
 });
 document.addEventListener('dragover', (e) => {
   if (!dashDragId) return;
-  if (e.target.closest && e.target.closest('.dash-block')) e.preventDefault();
-});
-document.addEventListener('drop', (e) => {
-  const dragged = dashDragId;
-  dashDragId = null;
-  if (!dragged) return;
   const el = e.target.closest && e.target.closest('.dash-block');
   if (!el) return;
   e.preventDefault();
   const targetId = el.dataset.dashId;
-  if (targetId === dragged) return;
-  const order = S.dashLayout.slice();
-  const from = order.indexOf(dragged);
-  const to = order.indexOf(targetId);
-  if (from === -1 || to === -1) return;
-  order.splice(from, 1);
-  order.splice(to, 0, dragged);
-  set({ dashLayout: order });
+  if (targetId === dashOverTarget || targetId === dashDragId) return;
+  dashOverTarget = targetId;
+  const next = reorderedDashLayout(dashDragOrder, dashDragId, targetId);
+  if (!next) return;
+  dashDragOrder = next;
+  previewDashOrder(dashDragOrder);
 });
-document.addEventListener('dragend', () => { dashDragId = null; });
+document.addEventListener('drop', (e) => {
+  if (dashDragId && e.target.closest && e.target.closest('.dash-block')) e.preventDefault();
+});
+document.addEventListener('dragend', () => {
+  if (dashDragId && dashDragOrder) set({ dashLayout: dashDragOrder });
+  dashDragId = null; dashDragOrder = null; dashOverTarget = null;
+});
 
 // Real drag on the sidebar rail, not just the click it already had. The
 // grid column's width is written directly on every mousemove, cheap
