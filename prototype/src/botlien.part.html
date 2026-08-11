@@ -902,13 +902,17 @@ function appRail(){
 function appHeader(){
   const view = S.view;
   const p = PERIODS[S.period];
-  // The period picker (and the "N days on record" line under it) only
-  // makes sense on pages that actually show a period-scoped statement.
-  // Settings, credentials, notifications, condition, and the UI-states
-  // reference page aren't reports, so a date control there is a claim
-  // about data that page doesn't have.
+  // The "N days on record" line only makes sense on pages that actually
+  // show a period-scoped statement. Settings, credentials, notifications,
+  // and the UI-states reference page aren't reports, so a date claim
+  // there would be about data that page doesn't have.
   const showPeriod = view === 'dashv2' || view === 'robots';
-  const periodPicker = !showPeriod ? '' : '<div style="position:relative">'
+  // The picker itself, the clickable control for switching which period
+  // you're looking at, is Dashboard-only. Fleet already always shows the
+  // current period's numbers; a switcher there implied you could browse
+  // past periods per robot, which isn't a thing this page does.
+  const showPeriodPicker = view === 'dashv2';
+  const periodPicker = !showPeriodPicker ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
       + (S.periodMenu
         ? '<div style="position:absolute;top:48px;right:0;width:300px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
