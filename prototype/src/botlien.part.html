@@ -805,18 +805,19 @@ function appRail(){
 
   // The collapse/expand control used to also live as a bordered chevron
   // button that sat in the header permanently (see appHeader). Now it's
-  // just this badge: hover swaps the logo for a chevron, click toggles,
-  // unhover swaps it back. One control instead of two.
-  const brandIcon = (rot) => '<div data-act="toggleRail" class="bl-brand-toggle" title="'+(collapsed?'Expand sidebar':'Collapse sidebar')+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
+  // just this badge: hover swaps the logo for a sidebar glyph (reads as
+  // "toggle the sidebar" more directly than a bare arrow did), click
+  // toggles, unhover swaps it back. One control instead of two.
+  const brandIcon = '<div data-act="toggleRail" class="bl-brand-toggle" title="'+(collapsed?'Expand sidebar':'Collapse sidebar')+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--sb-primary);flex:none">'
     + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:16px;height:19px;object-fit:contain;filter:brightness(0) invert(1)">'
-    + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-primary-fg)">'+ic('chevron-down',15,'transform:rotate('+rot+'deg)')+'</span>'
+    + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-primary-fg)">'+ic('panel-left',15)+'</span>'
   + '</div>';
   const brand = collapsed
     ? '<div title="Harbor Grill Group" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
-      + brandIcon(-90)
+      + brandIcon
     + '</div>'
     : '<div style="flex:1;min-width:0;height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px">'
-      + brandIcon(90)
+      + brandIcon
       + '<span style="font-size:14px;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sb-fg)">Harbor Grill Group</span>'
       + '</div>';
 
