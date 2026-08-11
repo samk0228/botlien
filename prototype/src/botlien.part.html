@@ -519,11 +519,11 @@ const COPY = {
 
 /* ─────────────────────────  STATE  ───────────────────────── */
 
-// Six flat colors and six preset icons stand in for a real photo upload,
-// this is a demo. A signed-in account that never touches the picker still
-// needs a badge, so one color/icon pair is picked at random on load and
-// held in state rather than re-rolled on every render.
-const AVATAR_COLORS = ['#2f6f4f','#3a5a8c','#8c4a3a','#6b4a8c','#4a7a8c','#8c7a3a'];
+// Seven flat colors and six preset icons, plus a real upload tile, stand
+// in for a full photo library. A signed-in account that never touches the
+// picker still needs a badge, so one color/icon pair is picked at random
+// on load and held in state rather than re-rolled on every render.
+const AVATAR_COLORS = ['#2f6f4f','#3a5a8c','#8c4a3a','#6b4a8c','#4a7a8c','#8c7a3a','#111111'];
 const AVATAR_ICONS = ['user','star','zap','shield','anchor','hexagon'];
 
 const S = {
@@ -553,16 +553,21 @@ const S = {
   dashScope: 'all', dashScopeMenu: false, rateHistory: false,
   avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
+  avatarImage: '',
   avatarPickerOpen: false
 };
 
 let timers = { resend: null, send: null, signin: null, upload: null, save: null, cred: null };
 
-// Profile photo, everywhere it's shown: a flat color with a preset icon on
-// top. Same two state fields drive the sidebar trigger, the profile
-// dropdown, and the picker's own preview in Settings.
+// Profile photo, everywhere it's shown. Three states: a real uploaded
+// photo takes over the badge entirely when one's been picked, otherwise
+// it's a flat color with a preset icon on top. Same fields drive the
+// sidebar trigger, the profile dropdown, and the picker's own preview.
 function avatarBadge(size){
   const s = size || 32;
+  if (S.avatarImage){
+    return '<img src="'+S.avatarImage+'" alt="" style="width:'+s+'px;height:'+s+'px;flex:none;border-radius:8px;object-fit:cover;display:block">';
+  }
   return '<div style="width:'+s+'px;height:'+s+'px;flex:none;border-radius:8px;background:'+S.avatarColor+';color:#fff;display:flex;align-items:center;justify-content:center">'+ic(S.avatarIcon, Math.round(s * 0.56))+'</div>';
 }
 
@@ -1988,13 +1993,15 @@ function viewSettings(){
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">'
       + avatarBadge(52)
       + '<div><div style="font-size:13px;font-weight:700;color:var(--fg1);margin-bottom:2px">Profile photo</div>'
-        + '<div style="font-size:12px;color:var(--fg3)">A color and an icon. Random until you pick your own below.</div></div>'
+        + '<div style="font-size:12px;color:var(--fg3)">A color and an icon, or upload your own. Random until you pick something below.</div></div>'
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
-      + AVATAR_COLORS.map(c => '<div data-act="pickAvatarColor" data-c="'+c+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;background:'+c+';box-sizing:border-box;border:2px solid '+(S.avatarColor===c?'var(--fg1)':'transparent')+'"></div>').join('')
+      + AVATAR_COLORS.map(c => '<div data-act="pickAvatarColor" data-c="'+c+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;background:'+c+';box-sizing:border-box;border:2px solid '+(!S.avatarImage && S.avatarColor===c?'var(--fg1)':'transparent')+'"></div>').join('')
     + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">'
-      + AVATAR_ICONS.map(name => '<div data-act="pickAvatarIcon" data-i="'+name+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px solid '+(S.avatarIcon===name?'var(--fg1)':'var(--hair2)')+';color:var(--fg1)">'+ic(name,14)+'</div>').join('')
+      + AVATAR_ICONS.map(name => '<div data-act="pickAvatarIcon" data-i="'+name+'" class="hv-ghost" style="width:26px;height:26px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px solid '+(!S.avatarImage && S.avatarIcon===name?'var(--fg1)':'var(--hair2)')+';color:var(--fg1)">'+ic(name,14)+'</div>').join('')
+      + '<div data-act="triggerAvatarUpload" class="hv-ghost" title="Upload a photo" style="width:26px;height:26px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:1px dashed '+(S.avatarImage?'var(--fg1)':'var(--hair2)')+';color:var(--fg1)">'+ic('upload',13)+'</div>'
+      + '<input id="avatarFileInput" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none">'
     + '</div>'
     + '<button type="button" data-act="notInDemo" data-what="changeEmail" class="hv-ghost" style="padding:11px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Change email</button>'
     + (S.notInDemo === 'changeEmail' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg2);max-width:70ch">Sends a confirmation link to the new address before anything moves. The old address keeps working until that link is opened, so a typo cannot lock you out.</div>' : '')
@@ -2361,8 +2368,9 @@ const ACTIONS = {
   attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
-  pickAvatarColor: (el) => set({ avatarColor: el.dataset.c }),
-  pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i }),
+  pickAvatarColor: (el) => set({ avatarColor: el.dataset.c, avatarImage: '' }),
+  pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i, avatarImage: '' }),
+  triggerAvatarUpload: () => { const el = document.getElementById('avatarFileInput'); if (el) el.click(); },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
@@ -2478,6 +2486,14 @@ document.addEventListener('focusin', (e) => {
 });
 
 document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'avatarFileInput'){
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => set({ avatarImage: reader.result });
+    reader.readAsDataURL(file);
+    return;
+  }
   if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
   const i = Number(e.target.id.slice(12));
   S.confirmWork[i] = e.target.value;
