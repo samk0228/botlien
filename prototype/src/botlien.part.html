@@ -398,13 +398,23 @@ const RATES = [
 // CONFIRM/BENCH. Setup's rows read those live now (see viewSetup), so this
 // only still needs to carry what's genuinely specific to Setup: the robot's
 // display name and model, and its operating-hours-per-day default.
+// Index-for-index parallel to CONFIRM/ROBOTS, same reason: Numbers can
+// look a row up by the same global index Fleet and Dashboard already use
+// for it, instead of guessing by position.
 const SETUP = [
   { name:'Servi 1 (front)', model:'Bear Servi', hours:'12.0 h' },
   { name:'Servi 2 (patio)', model:'Bear Servi', hours:'12.0 h' },
   { name:'P3 runner', model:'Pudu P3', hours:'12.0 h' },
   { name:'Servi 3 (banquet)', model:'Bear Servi', hours:'12.0 h' },
   { name:'Scrubber 50', model:'Gausium S50', hours:'8.0 h' },
-  { name:'Scrubber 75 (nights)', model:'Gausium S75', hours:'8.0 h' }
+  { name:'Scrubber 75 (nights)', model:'Gausium S75', hours:'8.0 h' },
+  { name:'Servi 1 (Marina)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Servi 2 (Marina)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Scrubber (Marina)', model:'Gausium', hours:'8.0 h' },
+  { name:'Servi 1 (Airport)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Servi 2 (Airport)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Servi 3 (Airport)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Scrubber (Airport)', model:'Gausium', hours:'8.0 h' }
 ];
 
 const WORK_CATEGORIES = [
@@ -510,11 +520,12 @@ function scopeFilter(){ return S.dashScope === 'all' ? null : Number(S.dashScope
 //
 // full=true skips the manualApplied and date-range short-circuits below and
 // goes straight to the per-robot computation for whichever site(s) scope
-// asks for (undefined/omitted defaults to Pier 4, Setup's own scope, which
-// never changes). Fleet passes its own site filter here now, the same one
-// Dashboard uses, so it can't be at the mercy of an estimate mode or a
-// custom date range active on a page Fleet isn't even showing, without
-// being locked to one site either.
+// asks for (undefined/omitted defaults to Pier 4, used only by the rare
+// caller that has no scope of its own to pass). Fleet and Numbers pass
+// S.dashScope's own filter here now, same as Dashboard, so none of the
+// three can be at the mercy of an estimate mode or a custom date range
+// active on a page they aren't even showing, without being locked to one
+// site either.
 function computeStatement(full, scope){
   // A manually-typed estimate has no per-robot rows behind it, just a count
   // and two dollar figures, so it cannot honestly fill in byCategory,
@@ -533,11 +544,12 @@ function computeStatement(full, scope){
       mode: 'estimate', manualCount: count, manualCost: cost, manualRevenue: revenue,
     };
   }
-  // Which site's robots feed the computation below. full+scope explicit
-  // (Fleet) uses whatever scope it was called with; full with no scope
-  // (Setup) defaults to Pier 4, the one site Setup edits; not full reads
-  // Dashboard's own scope filter, including no filter at all for "all 3
-  // sites," every site's robots live in this same table together.
+  // Which site's robots feed the computation below. Every full=true caller
+  // (Fleet, Numbers) passes its own live scope now, same filter Dashboard
+  // reads below for everything else, including no filter at all for "all
+  // 3 sites," every site's robots live in this same table together. The
+  // scope===undefined fallback to Pier 4 only matters if a future caller
+  // asks for full without one.
   const siteFilter = full ? (scope === undefined ? 0 : scope) : scopeFilter();
   const entries = siteFilter === null ? CONFIRM.map((c,i) => ({c,i})) : CONFIRM.map((c,i) => ({c,i})).filter(({c}) => c.site === siteFilter);
   // A date range only ever applies to Dashboard's own statement, never to
@@ -1641,10 +1653,9 @@ function viewDashV2(){
 // One filter button with a dropdown, same pattern as the period picker up
 // top: current selection on the button face, chevron, click opens a list
 // of every option below it. Shared, literally the same S.dashScope state
-// and this same control, by Dashboard and Fleet, so switching sites on
-// either one moves both. Numbers and Setup stay Pier 4 always, by choice,
-// not because the other two sites lack data behind them now. Loads on
-// "All 3 sites," the combined figure, not any one site's own.
+// and this same control, by Dashboard, Fleet, and Numbers, so switching
+// sites on any one of them moves all three. Loads on "All 3 sites," the
+// combined figure, not any one site's own.
 function scopeToggle(){
   const scopes = [{k:'all', label:'All 3 sites'}].concat(SITES.map((s,i) => ({k:String(i), label:s.name})));
   const current = scopes.find(sc => sc.k === String(S.dashScope));
@@ -2013,15 +2024,21 @@ function emailChangeBlock(){
 // now: per-robot inputs first, then the work-type rates those per-robot
 // replacement figures are themselves derived from, one Save for the form.
 function viewSetup(){
-  const stmt = computeStatement(true);
+  // Scope follows S.dashScope now, the same control Dashboard and Fleet
+  // already share (see scopeToggle below), so editing a robot's wage or
+  // invoice here always happens against the same set of robots you can
+  // currently see the money for on those pages.
+  const scope = scopeFilter();
+  const stmt = computeStatement(true, scope);
   // These five fields used to be static divs styled to look like inputs,
   // nothing to click into, nothing typed ever went anywhere. Real inputs
   // now, reading and writing the same per-robot overlays computeStatement()
   // reads, so what's typed here is the number Fleet and Dashboard show,
   // not a second copy of it that only this page believes.
-  const rows = SETUP.map((r,i) => {
+  const rows = stmt.rows.map((s) => {
+    const r = SETUP[s.i];
+    const i = s.i;
     const open = S.openSetup === i;
-    const s = stmt.rows[i];
     const b = BENCH[s.work];
     const hoursVal = S.robotHours[i] ?? parseFloat(r.hours);
     const summary = s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day';
@@ -2056,10 +2073,16 @@ function viewSetup(){
       + panel + '</div>';
   }).join('');
 
-  return '<div style="padding:0;margin-bottom:48px">'
+  // Same phrasing Fleet and the Tax shield card use for the same
+  // S.dashScope, so all three never say a different count for "how many
+  // robots" at the same scope.
+  const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s';
+
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
+  + '<div style="padding:0;margin-bottom:48px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five inputs per robot</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Everything is prefilled. Accept it as-is, or correct the two you care about.</span></div>'
+      + '<span style="font-size:13px;color:var(--fg3)">'+scopeName+' '+stmt.rows.length+' robot'+(stmt.rows.length===1?'':'s')+'. Everything is prefilled. Accept it as-is, or correct the two you care about.</span></div>'
     + rows
   + '</div>'
 
@@ -2613,7 +2636,9 @@ function applySensitivity(){
 function applySetupRow(i){
   if (S.view !== 'setup') return;
   const put = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
-  const s = computeStatement(true).rows[i];
+  // .find, not [i]: scope (see scopeFilter) can filter CONFIRM down, so a
+  // global index no longer lines up with rows' position in the array.
+  const s = computeStatement(true, scopeFilter()).rows.find(row => row.i === i);
   if (!s) return;
   const b = BENCH[s.work];
   put('setupRate-'+i, money(s.rate)+' / '+b.unit);
