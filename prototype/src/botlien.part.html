@@ -340,7 +340,9 @@ const PEOPLE = [
 // Per-robot coverage change vs the prior period, shown on the robots page.
 const ROBOT_DELTA = {
   'Servi 1 (front)':'+0.10', 'Servi 2 (patio)':'−0.19', 'P3 runner':'+0.31',
-  'Servi 3 (banquet)':'+0.74', 'Scrubber 50':'+0.08', 'Scrubber 75 (nights)':'+0.61'
+  'Servi 3 (banquet)':'+0.74', 'Scrubber 50':'+0.08', 'Scrubber 75 (nights)':'+0.61',
+  'Servi 1 (Marina)':'+0.22', 'Servi 2 (Marina)':'−0.05', 'Scrubber (Marina)':'+0.14',
+  'Servi 1 (Airport)':'+0.09', 'Servi 2 (Airport)':'+0.33', 'Servi 3 (Airport)':'−0.02', 'Scrubber (Airport)':'+0.19'
 };
 
 // Coverage, "under its lease," "benchmark rate," and the equation string
@@ -348,12 +350,20 @@ const ROBOT_DELTA = {
 // now (see viewRobots), read live off CONFIRM/BENCH and Setup's overlays,
 // so this only carries what an invoice edit has no business changing:
 // name, model, duty telemetry, and condition.
+// Index-for-index parallel to CONFIRM (see below): entry i here is the
+// telemetry/condition side of CONFIRM[i]'s financial side, same robot,
+// same order, so viewRobots can look either array up by the other's index
+// and never guess by name. Only Pier 4 (site 0) has parts/hand/temp: the
+// Gausium wear feed is only actually wired to Pier 4's two scrubbers (see
+// SOURCES, "gausium-openapi · live sync · 2 scrubbers, wear included"),
+// so Marina and Airport's scrubbers report no condition yet, honestly,
+// same as Bear/Pudu never doing so at any site.
 const ROBOTS = [
-  { name:'Servi 1 (front)', model:'Bear Servi', duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h' },
-  { name:'Servi 2 (patio)', model:'Bear Servi', duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h' },
-  { name:'P3 runner', model:'Pudu P3', duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h' },
-  { name:'Servi 3 (banquet)', model:'Bear Servi', duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h' },
-  { name:'Scrubber 50', model:'Gausium S50 · priced by the hour', duty:'duty 50%', dutyPct:'50%', hours:'120h of 240h',
+  { name:'Servi 1 (front)', model:'Bear Servi', site:0, duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h' },
+  { name:'Servi 2 (patio)', model:'Bear Servi', site:0, duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h' },
+  { name:'P3 runner', model:'Pudu P3', site:0, duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h' },
+  { name:'Servi 3 (banquet)', model:'Bear Servi', site:0, duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h' },
+  { name:'Scrubber 50', model:'Gausium S50 · priced by the hour', site:0, duty:'duty 50%', dutyPct:'50%', hours:'120h of 240h',
     parts:[
       { name:'squeegee', left:71, used:'73h of 250h' },
       { name:'filter', left:67, used:'99h of 300h' },
@@ -361,14 +371,21 @@ const ROBOTS = [
       { name:'side brush', left:64, used:'180h of 500h' }
     ],
     hand:'6%', temp:'31°C' },
-  { name:'Scrubber 75 (nights)', model:'Gausium S75 · priced by the hour', duty:'duty 26%', dutyPct:'26%', hours:'61.2h of 240h',
+  { name:'Scrubber 75 (nights)', model:'Gausium S75 · priced by the hour', site:0, duty:'duty 26%', dutyPct:'26%', hours:'61.2h of 240h',
     parts:[
       { name:'squeegee', left:4, used:'240h of 250h' },
       { name:'filter', left:1, used:'297h of 300h' },
       { name:'rolling brush', left:8, used:'368h of 400h' },
       { name:'side brush', left:-3, used:'515h of 500h' }
     ],
-    hand:'34%', temp:'28°C' }
+    hand:'34%', temp:'28°C' },
+  { name:'Servi 1 (Marina)', model:'Bear Servi', site:1, duty:'duty 35%', dutyPct:'35%', hours:'126h of 360h' },
+  { name:'Servi 2 (Marina)', model:'Bear Servi', site:1, duty:'duty 28%', dutyPct:'28%', hours:'101h of 360h' },
+  { name:'Scrubber (Marina)', model:'Gausium · priced by the hour', site:1, duty:'duty 31%', dutyPct:'31%', hours:'75.0h of 240h' },
+  { name:'Servi 1 (Airport)', model:'Bear Servi', site:2, duty:'duty 44%', dutyPct:'44%', hours:'158h of 360h' },
+  { name:'Servi 2 (Airport)', model:'Bear Servi', site:2, duty:'duty 41%', dutyPct:'41%', hours:'148h of 360h' },
+  { name:'Servi 3 (Airport)', model:'Bear Servi', site:2, duty:'duty 37%', dutyPct:'37%', hours:'133h of 360h' },
+  { name:'Scrubber (Airport)', model:'Gausium · priced by the hour', site:2, duty:'duty 38%', dutyPct:'38%', hours:'90.0h of 240h' }
 ];
 
 const RATES = [
@@ -481,18 +498,24 @@ const EQUIP_COST = {
   'Laundry handling':         2200000,
 };
 
+// S.dashScope as an actual site filter: null for every site, a number for
+// one. Shared by every card and by Fleet, so "all 3 sites" only ever means
+// one thing anywhere it's read.
+function scopeFilter(){ return S.dashScope === 'all' ? null : Number(S.dashScope); }
+
 // The one calculation the whole dashboard reads from. Every card below is a
 // different view of this same result, never its own arithmetic, so a
 // category or exclude change on the confirm screen can only ever move every
 // card in agreement with every other one.
 //
-// full=true skips the manualApplied and dashScope short-circuits below and
-// goes straight to the per-robot computation. Fleet needs that: it is
-// always Pier 4's six robots, same as before dashScope or a manual
-// estimate ever existed, so it can't be at the mercy of a Dashboard-only
-// scope filter or estimate mode that happens to be active on a page Fleet
-// isn't even showing.
-function computeStatement(full){
+// full=true skips the manualApplied and date-range short-circuits below and
+// goes straight to the per-robot computation for whichever site(s) scope
+// asks for (undefined/omitted defaults to Pier 4, Setup's own scope, which
+// never changes). Fleet passes its own site filter here now, the same one
+// Dashboard uses, so it can't be at the mercy of an estimate mode or a
+// custom date range active on a page Fleet isn't even showing, without
+// being locked to one site either.
+function computeStatement(full, scope){
   // A manually-typed estimate has no per-robot rows behind it, just a count
   // and two dollar figures, so it cannot honestly fill in byCategory,
   // attention, or work-split. Those cards already know how to say "no
@@ -510,13 +533,12 @@ function computeStatement(full){
       mode: 'estimate', manualCount: count, manualCost: cost, manualRevenue: revenue,
     };
   }
-  // Which site's robots feed the computation below. full is always Pier 4
-  // (Fleet and Setup are single-site pages, not at the mercy of whatever
-  // scope Dashboard happens to have selected). Otherwise it's whatever
-  // Dashboard's own scope filter says, including no filter at all for
-  // "all 3 sites," every site's robots used to live in this same table
-  // together, now they actually do.
-  const siteFilter = full ? 0 : (S.dashScope === 'all' ? null : S.dashScope);
+  // Which site's robots feed the computation below. full+scope explicit
+  // (Fleet) uses whatever scope it was called with; full with no scope
+  // (Setup) defaults to Pier 4, the one site Setup edits; not full reads
+  // Dashboard's own scope filter, including no filter at all for "all 3
+  // sites," every site's robots live in this same table together.
+  const siteFilter = full ? (scope === undefined ? 0 : scope) : scopeFilter();
   const entries = siteFilter === null ? CONFIRM.map((c,i) => ({c,i})) : CONFIRM.map((c,i) => ({c,i})).filter(({c}) => c.site === siteFilter);
   // A date range only ever applies to Dashboard's own statement, never to
   // Fleet/Setup (full=true, always the current period's real per-robot
@@ -588,7 +610,7 @@ function computeStatement(full){
 // calculator. Tax shield is what those two deductions are worth at the
 // assumed tax rate; net cost is equipment cost minus that shield.
 function computeTaxShield(){
-  const siteFilter = S.dashScope === 'all' ? null : Number(S.dashScope);
+  const siteFilter = scopeFilter();
   const rows = siteFilter === null ? CONFIRM : CONFIRM.filter(c => c.site === siteFilter);
   const byCategory = {};
   let totalCostCents = 0;
@@ -1041,7 +1063,7 @@ function appRail(){
   // Live count, not a number typed once: an edit on Setup that pushes a
   // robot under its lease, or pulls it back over, has to show up here too,
   // the same instant it shows up as a caution mark on Fleet.
-  const attnCount = computeStatement(true).rows.filter(r => !r.excluded && r.cov !== null && r.cov < 1).length;
+  const attnCount = computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.cov !== null && r.cov < 1).length;
   const badge = !attnCount ? '' : '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:700;color:var(--sb-accent-fg)">'+attnCount+'</span>';
 
   // Which site is in view already lives in the dashboard's own scope
@@ -1535,16 +1557,12 @@ function workSplitCard(){
 function taxShieldCard(){
   const t = computeTaxShield();
   const m = (cents) => money(cents / 100);
-  // "13 robots" alone reads as an unexplained number, and "your whole
-  // fleet" invited checking it against Fleet, which only ever lists Pier
-  // 4's 6 (see viewRobots). Name the sites instead, matching how
-  // onboarding already states the same total ("Pier 4, Marina, Airport ·
-  // 13 robots"), and say outright where the other two sites' counts come
-  // from, since Fleet can't show them yet.
+  // "13 robots" alone reads as an unexplained number, tie it to something
+  // already on screen: the same site scope Fleet now shares with this
+  // page (see viewRobots), matching how onboarding already states the
+  // same total ("Pier 4, Marina, Airport · 13 robots"), so opening Fleet
+  // in this same scope shows exactly this many rows.
   const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s fleet';
-  const scopeFootnote = S.dashScope === 0 ? '' : (S.dashScope === 'all'
-    ? ' Fleet lists Pier 4&#39;s 6 individually; Marina and Airport are counted here from their invoices.'
-    : ' Fleet lists Pier 4&#39;s robots individually; '+SITES[S.dashScope].name+'&#39;s are counted here from its invoices.');
   const depBtn = (id, label) => '<button type="button" data-act="setTaxDep" data-method="'+id+'" style="padding:8px 12px;border-radius:4px;border:1px solid '+(S.taxDepMethod===id?'var(--fg1)':'var(--hair2)')+';background:'+(S.taxDepMethod===id?'var(--ghost2)':'transparent')+';color:var(--fg1);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">'+label+'</button>';
   const catRows = t.byCategory.map(k => '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--hair);font-size:12.5px">'
     + '<span style="color:var(--fg1);font-weight:600">'+esc(k.work)+' &middot; '+k.count+' '+(k.count===1?'robot':'robots')+'</span>'
@@ -1552,7 +1570,7 @@ function taxShieldCard(){
   + '</div>').join('');
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Tax shield &amp; depreciation</div>'
-    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+scopeName+', '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+', instead of leasing them would be worth at tax time. Illustrative, not tax advice.'+scopeFootnote+'</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+scopeName+', '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+', instead of leasing them would be worth at tax time. Illustrative, not tax advice.</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:18px">'
       + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Year-1 tax shield</div><div id="taxShieldValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.shieldCents)+'</div></div>'
       + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Effective first-year cost</div><div id="taxNetCostValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.netCostCents)+'</div></div>'
@@ -1622,10 +1640,11 @@ function viewDashV2(){
 
 // One filter button with a dropdown, same pattern as the period picker up
 // top: current selection on the button face, chevron, click opens a list
-// of every option below it. Filters the Dashboard only, Fleet and Numbers
-// stay Pier 4 always, by choice, not because the other two sites lack
-// data behind them now. Loads on "All 3 sites," the combined figure, not
-// any one site's own.
+// of every option below it. Shared, literally the same S.dashScope state
+// and this same control, by Dashboard and Fleet, so switching sites on
+// either one moves both. Numbers and Setup stay Pier 4 always, by choice,
+// not because the other two sites lack data behind them now. Loads on
+// "All 3 sites," the combined figure, not any one site's own.
 function scopeToggle(){
   const scopes = [{k:'all', label:'All 3 sites'}].concat(SITES.map((s,i) => ({k:String(i), label:s.name})));
   const current = scopes.find(sc => sc.k === String(S.dashScope));
@@ -1809,13 +1828,28 @@ function viewRobots(){
   // this page too instead of only moving the page that made the edit.
   // Duty time and condition stay on ROBOTS: telemetry, not something an
   // invoice edit has any business changing.
-  const stmt = computeStatement(true);
+  //
+  // Scope is S.dashScope, the exact same state and control Dashboard
+  // uses (see scopeToggle below), not a second Fleet-only filter that
+  // could drift out of sync with it. computeStatement(true, scope) skips
+  // the manual-estimate and date-range short-circuits (Fleet always
+  // shows the current period's real per-robot rows) but still respects
+  // whichever site(s) are in view, so "All 3 sites" here is the same 13
+  // robots the Tax shield card counts.
+  const scope = scopeFilter();
+  const stmt = computeStatement(true, scope);
   // Condition used to be its own page, looping these same robots through
   // the same conditionBlock() every row below already calls. Merged in:
   // the per-robot bars stay exactly where they were, in the row, once.
   // What's added here is only the context that page had and no row does,
   // why condition matters and who isn't reporting it.
-  const silent = ROBOTS.filter(r => !r.parts);
+  const silent = stmt.rows.map(s => ROBOTS[s.i]).filter(r => !r.parts);
+  // Only Pier 4's two Gausium scrubbers are wired to the wear feed (see
+  // ROBOTS above), so whether the "Scrubber 75 proves it" story below
+  // makes sense at all depends on whether Pier 4 is even in the current
+  // scope, not on how many robots are showing.
+  const hasConditionReporters = stmt.rows.some(s => !!ROBOTS[s.i].parts);
+  const silentOtherGausium = silent.filter(r => r.name.indexOf('Scrubber') === 0 && r.site !== 0);
   // Six full rows, equation and condition bars included, all open at
   // once, was everything about every robot on screen at the same time.
   // One row per robot now, closed by default; opening one is the only
@@ -1826,8 +1860,9 @@ function viewRobots(){
   // separate view to find the flagged robot was more clicks than the
   // problem deserved. The caution mark on its name in the one list does
   // the same job at a glance, without hiding the other five.
-  const rows = ROBOTS.map((r,i) => {
-    const s = stmt.rows[i];
+  const rows = stmt.rows.map((s) => {
+    const r = ROBOTS[s.i];
+    const i = s.i;
     const short = s.cov !== null && s.cov < 1;
     const open = S.openRobot === i;
     const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
@@ -1883,16 +1918,26 @@ function viewRobots(){
     ? flagged.units.toFixed(1)+' active hours'
     : flagged.units.toLocaleString('en-US')+' '+flagged.unit);
 
-  return '<div style="padding:0;margin-bottom:56px">'
+  // Same phrasing the Tax shield card uses for the same S.dashScope, so a
+  // "Pier 4, Marina & Airport combined, 13 robots" on one page and this
+  // page's own count of rows never say two different things.
+  const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s';
+  const silentNote = !silent.length ? '' : silent.length+' of these robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it at all'
+    + (silentOtherGausium.length ? ', and Gausium scrubbers outside Pier 4 are not wired to it yet' : '') + ', so those rows carry no bars rather than an estimate guessed from hours run.';
+
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
+    + '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
         + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Fleet</h2>'
-        + '<span style="font-size:13px;color:var(--fg3)">Pier 4&#39;s '+ROBOTS.length+' robots. Open one for the equation and condition behind its number. Marina and Airport aren&#39;t wired to per-robot condition tracking yet, see their totals on the Dashboard.</span></div>'
-      + rows + '</div>'
+        + '<span style="font-size:13px;color:var(--fg3)">'+scopeName+' '+stmt.rows.length+' robot'+(stmt.rows.length===1?'':'s')+'. Open one for the equation and condition behind its number.'+(hasConditionReporters ? '' : ' Gausium&#39;s wear feed isn&#39;t wired up at this site yet, so condition won&#39;t show below.')+'</span></div>'
+      + (stmt.rows.length ? rows : '<div style="padding:24px 4px;font-size:13.5px;color:var(--fg3)">'+noRobotNote()+'</div>') + '</div>'
     + '<div style="padding:0;margin-bottom:48px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
         + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Why condition sits next to the money</h2></div>'
-      + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Gausium is the only vendor that reports consumable wear directly, the difference between a scrubber that cleans and one pushing dirty water around while still logging active hours. Scrubber 75 proves it: all four parts under 8% of rating, and the lowest coverage of your two scrubbers, a connection the invoice alone wouldn&#39;t show. It&#39;s also what a lender reads for resale value, visible here months before it shows up in a payment.</p>'
-      + '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:0;max-width:88ch">'+silent.length+' of your robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it, so those rows carry no bars rather than an estimate guessed from hours run.</p>'
+      + (hasConditionReporters
+        ? '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">Gausium is the only vendor that reports consumable wear directly, the difference between a scrubber that cleans and one pushing dirty water around while still logging active hours. Scrubber 75 proves it: all four parts under 8% of rating, and the lowest coverage of Pier 4&#39;s two scrubbers, a connection the invoice alone wouldn&#39;t show. It&#39;s also what a lender reads for resale value, visible here months before it shows up in a payment.</p>'
+        : '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:88ch">No robot at this scope reports consumable wear yet. Pier 4&#39;s two Gausium scrubbers do, switch scope to include Pier 4 to see them.</p>')
+      + (silentNote ? '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:0;max-width:88ch">'+silentNote+'</p>' : '')
     + '</div>'
     + (!flagged ? '' : '<div style="padding:0">'
       + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">'
@@ -2797,7 +2842,7 @@ const ACTIONS = {
   // Jumps to Fleet with the flagged robot's row already open, not to a
   // filtered view, Fleet no longer has one, one caution mark in the full
   // list does that job now.
-  attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
+  attention: () => goView('robots', { openRobot: computeStatement(true, scopeFilter()).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
   toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false, dashScopeMenu:false }),
   pickAvatarColor: (el) => set({ avatarColor: el.dataset.c, avatarImage: '', avatarSaved: false }),
