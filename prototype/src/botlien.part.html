@@ -250,6 +250,49 @@ function utilForPeriod(p, scope){
   return p.siteUtil.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
 }
 
+// Real calendar boundaries for the 6 fixed periods, parsed once here rather
+// than re-derived from the label string wherever a date is needed. Backs
+// both the daily generator below and the calendar's own range math.
+const PERIOD_BOUNDS = [
+  ['2026-08-04','2026-09-03'],
+  ['2026-07-04','2026-08-03'],
+  ['2026-06-04','2026-07-03'],
+  ['2026-05-04','2026-06-03'],
+  ['2026-04-04','2026-05-03'],
+  ['2026-03-04','2026-04-03'],
+];
+PERIODS.forEach((p,i) => { p.start = PERIOD_BOUNDS[i][0]; p.end = PERIOD_BOUNDS[i][1]; });
+
+function daysBetweenInclusive(startKey, endKey){
+  const a = new Date(startKey+'T00:00:00Z'), b = new Date(endKey+'T00:00:00Z');
+  return Math.round((b-a)/86400000) + 1;
+}
+function dateKey(d){ return d.toISOString().slice(0,10); }
+function addDaysKey(startKey, n){
+  const d = new Date(startKey+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return dateKey(d);
+}
+
+// Deterministic (no Math.random) so the demo is reproducible across loads.
+let dailySeed = 7;
+function dailyRnd(){ dailySeed = (dailySeed * 1103515245 + 12345) % 2147483648; return dailySeed / 2147483648; }
+
+// A smooth, mildly weekend-dipped random split of `total` across `days`
+// days that sums back to exactly `total` (the rounding remainder is pushed
+// onto the last day), so aggregating a full period from daily rows can
+// never drift from the number CONFIRM already states for it.
+function splitAcrossDays(total, days){
+  const weights = [];
+  for (let d = 0; d < days; d++){
+    const weekendDip = (d % 7 === 5 || d % 7 === 6) ? 0.55 : 1;
+    weights.push((0.6 + dailyRnd() * 0.8) * weekendDip);
+  }
+  const wsum = weights.reduce((a,b) => a+b, 0) || 1;
+  const rounded = weights.map(w => Math.round((total * w / wsum) * 10) / 10);
+  const diff = Math.round((total - rounded.reduce((a,b)=>a+b,0)) * 10) / 10;
+  rounded[rounded.length-1] = Math.round((rounded[rounded.length-1] + diff) * 10) / 10;
+  return rounded;
+}
+
 // Identity only. Work, invoice, and coverage per site used to be typed
 // here as static numbers with nothing behind them, which is exactly why
 // the dashboard's site scope filter could only ever show Pier 4's real
@@ -379,6 +422,32 @@ const CONFIRM = [
   { name:'Scrubber (Airport)', units:90.0, seen:'90.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:2 }
 ];
 
+// One daily series per CONFIRM robot (same index), covering all 6 known
+// periods, Mar 4 - Sep 3, 2026. The current period's days sum to that
+// robot's CONFIRM.units exactly; each earlier period is scaled from the
+// same per-robot daily pattern by that robot's site's already-published
+// historical coverage ratio (PERIODS[i].siteCov), so a calendar range
+// spanning a whole past period reproduces the number already shown in
+// Coverage over time and the old period list, not a new, contradicting one.
+const DAILY = CONFIRM.map(c => {
+  const series = [];
+  PERIODS.forEach((p, pi) => {
+    const days = daysBetweenInclusive(p.start, p.end);
+    const scale = pi === 0 ? 1 : (p.siteCov[c.site] / PERIODS[0].siteCov[c.site]);
+    const target = Math.round(c.units * scale * 10) / 10;
+    const daily = splitAcrossDays(target, days);
+    daily.forEach((units, d) => series.push({ date: addDaysKey(p.start, d), units }));
+  });
+  series.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  return series;
+});
+
+function unitsInRange(robotIndex, startKey, endKey){
+  let sum = 0;
+  for (const row of DAILY[robotIndex]) if (row.date >= startKey && row.date <= endKey) sum += row.units;
+  return Math.round(sum * 10) / 10;
+}
+
 // Same seven categories and the same rates as the real backend's
 // src/rates.mjs BENCHMARKS table, kept in sync by hand: this prototype and
 // the real product must never quote two different numbers for the same
@@ -448,6 +517,19 @@ function computeStatement(full){
   // together, now they actually do.
   const siteFilter = full ? 0 : (S.dashScope === 'all' ? null : S.dashScope);
   const entries = siteFilter === null ? CONFIRM.map((c,i) => ({c,i})) : CONFIRM.map((c,i) => ({c,i})).filter(({c}) => c.site === siteFilter);
+  // A date range only ever applies to Dashboard's own statement, never to
+  // Fleet/Setup (full=true, always the current period's real per-robot
+  // rows) and never while a manual estimate is active (handled above,
+  // before this point). It comes from a custom calendar drag when one is
+  // active, otherwise from whichever PERIODS entry is selected, so picking
+  // a past period from "jump to a period" recomputes just as genuinely as
+  // dragging a custom range does, not just the header label. Lease
+  // invoices are prorated to the range's own day count, same "prorated to
+  // the same period" rule the header copy already states, so a short range
+  // doesn't get charged a full month.
+  const range = full ? null : (S.dashRange || { start: PERIODS[S.period].start, end: PERIODS[S.period].end });
+  const periodDays = daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end);
+  const rangeDays = range ? daysBetweenInclusive(range.start, range.end) : periodDays;
   const rows = entries.map(({c,i}) => {
     const work = S.confirmWork[i] ?? c.work;
     const b = BENCH[work] ?? BENCH['Tray delivery'];
@@ -462,12 +544,14 @@ function computeStatement(full){
     // napkin ("$22.00 ÷ 30 = $0.73"), so it has to be the same $0.73 that
     // gets multiplied, not an unrounded 73.33 that quietly drifts the total.
     const rateCents = Math.round((wage * 100) / b.humanUnitsPerHour);
-    const value = Math.round(c.units * rateCents) / 100;
-    const invoice = S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100);
+    const units = range ? unitsInRange(i, range.start, range.end) : c.units;
+    const value = Math.round(units * rateCents) / 100;
+    const invoiceFull = S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100);
+    const invoice = Math.round(invoiceFull * (rangeDays / periodDays) * 100) / 100;
     const excluded = !!S.excluded[i];
     return {
       i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
-      units: c.units, unit: c.units === 1 ? b.unit : b.unitPlural,
+      units, unit: units === 1 ? b.unit : b.unitPlural,
       rate: rateCents / 100, value, invoice, excluded, wage, benchmarkWage,
       cov: invoice > 0 ? value / invoice : null,
     };
@@ -629,6 +713,12 @@ const S = {
 
   throughput: 30, howTo: '', period: 0, periodMenu: false, notInDemo: '',
   dashScope: 'all', dashScopeMenu: false, rateHistory: false,
+  // Calendar picker: dashRange is the active custom selection ({start,end}
+  // ISO date keys) or null when a preset PERIODS[period] is in effect
+  // instead. calMonth/calYear (0-indexed month, matching JS Date) is just
+  // which month the calendar grid is showing, independent of any selection.
+  // calDragStart/calDragHover track an in-progress drag, cleared on mouseup.
+  dashRange: null, calMonth: 7, calYear: 2026, calDragStart: null, calDragHover: null,
   taxRate: 25, taxInterestRate: 9, taxDepMethod: 'bonus',
   avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
@@ -1083,9 +1173,94 @@ function appRail(){
 // send people to. A button that opens a "CSV or PDF" menu was standing in
 // for a page that does not exist; better to have no export affordance at
 // all than one that promises more than a demo download.
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// The calendar can't navigate past what DAILY actually has data for.
+const CAL_MIN = { y:2026, m:2 }; // March 2026, PERIODS[5].start
+const CAL_MAX = { y:2026, m:8 }; // September 2026, PERIODS[0].end
+
+function fmtDateShort(key){
+  const d = new Date(key+'T00:00:00Z');
+  return MONTH_NAMES[d.getUTCMonth()].slice(0,3)+' '+d.getUTCDate()+', '+d.getUTCFullYear();
+}
+
+// Start/end in chronological order regardless of which day the drag
+// started on, dragging right-to-left is just as valid as left-to-right.
+function calRangeSorted(){
+  if (!S.calDragStart) return null;
+  const a = S.calDragStart, b = S.calDragHover || S.calDragStart;
+  return a <= b ? { start:a, end:b } : { start:b, end:a };
+}
+
+// One shape for "what period are we looking at" whether it came from a
+// PERIODS preset or a custom calendar drag, so appHeader and the picker's
+// own label never need two separate code paths.
+function effectivePeriod(){
+  if (S.dashRange){
+    const days = daysBetweenInclusive(S.dashRange.start, S.dashRange.end);
+    const isOpen = S.dashRange.end >= PERIODS[0].end;
+    return {
+      label: S.dashRange.start === S.dashRange.end ? fmtDateShort(S.dashRange.start) : fmtDateShort(S.dashRange.start)+' – '+fmtDateShort(S.dashRange.end),
+      status: isOpen ? 'open' : 'closed',
+      closed: isOpen ? '' : 'Closed '+fmtDateShort(addDaysKey(S.dashRange.end,1)),
+      days, isCustom: true,
+    };
+  }
+  const p = PERIODS[S.period];
+  return { label:p.label, status:p.status, closed:p.closed, days:daysBetweenInclusive(p.start,p.end), isCustom:false };
+}
+
+// The calendar dropdown: a real month grid you can drag a range across,
+// plus the 6 fixed periods kept underneath as one-click shortcuts. Replaces
+// what used to be just that flat list.
+function renderCalendar(){
+  const y = S.calYear, m = S.calMonth;
+  const startDow = new Date(Date.UTC(y,m,1)).getUTCDay();
+  const daysInMonth = new Date(Date.UTC(y,m+1,0)).getUTCDate();
+  const todayKey = PERIODS[0].end;
+  const active = calRangeSorted() || S.dashRange;
+  const atMin = y === CAL_MIN.y && m === CAL_MIN.m;
+  const atMax = y === CAL_MAX.y && m === CAL_MAX.m;
+
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += '<div></div>';
+  for (let d = 1; d <= daysInMonth; d++){
+    const key = dateKey(new Date(Date.UTC(y,m,d)));
+    const isFuture = key > todayKey;
+    const inRange = !isFuture && active && key >= active.start && key <= active.end;
+    const isEdge = inRange && (key === active.start || key === active.end);
+    const bg = isEdge ? 'var(--ink)' : (inRange ? 'var(--ghost2)' : 'transparent');
+    const fg = isEdge ? 'var(--ink-fg)' : 'var(--fg1)';
+    cells += '<div'+(isFuture?'':' data-cal-day="'+key+'"')+' style="text-align:center;padding:7px 0;font-size:12.5px;font-variant-numeric:tabular-nums;border-radius:4px;background:'+bg+';color:'+fg+';user-select:none;'+(isFuture?'opacity:0.3;':'cursor:pointer;')+'">'+d+'</div>';
+  }
+
+  const rangeLabel = active ? (active.start === active.end ? fmtDateShort(active.start) : fmtDateShort(active.start)+' – '+fmtDateShort(active.end)) : 'Drag across days to pick a range';
+
+  return '<div style="width:320px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:16px" data-cal-root>'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      + '<button type="button" data-act="calPrevMonth"'+(atMin?' disabled':'')+' style="border:none;background:transparent;cursor:'+(atMin?'default':'pointer')+';opacity:'+(atMin?'0.3':'1')+';padding:4px;display:flex;color:var(--fg2)">'+ic('chevron-down',15,'transform:rotate(90deg)')+'</button>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--fg1)">'+MONTH_NAMES[m]+' '+y+'</div>'
+      + '<button type="button" data-act="calNextMonth"'+(atMax?' disabled':'')+' style="border:none;background:transparent;cursor:'+(atMax?'default':'pointer')+';opacity:'+(atMax?'0.3':'1')+';padding:4px;display:flex;color:var(--fg2)">'+ic('chevron-down',15,'transform:rotate(-90deg)')+'</button>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px">'
+      + ['S','M','T','W','T','F','S'].map(d => '<div style="text-align:center;font-size:10.5px;font-weight:700;color:var(--fg3);padding:4px 0">'+d+'</div>').join('')
+    + '</div>'
+    + '<div data-cal-grid style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:12px">'+cells+'</div>'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--hair);font-size:12px;color:var(--fg2)">'
+      + '<span style="font-variant-numeric:tabular-nums">'+rangeLabel+'</span>'
+      + (S.dashRange ? '<span data-act="calClear" class="hv-fade" style="cursor:pointer;font-weight:600;text-decoration:underline;text-underline-offset:2px">Clear</span>' : '')
+    + '</div>'
+    + '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:2px">'
+      + '<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);margin-bottom:4px">Or jump to a period</div>'
+      + PERIODS.map((q,i) => '<div data-act="pickPeriod" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:7px 6px;cursor:pointer;border-radius:4px">'
+        + '<span style="font-size:12.5px;font-weight:'+(!S.dashRange && S.period===i?700:500)+';color:var(--fg1);font-variant-numeric:tabular-nums">'+q.label+'</span>'
+        + '<span style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--fg3);font-variant-numeric:tabular-nums">'+covForPeriod(q, S.dashScope).toFixed(2)+'x</span></div>').join('')
+    + '</div>'
+  + '</div>';
+}
+
 function appHeader(){
   const view = S.view;
-  const p = PERIODS[S.period];
+  const p = effectivePeriod();
   // The "N days on record" line only makes sense on pages that actually
   // show a period-scoped statement. Settings, credentials, notifications,
   // and the UI-states reference page aren't reports, so a date claim
@@ -1098,14 +1273,7 @@ function appHeader(){
   const showPeriodPicker = view === 'dashv2';
   const periodPicker = !showPeriodPicker ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
-      + (S.periodMenu
-        ? '<div style="position:absolute;top:48px;right:0;width:300px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
-          + PERIODS.map((q,i) => '<div data-act="pickPeriod" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-bottom:'+(i<PERIODS.length-1?'1px solid var(--hair)':'none')+'">'
-            + '<div><div style="font-size:13px;font-weight:'+(S.period===i?700:500)+';color:var(--fg1);font-variant-numeric:tabular-nums">'+q.label+'</div>'
-            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:2px">'+(q.status==='open'?'Open · figures still moving':q.closed+' · frozen')+'</div></div>'
-            + '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+covForPeriod(q, S.dashScope).toFixed(2)+'x</span></div>').join('')
-          + '</div>'
-        : '')
+      + (S.periodMenu ? '<div style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
     + '</div>';
   // The collapse control used to also live here as a permanent bordered
   // button. It's the brand badge's job now (hover it, see the chevron,
@@ -1117,11 +1285,11 @@ function appHeader(){
       + '</div></div>'
     + (COPY[view][1] ? '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>' : '')
     + (!showPeriod ? '' :
-      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · 30 days of telemetry on record. Lease invoices prorated to the same period.</p>'
+      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · '+p.days+' day'+(p.days===1?'':'s')+' of telemetry on record. Lease invoices prorated to the same period.</p>'
       + '<div style="display:inline-flex;align-items:center;gap:9px;margin:0 0 32px;font-size:12px;font-weight:600;color:var(--fg2)">'
         + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
         + (p.status==='open'
-          ? 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.'
+          ? (p.isCustom ? 'Open period. Figures move as telemetry lands, and settle once this range fully closes.' : 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.')
           : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>');
 }
 
@@ -2503,6 +2671,7 @@ function runUpload(){
 // every time, not as a reset.
 const CLOSED_UI_STATE = {
   openRobot: -1, openSetup: -1, periodMenu: false, dashScopeMenu: false,
+  calDragStart: null, calDragHover: null,
   howTo: '', notInDemo: '', rateHistory: false, dashEdit: false,
   emailChangeStage: 'idle', emailChangeNew: '', emailChangeCode: '',
   emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
@@ -2600,7 +2769,7 @@ const ACTIONS = {
   // list does that job now.
   attention: () => goView('robots', { openRobot: computeStatement(true).rows.findIndex(r => !r.excluded && r.cov !== null && r.cov < 1) }),
   toggleRobot: (el) => { const i = Number(el.dataset.i); set({ openRobot: S.openRobot === i ? -1 : i }); },
-  toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false }),
+  toggleProfile: () => set({ profileOpen: !S.profileOpen, periodMenu:false, dashScopeMenu:false }),
   pickAvatarColor: (el) => set({ avatarColor: el.dataset.c, avatarImage: '', avatarSaved: false }),
   pickAvatarIcon: (el) => set({ avatarIcon: el.dataset.i, avatarImage: '', avatarSaved: false }),
   triggerAvatarUpload: () => { const el = document.getElementById('avatarFileInput'); if (el) el.click(); },
@@ -2629,8 +2798,25 @@ const ACTIONS = {
   },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
   setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
-  togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false }),
-  pickPeriod: (el) => set({ period: Number(el.dataset.i), periodMenu:false }),
+  togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, dashScopeMenu:false }),
+  pickPeriod: (el) => {
+    const i = Number(el.dataset.i);
+    const d = new Date(PERIODS[i].start+'T00:00:00Z');
+    set({ period:i, dashRange:null, periodMenu:false, calMonth:d.getUTCMonth(), calYear:d.getUTCFullYear() });
+  },
+  calPrevMonth: () => {
+    let m = S.calMonth - 1, y = S.calYear;
+    if (m < 0){ m = 11; y--; }
+    if (y < CAL_MIN.y || (y === CAL_MIN.y && m < CAL_MIN.m)) return;
+    set({ calMonth:m, calYear:y });
+  },
+  calNextMonth: () => {
+    let m = S.calMonth + 1, y = S.calYear;
+    if (m > 11){ m = 0; y++; }
+    if (y > CAL_MAX.y || (y === CAL_MAX.y && m > CAL_MAX.m)) return;
+    set({ calMonth:m, calYear:y });
+  },
+  calClear: () => set({ dashRange: null }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
@@ -2675,11 +2861,45 @@ const ACTIONS = {
 document.addEventListener('click', (e) => {
   const el = e.target.closest && e.target.closest('[data-act]');
   if (!el) {
-    if (S.stage === 'app' && S.profileOpen) set({ profileOpen:false });
+    // Day cells in the calendar grid have data-cal-day, not data-act (they're
+    // driven by the drag listeners below), so a plain click on one falls
+    // through to here too. Without this guard that would read as "clicked
+    // outside" and close the calendar mid-selection.
+    const insideCal = e.target.closest && e.target.closest('[data-cal-root]');
+    if (!insideCal && S.stage === 'app' && (S.profileOpen || S.periodMenu || S.dashScopeMenu)) {
+      set({ profileOpen:false, periodMenu:false, dashScopeMenu:false });
+    }
     return;
   }
   const fn = ACTIONS[el.dataset.act];
   if (fn){ e.stopPropagation(); fn(el); }
+});
+
+// Calendar range drag: mousedown anchors the start, mouseover while a drag
+// is anchored live-updates the end (covers both an actual drag and a
+// click-a-day-then-click-another-day range pick, same underlying state),
+// mouseup commits whatever's anchored as the real selection and clears the
+// anchor so the next mousedown starts a fresh one. A plain single click
+// with no second day touched just commits a one-day range, which is a
+// legitimate selection, not a no-op.
+document.addEventListener('mousedown', (e) => {
+  const el = e.target.closest && e.target.closest('[data-cal-day]');
+  if (!el) return;
+  e.preventDefault();
+  const key = el.dataset.calDay;
+  set({ calDragStart: key, calDragHover: key });
+});
+document.addEventListener('mouseover', (e) => {
+  if (!S.calDragStart) return;
+  const el = e.target.closest && e.target.closest('[data-cal-day]');
+  if (!el) return;
+  const key = el.dataset.calDay;
+  if (key !== S.calDragHover) set({ calDragHover: key });
+});
+document.addEventListener('mouseup', () => {
+  if (!S.calDragStart) return;
+  const range = calRangeSorted();
+  set({ dashRange: range, calDragStart: null, calDragHover: null });
 });
 
 document.addEventListener('input', (e) => {
