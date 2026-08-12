@@ -1535,6 +1535,16 @@ function workSplitCard(){
 function taxShieldCard(){
   const t = computeTaxShield();
   const m = (cents) => money(cents / 100);
+  // "13 robots" alone reads as an unexplained number, and "your whole
+  // fleet" invited checking it against Fleet, which only ever lists Pier
+  // 4's 6 (see viewRobots). Name the sites instead, matching how
+  // onboarding already states the same total ("Pier 4, Marina, Airport ·
+  // 13 robots"), and say outright where the other two sites' counts come
+  // from, since Fleet can't show them yet.
+  const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s fleet';
+  const scopeFootnote = S.dashScope === 0 ? '' : (S.dashScope === 'all'
+    ? ' Fleet lists Pier 4&#39;s 6 individually; Marina and Airport are counted here from their invoices.'
+    : ' Fleet lists Pier 4&#39;s robots individually; '+SITES[S.dashScope].name+'&#39;s are counted here from its invoices.');
   const depBtn = (id, label) => '<button type="button" data-act="setTaxDep" data-method="'+id+'" style="padding:8px 12px;border-radius:4px;border:1px solid '+(S.taxDepMethod===id?'var(--fg1)':'var(--hair2)')+';background:'+(S.taxDepMethod===id?'var(--ghost2)':'transparent')+';color:var(--fg1);cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">'+label+'</button>';
   const catRows = t.byCategory.map(k => '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--hair);font-size:12.5px">'
     + '<span style="color:var(--fg1);font-weight:600">'+esc(k.work)+' &middot; '+k.count+' '+(k.count===1?'robot':'robots')+'</span>'
@@ -1542,7 +1552,7 @@ function taxShieldCard(){
   + '</div>').join('');
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">Tax shield &amp; depreciation</div>'
-    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+' instead of leasing them would be worth at tax time. Illustrative, not tax advice.</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+scopeName+', '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+', instead of leasing them would be worth at tax time. Illustrative, not tax advice.'+scopeFootnote+'</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:18px">'
       + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Year-1 tax shield</div><div id="taxShieldValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.shieldCents)+'</div></div>'
       + '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Effective first-year cost</div><div id="taxNetCostValue" style="font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.netCostCents)+'</div></div>'
@@ -1779,10 +1789,13 @@ function conditionBlock(r){
   const note = spent
     ? 'A part past its rating is work this machine is still doing on borrowed time. Replacing it is not in the figure above.'
     : 'Every part is inside its rated life.';
+  // "4 bars" read as "4 robots" until this said otherwise: made explicit
+  // that every bar below belongs to this one robot, r.parts.length
+  // separate consumable parts, not a fleet count.
   return '<div style="margin-top:22px;padding-top:18px;border-top:1px dashed var(--hair)">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:14px">'
       + '<span style="font-size:12.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--fg2)">Condition</span>'
-      + '<span style="font-size:12.5px;color:var(--fg3)">life remaining against the maker&#39;s rating</span></div>'
+      + '<span style="font-size:12.5px;color:var(--fg3)">'+r.parts.length+' parts on this one robot, life remaining against the maker&#39;s rating</span></div>'
     + '<div data-bars style="margin-bottom:12px">'+bars+'</div>'
     + '<div style="font-size:13px;line-height:1.6;color:var(--fg2);max-width:86ch">'+note+'</div>'
     + '<div style="margin-top:10px;font-family:inherit;font-size:11.5px;color:var(--fg3)">also reported · '+r.hand+' of active time hand-driven · battery '+r.temp+'</div>'
@@ -1873,7 +1886,7 @@ function viewRobots(){
   return '<div style="padding:0;margin-bottom:56px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
         + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Fleet</h2>'
-        + '<span style="font-size:13px;color:var(--fg3)">Open a robot for the equation and condition behind its number.</span></div>'
+        + '<span style="font-size:13px;color:var(--fg3)">Pier 4&#39;s '+ROBOTS.length+' robots. Open one for the equation and condition behind its number. Marina and Airport aren&#39;t wired to per-robot condition tracking yet, see their totals on the Dashboard.</span></div>'
       + rows + '</div>'
     + '<div style="padding:0;margin-bottom:48px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:8px">'
