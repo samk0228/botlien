@@ -114,6 +114,9 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
   [data-eq]{flex-wrap:wrap !important;gap:16px !important;min-width:0 !important}
   [data-eq] > div:first-child{align-items:flex-start !important}
   [data-eq] > div:first-child > div{flex-wrap:wrap !important}
+  [data-setup-row]{flex-wrap:wrap !important;row-gap:6px !important}
+  [data-setup-name]{min-width:0 !important;flex:1 1 100% !important}
+  [data-setup-row] > span{margin-left:0 !important}
 }
 @media (max-width:560px){
   [data-main]{padding:12px 12px 28px !important}
@@ -1813,8 +1816,8 @@ function viewSetup(){
       + '</div>';
     }
     return '<div style="border-top:1px solid var(--hair)">'
-      + '<div data-act="toggleSetup" data-i="'+i+'" class="hv-fade" style="display:flex;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
-        + '<div style="min-width:180px"><div style="font-size:14.5px;font-weight:'+(open?700:600)+';color:var(--fg1)">'+r.name+'</div>'
+      + '<div data-act="toggleSetup" data-i="'+i+'" data-setup-row class="hv-fade" style="display:flex;align-items:center;gap:16px;padding:20px 4px;cursor:pointer">'
+        + '<div data-setup-name style="min-width:180px"><div style="font-size:14.5px;font-weight:'+(open?700:600)+';color:var(--fg1)">'+r.name+'</div>'
           + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+r.model+'</div></div>'
         + '<div id="setupSummary-'+i+'" style="font-size:13.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+summary+'</div>'
         + '<span style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--fg3)">'+(open?'editing':'edit')+'</span>'
