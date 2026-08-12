@@ -1157,11 +1157,13 @@ function appRail(){
             + ic('bell',15,'color:var(--fg3)') + 'Notifications'
             + '<i style="margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--ink)"></i>'
           + '</div>'
-          // Settings and Log out both lead somewhere a public demo
-          // shouldn't: Settings is real account/billing-adjacent surface,
-          // and Log out would drop a visitor into the real sign-in/
-          // onboarding flow, exactly what demo mode is supposed to skip.
-          + (S.demoMode ? '' : '<div data-act="go" data-view="settings" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('settings',15,'color:var(--fg3)')+'Settings</div>')
+          // Settings is safe to expose in demo mode now: every destructive
+          // control on it (delete account, invite someone, import usage)
+          // already routes through notInDemo, an info-only toggle, not the
+          // real action, same pattern used everywhere else in this app.
+          // Log out stays gated, that one still drops a visitor into the
+          // real sign-in/onboarding flow, exactly what demo mode skips.
+          + '<div data-act="go" data-view="settings" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('settings',15,'color:var(--fg3)')+'Settings</div>'
           + (S.demoMode ? '' : '<div style="height:1px;background:var(--hair);margin:2px 0"></div><div data-act="logOut" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">'+ic('log-out',15,'color:var(--fg3)')+'Log out</div>')
         + '</div>'
         : '')
@@ -1552,8 +1554,7 @@ function taxShieldCard(){
         + '<div style="display:flex;align-items:center;gap:4px;font-size:14px;color:var(--fg1)"><input id="taxInterestInput" type="text" inputmode="decimal" value="'+S.taxInterestRate+'" style="width:44px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums">%</div></div>'
       + '<div style="display:flex;gap:8px">' + depBtn('bonus','Bonus / Sec. 179') + depBtn('macrs5','5-yr MACRS') + '</div>'
     + '</div>'
-    + '<div id="taxShieldTrace">' + taxShieldTrace(t) + '</div>'
-    + (catRows ? '<div style="margin-top:16px">'+catRows+'</div>' : '<div style="margin-top:6px;font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
+    + (catRows ? '<div style="margin-top:2px">'+catRows+'</div>' : '<div style="margin-top:6px;font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
     + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Assumed equipment cost by work type, a simplified first-year interest estimate (no amortization schedule), and the standard first-year depreciation factors. Not tax advice, actual eligibility and schedules depend on your fleet and situation.</div>'
   + '</div>';
 }
@@ -1697,12 +1698,21 @@ function sensitivityCard(){
         + '<div style="font-size:11px;color:var(--fg3);white-space:nowrap">= <b id="sensCovBig" style="color:var(--fg1);font-weight:700">'+c.cov.toFixed(2)+'x</b> coverage</div>'
       + '</div>'
     + '</div>'
-    + '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
-      + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
-      + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
-      + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>'
-    + '<div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
+    + '<div style="margin-top:2px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
   + '</div>';
+}
+// Pulled out of sensitivityCard so Settings' "How the numbers read" can
+// show the same trace, computed fresh from whatever the slider is
+// currently set to, not a frozen snapshot. IDs kept identical, so if
+// Settings happens to be open while the Dashboard slider moves (both
+// visible at once isn't possible in this single-view app, but nothing
+// stops that changing later), applySensitivity's existing put() calls
+// keep working here too, no separate update path to maintain.
+function sensitivityTrace(base, c, t){
+  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
+    + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
+    + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
+    + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>';
 }
 
 function costCard(){
@@ -2380,6 +2390,22 @@ function viewSettings(){
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
+    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How the numbers read</h2>'
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">The exact arithmetic behind two figures on the Dashboard, computed the same way right now, in case you want to check it by hand.</p>'
+    + '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Tax shield &amp; depreciation</div>'
+    + taxShieldTrace(computeTaxShield())
+    + (() => {
+        const sBase = sensBase();
+        if (!sBase) return '';
+        const min = Math.max(1, Math.round(sBase.benchUnitsPerHour * 0.5));
+        const max = Math.max(min + 1, Math.round(sBase.benchUnitsPerHour * 2));
+        const t = Math.min(max, Math.max(min, S.throughput));
+        const c = calc(t, sBase);
+        return '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin:20px 0 8px">Coverage sensitivity</div>' + sensitivityTrace(sBase, c, t);
+      })()
+  + '</div>'
+
+  + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
     + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
@@ -2673,10 +2699,6 @@ const CLOSED_UI_STATE = {
 };
 
 function goView(view, extra){
-  // No sidebar link reaches Settings in demo mode, this is just the
-  // backstop, a stray '?view=settings' deep link (or anything else that
-  // ever calls goView('settings')) can't get there either.
-  if (S.demoMode && view === 'settings') return;
   set(Object.assign({ stage:'app', view, profileOpen:false, mobileNavOpen:false }, CLOSED_UI_STATE, extra || {}));
 }
 
