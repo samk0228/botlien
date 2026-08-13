@@ -1,4 +1,9 @@
 <meta charset="utf-8">
+<!-- Without this, a phone browser lays the page out at its default ~980px
+     canvas and then shrinks the result to fit the screen. Every mobile rule
+     below is written against the real viewport, so none of them would ever
+     match and the phone would get the desktop layout at 40% scale. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Botlien · Demo</title>
 <style>
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
@@ -30,15 +35,22 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 
 body{margin:0;background:var(--page-bg);color:var(--fg1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 a{color:var(--fg1)}
-a:hover{color:var(--fg2)}
+@media (hover:hover){a:hover{color:var(--fg2)}}
 button{font-family:inherit}
 input{font-family:inherit}
 @keyframes bl-spin{to{transform:rotate(360deg)}}
 
-.hv-ghost:hover{background:var(--ghost)}
-.hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
-.hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
-.bl-rail:hover{background:var(--sb-border)}
+/* Every hover affordance below is gated on a pointer that can actually
+   hover. A touch screen cannot: tapping leaves the element stuck in :hover
+   until you tap something else, so a hover-only state reads as a permanent
+   one. That is what turned the brand badge into its collapse icon on a
+   phone and left it there. :active is fine and stays ungated. */
+@media (hover:hover){
+  .hv-ghost:hover{background:var(--ghost)}
+  .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
+  .hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
+  .bl-rail:hover{background:var(--sb-border)}
+}
 /* While actually dragging the rail (not just clicking it), the grid
    column narrows live via direct style writes, not a re-render, so nav
    labels need real overflow clipping to keep up instead of wrapping mid-
@@ -59,12 +71,14 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
    always in the DOM, only one ever shown, hover flips which. */
 .bl-brand-toggle{cursor:pointer}
 .bl-brand-toggle .bl-brand-chev{display:none}
-.bl-brand-toggle:hover .bl-brand-logo{display:none}
-.bl-brand-toggle:hover .bl-brand-chev{display:flex}
-.hv-fg1:hover{color:var(--fg1)}
-.hv-dim:hover{opacity:.86}
-.hv-dim9:hover{opacity:.9}
-.hv-fade:hover{opacity:.7}
+@media (hover:hover){
+  .bl-brand-toggle:hover .bl-brand-logo{display:none}
+  .bl-brand-toggle:hover .bl-brand-chev{display:flex}
+  .hv-fg1:hover{color:var(--fg1)}
+  .hv-dim:hover{opacity:.86}
+  .hv-dim9:hover{opacity:.9}
+  .hv-fade:hover{opacity:.7}
+}
 .press:active{transform:scale(.98)}
 .press9:active{transform:scale(.99)}
 
@@ -73,11 +87,13 @@ details.bl-acc summary::-webkit-details-marker{display:none}
 details.bl-acc summary .chev{transition:transform .15s}
 
 .bl-bar-tip{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-6px);min-width:118px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:9px 11px;box-shadow:0 6px 20px rgba(10,10,10,.14);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease;z-index:30;white-space:nowrap}
-.bl-bar-wrap:hover .bl-bar-tip{opacity:1;visibility:visible;transform:translate(-50%,-10px)}
 .bl-bar-wrap:first-child .bl-bar-tip{left:0;transform:translate(0,-6px)}
-.bl-bar-wrap:first-child:hover .bl-bar-tip{transform:translate(0,-10px)}
 .bl-bar-wrap:last-child .bl-bar-tip{left:auto;right:0;transform:translate(0,-6px)}
-.bl-bar-wrap:last-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+@media (hover:hover){
+  .bl-bar-wrap:hover .bl-bar-tip{opacity:1;visibility:visible;transform:translate(-50%,-10px)}
+  .bl-bar-wrap:first-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+  .bl-bar-wrap:last-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+}
 details.bl-acc[open] summary .chev{transform:rotate(180deg)}
 
 /* Custom slider track: filled portion up to the thumb, plain past it. The
@@ -95,6 +111,10 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
    Now they are collapsed into one menu, closed by default, opened by the
    hamburger button that only exists at this width. */
 .bl-mobile-toggle{display:none}
+/* Menu backdrop exists only at phone widths, where menus become sheets. */
+[data-pop-back]{display:none}
+/* Coarse-pointer copy is off until a coarse pointer is actually likely. */
+[data-hint-coarse]{display:none}
 @media (max-width:900px){
   [data-grid]{grid-template-columns:minmax(0,1fr) !important}
   [data-side]{position:static !important;height:auto !important;min-width:0;padding:14px 16px 0 !important;border-right:none !important;border-bottom:1px solid var(--hair)}
@@ -118,7 +138,125 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
   [data-setup-row]{flex-wrap:wrap !important;row-gap:6px !important}
   [data-setup-name]{min-width:0 !important;flex:1 1 100% !important}
   [data-setup-row] > span{margin-left:0 !important}
+
+  /* ---- Menus, phone edition -------------------------------------------
+     On a desktop a menu is a small popover pinned to whatever opened it,
+     which works because a cursor is precise and the pointer is already
+     there. A thumb is neither. Below 900px every menu becomes the same
+     full-width sheet the marketing site's nav uses: full-bleed rows,
+     hairline separators, type at a size you can read at arm's length.
+     Anchored to the bottom because that is the half of a phone a thumb
+     actually reaches, and the trigger can sit anywhere on the page. */
+  [data-pop]{
+    position:fixed !important;
+    left:0 !important; right:0 !important; bottom:0 !important; top:auto !important;
+    width:auto !important; min-width:0 !important; max-width:none !important;
+    max-height:72vh !important; overflow-y:auto !important;
+    /* The sheet paints its own ground. Three of these menus carry a
+       background on the menu element itself, but the calendar's wrapper is
+       a bare positioning div whose card provided it, and that card's chrome
+       is stripped below, so without this the sheet is see-through. */
+    background:var(--menu) !important;
+    border:none !important; border-top:1px solid var(--hair2) !important;
+    border-radius:16px 16px 0 0 !important;
+    box-shadow:0 -10px 34px rgba(10,10,10,.20) !important;
+    padding:6px 20px calc(20px + env(safe-area-inset-bottom)) !important;
+    z-index:200 !important;
+    animation:bl-sheet-up .18s ease-out;
+  }
+  /* Only genuinely tappable rows get the big treatment. Headers, dividers
+     and the calendar widget are left alone so they don't get stretched. */
+  [data-pop] > [data-act]{
+    padding:17px 0 !important;
+    font-size:16px !important;
+    border-radius:0 !important;
+    border-bottom:none !important;
+    border-top:1px solid var(--hair) !important;
+    min-height:56px;
+    box-sizing:border-box;
+  }
+  [data-pop] > [data-act]:first-child{border-top:none !important}
+  /* The calendar is a widget, not a list, so it keeps its own layout, but
+     it stops being a 320px card floating inside the sheet: the sheet is
+     the card now, so the inner chrome comes off and the grid spans the
+     full width like every other row-based sheet here. */
+  [data-pop-panel]{padding:8px 20px calc(20px + env(safe-area-inset-bottom)) !important}
+  [data-pop] [data-cal-root]{
+    width:100% !important;background:transparent !important;
+    border:none !important;border-radius:0 !important;padding:0 !important;
+  }
+  /* 12.5px numbers in a 30px box is a mouse target. This is a thumb one. */
+  [data-pop] [data-cal-day]{padding:15px 0 !important;font-size:16px !important;border-radius:9px !important}
+  [data-pop] [data-cal-grid]{gap:3px !important;margin-bottom:16px !important}
+  [data-pop] [data-cal-root] > div:first-child{margin-bottom:14px !important}
+  [data-pop] [data-cal-root] > div:first-child > div{font-size:17px !important}
+  [data-pop] [data-cal-root] > div:nth-child(2) > div{font-size:12px !important;padding:6px 0 !important}
+  [data-pop] [data-act="calPrevMonth"],[data-pop] [data-act="calNextMonth"]{
+    width:44px;height:44px;align-items:center;justify-content:center;border-radius:8px;
+  }
+  [data-pop] [data-cal-root] > div:last-child{font-size:14px !important;padding-top:16px !important}
+  [data-pop] [data-act="calClear"]{padding:10px 0;display:inline-block}
+  [data-pop-back]{
+    display:block;position:fixed;inset:0;
+    background:rgba(10,10,10,.38);z-index:199;
+    animation:bl-fade-in .18s ease-out;
+  }
+
+  /* Same row language for the nav behind the hamburger. */
+  [data-side].bl-mobile-open [data-nav] > div,
+  [data-side].bl-mobile-open [data-side-foot] > div{
+    padding:15px 2px !important;font-size:16px !important;min-height:52px;box-sizing:border-box;
+  }
+
+  /* iOS zooms the whole page in when you focus a control whose text is
+     under 16px, and never zooms back out. Every input is bumped to 16px
+     here purely to stop that. */
+  input,select,textarea{font-size:16px !important}
+
+  /* Fingertip-sized hit areas for the controls that were built for a mouse. */
+  [data-act="toggleDashScope"],[data-act="toggleDashEdit"],[data-act="togglePeriod"],
+  [data-act="setTaxDep"],[data-act="toggleMobileNav"]{
+    min-height:44px;box-sizing:border-box;align-items:center;
+  }
+  /* The drag-to-collapse rail has nothing to collapse here: the sidebar is
+     a topbar. Leaving it would be a 4px invisible ew-resize strip down the
+     side of a touch screen. */
+  .bl-rail{display:none !important}
+  [data-act="go"]{min-height:36px;display:inline-flex;align-items:center}
+
+  /* Customize mode: swap the drag affordance for step buttons, and give the
+     remove control a fingertip-sized box instead of its 24px desktop one. */
+  [data-dash-draghint]{display:none !important}
+  [data-dash-move]{display:inline-flex !important}
+  [data-act="dashHide"]{width:40px !important;height:40px !important;font-size:18px !important}
+
+  /* Tell the reader the gesture that actually works on their device. */
+  [data-hint-fine]{display:none}
+  [data-hint-coarse]{display:inline}
+
+  /* "Where the rates come from" is a four-column table pinned to 720px, so
+     on a phone it survived only as a sideways-scrolling strip: you cannot
+     see the wage you are editing and the rate it produces at the same time,
+     which is the entire point of the table. Stacked into one column per
+     row instead, with each cell carrying the column heading it lost. */
+  [data-rate-scroll]{overflow-x:visible !important}
+  [data-rate-wide]{min-width:0 !important}
+  [data-rate-head]{display:none !important}
+  [data-rate-row]{grid-template-columns:minmax(0,1fr) !important;gap:14px !important;align-items:stretch !important}
+  [data-rate-row] > div{display:block !important}
+  [data-rate-row] > div:nth-child(n+2)::before{
+    display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+    color:var(--fg3);margin-bottom:5px;
+  }
+  [data-rate-row] > div:nth-child(2)::before{content:"LOADED WAGE"}
+  [data-rate-row] > div:nth-child(3)::before{content:"A PERSON DOES"}
+  [data-rate-row] > div:nth-child(4)::before{content:"SO ONE UNIT IS WORTH"}
+  /* That cell was a flex row with a gap; stacking it turned the two spans
+     inline and ran "benchmark" straight into the rate. */
+  [data-rate-row] [data-rate-src]{display:block;margin-top:5px}
 }
+@keyframes bl-sheet-up{from{transform:translateY(14px);opacity:.6}to{transform:translateY(0);opacity:1}}
+@keyframes bl-fade-in{from{opacity:0}to{opacity:1}}
 @media (max-width:560px){
   [data-main]{padding:12px 12px 28px !important}
   [data-card]{padding:18px 14px 22px !important}
@@ -1250,7 +1388,12 @@ function authStage(){
 // size-4 icons; group-data-[collapsible=icon]:size-8 when collapsed),
 // pulled from `shadcn view sidebar`, not eyeballed off a screenshot.
 function appRail(){
-  const collapsed = S.railCollapsed;
+  // A collapsed icon rail is a desktop idea: it trades labels for width on
+  // a screen that has width to trade. Below 900px the sidebar is not a rail
+  // at all, it is a topbar behind a hamburger, so a collapsed flag carried
+  // over from a desktop session would strip every label and leave a row of
+  // unlabelled icons stretched across the full width. Ignored here.
+  const collapsed = S.railCollapsed && !isPhoneLayout();
   const nav = (k) => ({
     bg: S.view === k ? 'var(--sb-accent)' : 'transparent',
     fg: S.view === k ? 'var(--sb-accent-fg)' : 'var(--sb-fg)',
@@ -1375,7 +1518,7 @@ function appRail(){
         + (collapsed ? '' : ic('chevron-down',14,'color:inherit;flex:none'))
       + '</div>'
       + (S.profileOpen
-        ? '<div style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
+        ? '<div data-pop-back></div><div data-pop style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 10px">'
             + avatarBadge(32)
             + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(S.demoMode?'Demo Account':'Sam Ortega')+'</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.demoMode?'demo@botlien.com':S.accountEmail)+'</span></div>'
@@ -1464,7 +1607,7 @@ function renderCalendar(){
     cells += '<div'+(isFuture?'':' data-cal-day="'+key+'"')+' style="text-align:center;padding:7px 0;font-size:12.5px;font-variant-numeric:tabular-nums;border-radius:4px;background:'+bg+';color:'+fg+';user-select:none;'+(isFuture?'opacity:0.3;':'cursor:pointer;')+'">'+d+'</div>';
   }
 
-  const rangeLabel = active ? (active.start === active.end ? fmtDateShort(active.start) : fmtDateShort(active.start)+' – '+fmtDateShort(active.end)) : 'Drag across days to pick a range';
+  const rangeLabel = active ? (active.start === active.end ? fmtDateShort(active.start) : fmtDateShort(active.start)+' – '+fmtDateShort(active.end)) : '<span data-hint-fine>Drag across days to pick a range</span><span data-hint-coarse>Tap the first day, then the last</span>';
 
   return '<div style="width:320px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:16px" data-cal-root>'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
@@ -1498,7 +1641,7 @@ function appHeader(){
   const showPeriodPicker = view === 'dashv2';
   const periodPicker = !showPeriodPicker ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
-      + (S.periodMenu ? '<div style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
+      + (S.periodMenu ? '<div data-pop-back></div><div data-pop data-pop-panel style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
     + '</div>';
   // The collapse control used to also live here as a permanent bordered
   // button. It's the brand badge's job now (hover it, see the chevron,
@@ -1864,7 +2007,7 @@ function scopeToggle(){
       + ic('sliders-horizontal',13,'color:var(--fg3)') + current.label + ic('chevron-down',14,'color:var(--fg3)')
     + '</div>'
     + (S.dashScopeMenu
-      ? '<div style="position:absolute;top:42px;left:0;width:200px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
+      ? '<div data-pop-back></div><div data-pop style="position:absolute;top:42px;left:0;width:200px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
         + scopes.map((sc,i) => '<div data-act="setDashScope" data-scope="'+sc.k+'" class="hv-ghost" style="padding:11px 14px;cursor:pointer;font-size:13px;font-weight:'+(sc.k===String(S.dashScope)?700:500)+';color:var(--fg1);border-bottom:'+(i<scopes.length-1?'1px solid var(--hair)':'none')+'">'+sc.label+'</div>').join('')
       + '</div>'
       : '')
@@ -1897,7 +2040,11 @@ function dashBlockWrap(id){
   return '<div class="dash-block" data-dash-id="'+id+'" draggable="'+(edit?'true':'false')+'" style="box-sizing:border-box;'+(edit?'cursor:grab;':'')+'">'
     + (edit
       ? '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;margin-bottom:8px;background:var(--ghost);border:1px dashed var(--hair2);border-radius:6px">'
-        + '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--fg3);font-size:11.5px;font-weight:600">'+ic('equal',14)+'Drag to reorder</span>'
+        + '<span data-dash-draghint style="display:inline-flex;align-items:center;gap:7px;color:var(--fg3);font-size:11.5px;font-weight:600">'+ic('equal',14)+'Drag to reorder</span>'
+        + '<span data-dash-move style="display:none;align-items:center;gap:6px">'
+          + '<button type="button" data-act="dashMove" data-id="'+id+'" data-dir="up" aria-label="Move up" style="flex:none;width:40px;height:40px;border-radius:6px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;color:var(--fg2);font-size:16px;line-height:1">&uarr;</button>'
+          + '<button type="button" data-act="dashMove" data-id="'+id+'" data-dir="down" aria-label="Move down" style="flex:none;width:40px;height:40px;border-radius:6px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;color:var(--fg2);font-size:16px;line-height:1">&darr;</button>'
+        + '</span>'
         + '<button type="button" data-act="dashHide" data-id="'+id+'" title="Remove from dashboard" style="flex:none;width:24px;height:24px;border-radius:5px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;font-size:14px;line-height:1;color:var(--fg2)">&times;</button>'
       + '</div>'
       : '')
@@ -2407,7 +2554,7 @@ function workInput(id, i, value){
       + ic('chevron-down',14,'color:var(--fg3);flex:none')
     + '</div>'
     + (!open ? '' :
-        '<div data-work-menu style="position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:220px;max-height:280px;overflow-y:auto;background:var(--menu);border:1px solid var(--hair2);border-radius:5px;z-index:60;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
+        '<div data-pop-back></div><div data-work-menu data-pop style="position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:220px;max-height:280px;overflow-y:auto;background:var(--menu);border:1px solid var(--hair2);border-radius:5px;z-index:60;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
         + workOptions().map(row).join('')
         + '<div data-act="startWorkEntry" data-i="'+i+'" class="hv-ghost" style="padding:9px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">+ Type my own…</div>'
       + '</div>')
@@ -2634,15 +2781,15 @@ function viewSetup(){
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Where the rates come from</h2>'
       + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Both inputs are yours: correct either one and every figure built on it moves.</span></div>'
-    + '<div style="overflow-x:auto;min-width:0"><div style="min-width:720px">'
-      + '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
+    + '<div data-rate-scroll style="overflow-x:auto;min-width:0"><div data-rate-wide style="min-width:720px">'
+      + '<div data-rate-head style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
       + usedWorks.map(work => {
           const b = workDef(work);
           const rc = rateCentsFor(work);
           const own = wageIsOwnSet(work) || throughputIsOwnSet(work);
           const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
           const people = employeesFor(work);
-          return '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
+          return '<div data-rate-row style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
           + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+esc(work)+'</div>'
             + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div>'
             // A category we publish numbers for already knows what one of
@@ -3357,6 +3504,16 @@ window.addEventListener('resize', () => {
   dashResizeTimer = setTimeout(layoutDashMasonry, 120);
 });
 
+/* The phone breakpoint, in one place, because two things now depend on it:
+   the sidebar renders differently below it, and the CSS switches menus to
+   sheets at the same width. Reading it from matchMedia rather than hard
+   coding a second 900 keeps those two from drifting apart. */
+const PHONE_MQ = window.matchMedia('(max-width:900px)');
+function isPhoneLayout(){ return PHONE_MQ.matches; }
+// Crossing the breakpoint changes markup, not just layout, so it needs a
+// real re-render. Rotating a phone is the case that actually hits this.
+PHONE_MQ.addEventListener('change', () => { if (S.stage === 'app') set({}); });
+
 /* ─────────────────────────  BEHAVIOUR  ───────────────────────── */
 
 function startResendClock(){
@@ -3426,10 +3583,30 @@ function goView(view, extra){
 }
 
 const ACTIONS = {
-  toggleRail: () => set({ railCollapsed: !S.railCollapsed }),
+  // Inert on a phone. The sidebar is a topbar there, so there is no rail to
+  // collapse, and a tap on the brand badge should do nothing rather than
+  // quietly flip a flag the renderer is going to ignore anyway.
+  toggleRail: () => { if (isPhoneLayout()) return; set({ railCollapsed: !S.railCollapsed }); },
   toggleMobileNav: () => set({ mobileNavOpen: !S.mobileNavOpen }),
   toggleDashEdit: () => set({ dashEdit: !S.dashEdit }),
   setTaxDep: (el) => set({ taxDepMethod: el.dataset.method }),
+  /* Reordering by up/down step rather than by drag. HTML5 drag-and-drop
+     does not exist on a touch screen, so on a phone the dragstart handler
+     below never fires and "Customize" would be able to remove blocks but
+     never move them. Steps against the visible run, not the raw layout,
+     so pressing up next to a hidden block moves you somewhere you can
+     actually see instead of looking like nothing happened. */
+  dashMove: (el) => {
+    const id = el.dataset.id;
+    const dir = el.dataset.dir === 'up' ? -1 : 1;
+    const order = S.dashLayout.slice();
+    const visible = order.filter(x => !S.dashHidden.includes(x));
+    const from = visible.indexOf(id), to = from + dir;
+    if (from < 0 || to < 0 || to >= visible.length) return;
+    const a = order.indexOf(id), b = order.indexOf(visible[to]);
+    order[a] = visible[to]; order[b] = id;
+    set({ dashLayout: order });
+  },
   dashHide: (el) => set({ dashHidden: S.dashHidden.concat(el.dataset.id) }),
   dashShow: (el) => set({ dashHidden: S.dashHidden.filter(id => id !== el.dataset.id) }),
   dashReset: () => set({ dashLayout: DASH_ORDER_DEFAULT.slice(), dashHidden: DASH_HIDDEN_DEFAULT.slice() }),
@@ -3710,6 +3887,35 @@ document.addEventListener('mouseup', () => {
   const range = calRangeSorted();
   set({ dashRange: range, calDragStart: null, calDragHover: null });
 });
+
+/* The same range picker, for a finger. Dragging across a grid is a mouse
+   idiom: on a touch screen holding down and sliding is how you scroll the
+   page, so the handlers above can never see a multi-day drag, and the
+   synthesized mousedown/mouseup pair a tap produces would commit a
+   one-day range on every single tap. Touch gets two taps instead, first
+   day then last day, which is also what every native date picker does.
+   preventDefault on a real tap stops the synthesized mouse events, so the
+   two paths never both fire for one gesture. */
+let calTouch = null;
+document.addEventListener('touchstart', (e) => {
+  const el = e.target.closest && e.target.closest('[data-cal-day]');
+  const t = e.touches[0];
+  calTouch = el && t ? { x: t.clientX, y: t.clientY, el } : null;
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+  const start = calTouch;
+  calTouch = null;
+  if (!start) return;
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t) return;
+  // A finger that travelled was scrolling the sheet, not picking a day.
+  if (Math.abs(t.clientX - start.x) > 10 || Math.abs(t.clientY - start.y) > 10) return;
+  e.preventDefault();
+  const key = start.el.dataset.calDay;
+  if (!S.calDragStart){ set({ calDragStart: key, calDragHover: key }); return; }
+  S.calDragHover = key;
+  set({ dashRange: calRangeSorted(), calDragStart: null, calDragHover: null });
+}, { passive: false });
 
 document.addEventListener('input', (e) => {
   if (!e.target) return;
