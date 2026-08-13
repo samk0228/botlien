@@ -727,6 +727,10 @@ footer.site-footer a.foot-icon svg { width: 20px; height: 20px; }
     }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting…';
+    // Carry the analytics session id so the server can attribute this lead to
+    // the visit and demo session it came from, rather than counting it as an
+    // arrival from nowhere. Absent if the beacon never ran; harmless either way.
+    try { payload.session = sessionStorage.getItem('botlien_sid') || ''; } catch (e) {}
     fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

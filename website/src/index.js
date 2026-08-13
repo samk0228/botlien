@@ -1,3 +1,12 @@
+import {
+  handleStats,
+  handleStatsLogin,
+  handleStatsApi,
+  handleEventIngest,
+  recordEvent,
+  BEACON,
+} from "./stats.js";
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -26,7 +35,7 @@ const LEAD_FROM = "Botlien Site <info@botlien.com>";
  * is no funnel tooling to feed yet, and an inquiry that lands in an inbox
  * gets answered, where a row in a table has to be remembered. Reply-To is the
  * prospect, so answering is a plain reply. */
-async function handleLead(request, env) {
+async function handleLead(request, env, ctx) {
   let body;
   try {
     body = await request.json();
@@ -98,6 +107,13 @@ async function handleLead(request, env) {
     return Response.json({ error: "Could not send submission." }, { status: 502 });
   }
 
+  // Only now, with the message actually accepted, does this count as a lead.
+  recordEvent(env, ctx, request, "lead_submit", {
+    session: body.session,
+    label: company,
+    path: "/",
+  });
+
   return Response.json({ ok: true });
 }
 
@@ -112,7 +128,17 @@ async function handleSoftwarePreview(request) {
   const response = await fetch(upstream.toString(), { headers: request.headers });
   const headers = new Headers(response.headers);
   headers.delete("content-security-policy");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  // Same content as /demo, so it gets the same beacon: the beacon treats both
+  // paths as a demo session, and an uninstrumented one would silently drop
+  // every visit that came in through this route.
+  const contentType = headers.get("content-type") || "";
+  if (!contentType.includes("text/html")) {
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
+  const html = await response.text();
+  const injected = html.includes("<head>") ? html.replace("<head>", "<head>" + BEACON) : BEACON + html;
+  headers.delete("content-length");
+  return new Response(injected, { status: response.status, statusText: response.statusText, headers });
 }
 
 // Public, no-account demo: same isolated Fly app as /software above, same
@@ -137,11 +163,18 @@ async function handleDemoPreview(request) {
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   }
   const html = await response.text();
-  const injected = html.includes("<head>")
-    ? html.replace("<head>", "<head><script>window.__botlienDemo=true;</script>")
-    : "<script>window.__botlienDemo=true;</script>" + html;
+  const tags = "<script>window.__botlienDemo=true;</script>" + BEACON;
+  const injected = html.includes("<head>") ? html.replace("<head>", "<head>" + tags) : tags + html;
   headers.delete("content-length");
   return new Response(injected, { status: response.status, statusText: response.statusText, headers });
+}
+
+function applySecurityHeaders(headers) {
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
 }
 
 export default {
@@ -149,7 +182,22 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/lead" && request.method === "POST") {
-      return handleLead(request, env);
+      return handleLead(request, env, ctx);
+    }
+
+    // Analytics. /stats is the internal dashboard, /api/event is the public
+    // beacon endpoint the pages post to.
+    if (url.pathname === "/api/event" && request.method === "POST") {
+      return handleEventIngest(request, env);
+    }
+    if (url.pathname === "/stats/login" && request.method === "POST") {
+      return handleStatsLogin(request, env);
+    }
+    if (url.pathname === "/stats/api") {
+      return handleStatsApi(request, env);
+    }
+    if (url.pathname === "/stats" || url.pathname === "/stats/") {
+      return handleStats(request, env);
     }
 
     if (url.pathname === "/software" || url.pathname.startsWith("/software/")) {
@@ -162,11 +210,19 @@ export default {
 
     const response = await env.ASSETS.fetch(request);
     const headers = new Headers(response.headers);
-    headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-    headers.set("X-Content-Type-Options", "nosniff");
-    headers.set("X-Frame-Options", "SAMEORIGIN");
-    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    // Beacon goes on the marketing pages too, so a visit can be tied to the
+    // demo open that follows it. Only HTML: never rewrite an image or a font.
+    const isHtml = (headers.get("content-type") || "").includes("text/html");
+    if (isHtml) {
+      const page = await response.text();
+      headers.delete("content-length");
+      const withBeacon = page.includes("</body>")
+        ? page.replace("</body>", BEACON + "</body>")
+        : page + BEACON;
+      applySecurityHeaders(headers);
+      return new Response(withBeacon, { status: response.status, statusText: response.statusText, headers });
+    }
+    applySecurityHeaders(headers);
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

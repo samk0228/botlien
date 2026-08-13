@@ -7,6 +7,13 @@
     { "pattern": "botlien.com", "custom_domain": true },
     { "pattern": "www.botlien.com", "custom_domain": true }
   ],
+  "d1_databases": [
+    {
+      "binding": "ANALYTICS_DB",
+      "database_name": "botlien-analytics",
+      "database_id": "10754e09-b218-499a-a39b-603340657307"
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
