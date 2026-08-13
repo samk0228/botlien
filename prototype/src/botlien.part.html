@@ -248,9 +248,40 @@ function covForPeriod(p, scope){
   return p.siteCov.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
 }
 function utilForPeriod(p, scope){
+  // The open period is computed from the robots as they are configured
+  // right now, so cutting a robot's declared operating hours in half on
+  // Numbers moves this chart immediately. Closed periods keep the figure
+  // they were computed with, the same rule rates already follow: a
+  // statement already sent to an accountant does not change after the fact.
+  if (p.status === 'open'){
+    const live = liveUtilization(scope);
+    if (live !== null) return live;
+  }
   if (scope !== 'all') return p.siteUtil[scope];
   const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
   return p.siteUtil.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
+}
+
+/** Duty hours actually recorded against declared capacity, for the robots
+ * in scope. Capacity is operating hours a day (the editable per-robot field
+ * on Numbers) times the days in the period, which is what makes this move
+ * when that field does.
+ *
+ * Over 100% is returned as-is rather than clamped: it means the declared
+ * hours are wrong, which the owner should see, not a number to tidy up. */
+function liveUtilization(scope){
+  const days = daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end);
+  let duty = 0, capacity = 0;
+  ROBOTS.forEach((r,i) => {
+    if (S.excluded[i]) return;
+    if (scope !== 'all' && r.site !== Number(scope)) return;
+    const d = parseFloat(r.hours);
+    const perDay = S.robotHours[i] ?? parseFloat((SETUP[i] || {}).hours || '0');
+    if (!(perDay > 0)) return;
+    if (Number.isFinite(d)) duty += d;
+    capacity += perDay * days;
+  });
+  return capacity > 0 ? (duty / capacity) * 100 : null;
 }
 
 // Real calendar boundaries for the 6 fixed periods, parsed once here rather
@@ -751,10 +782,20 @@ function computeStatement(full, scope){
 // assumed tax rate; net cost is equipment cost minus that shield.
 function computeTaxShield(){
   const siteFilter = scopeFilter();
-  const rows = siteFilter === null ? CONFIRM : CONFIRM.filter(c => c.site === siteFilter);
+  // Excluded robots are dropped here too. They were not before, so a fleet
+  // with one robot excluded showed a statement built on 12 robots and a tax
+  // shield built on 13, on the same screen. Whatever "exclude" means, it
+  // cannot mean excluded from the money and included in the tax position.
+  // The work a robot does can also be reassigned (see S.confirmWork), and
+  // equipment cost is keyed off that, so this reads the live value rather
+  // than the imported one.
+  const rows = CONFIRM
+    .map((c,i) => ({ c, i, work: S.confirmWork[i] ?? c.work }))
+    .filter(({c,i}) => !S.excluded[i] && (siteFilter === null || c.site === siteFilter));
   const byCategory = {};
   let totalCostCents = 0;
-  rows.forEach(c => {
+  rows.forEach(({work}) => {
+    const c = { work };
     const costCents = EQUIP_COST[c.work] || 0;
     totalCostCents += costCents;
     const cat = byCategory[c.work] || (byCategory[c.work] = { work:c.work, count:0, costCents:0 });
@@ -888,6 +929,12 @@ const S = {
   nextEmployeeId: 3,
   // Which rate rows have their roster expanded.
   rateOpen: {},
+  // Which robot's "what it does" menu is open, and the last category a
+  // delete was refused for (because robots still do that work).
+  workMenu: null, workDeleteBlocked: '',
+  // Categories removed from the picker. Ours are only hidden, never gone,
+  // and anything a robot still does is shown regardless (see workOptions).
+  hiddenWork: [],
   timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -2231,11 +2278,12 @@ function viewRobots(){
 function workOptions(){
   const known = new Set(WORK_CATEGORIES);
   Object.keys(S.customWork).forEach(w => known.add(w));
-  CONFIRM.forEach((c,i) => { const w = S.confirmWork[i] ?? c.work; if (w) known.add(w); });
-  return [...known];
+  // Whatever robots actually do stays on the list even if it was removed,
+  // so a category can never be in use and unpickable at the same time.
+  const inUse = new Set(CONFIRM.map((c,i) => S.confirmWork[i] ?? c.work));
+  inUse.forEach(w => { if (w) known.add(w); });
+  return [...known].filter(w => inUse.has(w) || !S.hiddenWork.includes(w));
 }
-
-const WORK_CUSTOM_SENTINEL = '__type_my_own__';
 
 /** "What it does": a real dropdown, plus a way out of it.
  *
@@ -2249,10 +2297,33 @@ const WORK_CUSTOM_SENTINEL = '__type_my_own__';
  * to already know you could do. */
 function workInput(id, i, value){
   const typing = !!S.workEntry[i];
-  return '<select id="'+id+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
-      + workOptions().map(w => '<option value="'+esc(w)+'"'+(!typing && w === value ? ' selected' : '')+'>'+esc(w)+'</option>').join('')
-      + '<option value="'+WORK_CUSTOM_SENTINEL+'"'+(typing ? ' selected' : '')+'>+ Type my own…</option>'
-    + '</select>'
+  const open = S.workMenu === i;
+  // A custom menu rather than a <select>, because a native option cannot
+  // hold a control and a mistyped category otherwise sticks around in every
+  // dropdown forever. Same pattern the site filter already uses.
+  const row = (w) => '<div data-act="pickWork" data-i="'+i+'" data-work="'+esc(w)+'" class="hv-ghost" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:13px;font-weight:'+(w===value?700:500)+';color:var(--fg1)">'
+      + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(w)+'</span>'
+      // Every row, ours included: a warehouse has no use for "Laundry
+      // handling" cluttering the list it picks from every time. Removing
+      // one of ours only hides it (see S.hiddenWork), so it can come back;
+      // removing an owner's own name deletes it. Either way it is refused
+      // while a robot still does that work, or those robots would point at
+      // a category that no longer exists.
+      + '<span data-act="deleteWork" data-work="'+esc(w)+'" title="Remove &quot;'+esc(w)+'&quot; from this list" role="button" aria-label="Remove '+esc(w)+'" class="hv-ghost" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;color:var(--fg3)">'
+        + ic('trash-2',13) + '</span>'
+    + '</div>';
+
+  return '<div style="position:relative">'
+    + '<div id="'+id+'" data-act="toggleWorkMenu" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:8px;padding:10px 2px;border-bottom:1px solid var(--hair2);cursor:pointer;font-size:13.5px;color:var(--fg1)">'
+      + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(value)+'</span>'
+      + ic('chevron-down',14,'color:var(--fg3);flex:none')
+    + '</div>'
+    + (!open ? '' :
+        '<div data-work-menu style="position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:220px;max-height:280px;overflow-y:auto;background:var(--menu);border:1px solid var(--hair2);border-radius:5px;z-index:60;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
+        + workOptions().map(row).join('')
+        + '<div data-act="startWorkEntry" data-i="'+i+'" class="hv-ghost" style="padding:9px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">+ Type my own…</div>'
+      + '</div>')
+  + '</div>'
     + (!typing ? '' :
         '<input id="workNew-'+i+'" data-work-new="'+i+'" type="text" autocomplete="off" value="" placeholder="Name the work, then press Enter"'
         + ' style="width:100%;margin-top:8px;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--fg1);outline:none;font-family:inherit">');
@@ -2394,7 +2465,10 @@ function viewSetup(){
       panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
         + '<div><label for="confirmWork-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</label>'
           + workInput('confirmWork-'+i, i, s.work)
-          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">'+(isCustomWork(s.work) ? 'Your own category. Set what a unit of it is called, and its rate, below.' : 'Type your own if none of these fit.')+'</div></div>'
+          + (S.workDeleteBlocked
+              ? '<div style="font-size:11px;color:var(--fg1);font-weight:600;margin-top:6px;line-height:1.5">&ldquo;'+esc(S.workDeleteBlocked)+'&rdquo; is still what some robots do. Move them to something else first, then delete it.</div>'
+              : '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">'+(isCustomWork(s.work) ? 'Your own category. Set what a unit of it is called, and its rate, below.' : 'Type your own if none of these fit.')+'</div>')
+          + '</div>'
         + '<div><label for="setupInvoice-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</label>'
           + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
@@ -3356,6 +3430,47 @@ const ACTIONS = {
   },
   calClear: () => set({ dashRange: null }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
+  toggleWorkMenu: (el) => {
+    const i = Number(el.dataset.i);
+    // Opening the menu is what proves a human looked at this robot's kind
+    // of work, which is the confirm screen's one required action. It used
+    // to be a focusin on the <select>; a div never fires that.
+    const seen = S.confirmSeen[i] ? S.confirmSeen : Object.assign({}, S.confirmSeen, { [i]: true });
+    set({ workMenu: S.workMenu === i ? null : i, confirmSeen: seen });
+  },
+  pickWork: (el) => {
+    const i = Number(el.dataset.i);
+    S.confirmWork[i] = el.dataset.work;
+    S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
+    set({ workMenu: null });
+  },
+  startWorkEntry: (el) => {
+    const i = Number(el.dataset.i);
+    S.workEntry = Object.assign({}, S.workEntry, { [i]: true });
+    set({ workMenu: null });
+  },
+  deleteWork: (el) => {
+    const work = el.dataset.work;
+    // Refused while anything still does this work, rather than silently
+    // leaving those robots pointing at a category that no longer exists.
+    // The owner moves them first, which is a decision only they can make.
+    const inUse = CONFIRM.map((c,i) => S.confirmWork[i] ?? c.work).filter(w => w === work).length;
+    if (inUse > 0){
+      set({ workDeleteBlocked: work, workMenu: null });
+      return;
+    }
+    const custom = Object.assign({}, S.customWork); delete custom[work];
+    const wage = Object.assign({}, S.workWage); delete wage[work];
+    const through = Object.assign({}, S.workThroughput); delete through[work];
+    S.employees = S.employees.filter(e => e.work !== work);
+    // One of ours is hidden rather than destroyed, since BENCH is the
+    // published table and an owner who removes "Laundry handling" today may
+    // want it back. One of theirs is gone with the delete of customWork
+    // above; hiding it too keeps workOptions from resurrecting it from a
+    // robot that still references it in CONFIRM.
+    const hidden = S.hiddenWork.includes(work) ? S.hiddenWork : S.hiddenWork.concat([work]);
+    set({ customWork: custom, workWage: wage, workThroughput: through, hiddenWork: hidden, workMenu: null, workDeleteBlocked: '' });
+  },
   toggleRoster: (el) => {
     const w = el.dataset.work;
     set({ rateOpen: Object.assign({}, S.rateOpen, { [w]: !S.rateOpen[w] }) });
@@ -3423,8 +3538,8 @@ document.addEventListener('click', (e) => {
     // through to here too. Without this guard that would read as "clicked
     // outside" and close the calendar mid-selection.
     const insideCal = e.target.closest && e.target.closest('[data-cal-root]');
-    if (!insideCal && S.stage === 'app' && (S.profileOpen || S.periodMenu || S.dashScopeMenu)) {
-      set({ profileOpen:false, periodMenu:false, dashScopeMenu:false });
+    if (!insideCal && S.stage === 'app' && (S.profileOpen || S.periodMenu || S.dashScopeMenu || S.workMenu !== null)) {
+      set({ profileOpen:false, periodMenu:false, dashScopeMenu:false, workMenu:null });
     }
     return;
   }
@@ -3555,16 +3670,6 @@ document.addEventListener('input', (e) => {
   }
 });
 
-// A robot's "kind of work" counts as reviewed the moment its select opens,
-// value changed or not, that is what proves a human looked, not that they
-// happened to agree. focusin (bubbles), not focus (does not), is what lets
-// one listener catch every row instead of one per select.
-document.addEventListener('focusin', (e) => {
-  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
-  const i = Number(e.target.id.slice(12));
-  if (!S.confirmSeen[i]) set({ confirmSeen: Object.assign({}, S.confirmSeen, { [i]: true }) });
-});
-
 document.addEventListener('change', (e) => {
   if (e.target && e.target.id === 'avatarFileInput'){
     const file = e.target.files && e.target.files[0];
@@ -3602,21 +3707,6 @@ document.addEventListener('change', (e) => {
     commitWorkName(Number(newIdx), e.target.value);
     return;
   }
-  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
-  const i = Number(e.target.id.slice(12));
-  const picked = e.target.value;
-  if (picked === WORK_CUSTOM_SENTINEL){
-    // Open the text field and leave the category alone until something is
-    // actually typed, so cancelling out does not blank the robot's work.
-    S.workEntry = Object.assign({}, S.workEntry, { [i]: true });
-    set({});
-    return;
-  }
-  S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
-  S.confirmWork[i] = picked || CONFIRM[i].work;
-  // A category change can add or remove a whole row from the rates table,
-  // so this re-renders rather than patching in place.
-  set({});
 });
 
 /** Commit a name typed into "+ Type my own…". Blank closes the field and
