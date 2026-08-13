@@ -129,7 +129,9 @@ test("the front door is public and does not require a session", async () => {
 test("owner routes redirect to sign-in when there is no session", async () => {
   const app = await boot();
   try {
-    for (const path of ["/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/api/owner"]) {
+    // /ops and /api/state are in this list on purpose: they read the operator's
+    // own connector-fed fleet, so an anonymous request must not reach them.
+    for (const path of ["/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/api/owner", "/ops", "/api/state"]) {
       const res = await app.get(path);
       assert.equal(res.status, 303, `${path} is gated`);
       assert.equal(res.headers.get("location"), "/signin");
@@ -190,7 +192,17 @@ test("signing out ends access immediately", async () => {
     const cookie = await app.signIn("sam@harborgrill.com");
     assert.notEqual((await app.get("/owner", cookie)).headers.get("location"), "/signin");
 
-    const out = await app.get("/signout", cookie);
+    // POST, not GET: sign-out is POST-only so a crafted GET link cannot log an
+    // owner out (logout-CSRF). A GET falls through to 404 and leaves them in.
+    const getOut = await app.get("/signout", cookie);
+    assert.equal(getOut.status, 404, "GET /signout does not sign anyone out");
+    assert.notEqual(
+      (await app.get("/owner", cookie)).headers.get("location"),
+      "/signin",
+      "still signed in after a GET to /signout",
+    );
+
+    const out = await app.post("/signout", new URLSearchParams(), cookie);
     assert.equal(out.status, 303);
     assert.equal(out.headers.get("location"), "/signin?signedout=1");
 
@@ -236,9 +248,15 @@ test("the ops board moves off the front door and the funnel records the journey"
   const app = await boot();
   try {
     await app.get("/");
-    assert.equal((await app.get("/ops")).status, 200, "ops board lives at /ops");
+    // Anonymous access to the ops board is refused; a signed-in request reaches
+    // it. The front door itself stays public.
+    const anon = await app.get("/ops");
+    assert.equal(anon.status, 303, "ops board is not public");
+    assert.equal(anon.headers.get("location"), "/signin");
 
     const cookie = await app.signIn("sam@harborgrill.com");
+    assert.equal((await app.get("/ops", cookie)).status, 200, "a signed-in request reaches /ops");
+    assert.equal((await app.get("/api/state", cookie)).status, 200, "and /api/state");
     await app.post("/owner/business", new URLSearchParams({ business: "restaurant" }), cookie);
     await fetch(`${app.base}/owner/import?name=usage.csv`, {
       method: "POST",

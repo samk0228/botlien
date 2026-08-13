@@ -131,7 +131,11 @@ export async function handlePublicRoute(req, res, path, ctx) {
   }
 
   // ---- signing out ----
-  if (path === "/signout" && (req.method === "POST" || req.method === "GET")) {
+  // POST only. A GET sign-out is a logout-CSRF: a top-level navigation to
+  // /signout carries the SameSite=Lax cookie, so a crafted link would sign an
+  // owner out. The rail's sign-out control already POSTs, so nothing legitimate
+  // reaches this on a GET.
+  if (path === "/signout" && req.method === "POST") {
     signOut(control, req.headers.cookie);
     redirect(res, "/signin?signedout=1", {
       "Set-Cookie": clearCookie({ secure: secureCookies }),
@@ -142,8 +146,18 @@ export async function handlePublicRoute(req, res, path, ctx) {
   return false;
 }
 
-/** Paths that require a session. Everything owner-facing; the ops board is
- * gated separately because it is ours, not a customer's. */
+/** Paths that require a session. Everything owner-facing, plus the ops board
+ * and its JSON: those read the operator's own connector-fed fleet, and while
+ * that store is empty until vendor credentials exist, a "ours, not a
+ * customer's" view has no business answering an anonymous request. Gating it
+ * here means the moment a connector lands, robot keys, positions and flags are
+ * already behind a login rather than one deploy away from being exposed. */
 export function requiresSession(path) {
-  return path === "/owner" || path.startsWith("/owner/") || path === "/api/owner";
+  return (
+    path === "/owner" ||
+    path.startsWith("/owner/") ||
+    path === "/api/owner" ||
+    path === "/ops" ||
+    path === "/api/state"
+  );
 }
