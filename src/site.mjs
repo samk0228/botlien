@@ -41,10 +41,6 @@ input[type=email]::placeholder,input[type=password]::placeholder{color:var(--fg3
   background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:600;
   font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
 .btn:hover{background:#2A2A2A}
-.alt{width:100%;margin-top:10px;padding:11px 20px;border-radius:6px;border:1px solid var(--hair2);
-  background:#fff;color:var(--fg1);cursor:pointer;font-size:14px;font-weight:500;
-  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
-.alt:hover{background:var(--ghost)}
 .ghost{display:inline-block;padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);
   background:transparent;color:var(--fg1);cursor:pointer;font-size:13.5px;font-weight:600;
   font-family:inherit;text-decoration:none}
@@ -165,13 +161,6 @@ export function renderSignInHTML({ variant = "signin", email = "", error = null 
     </div>
     ${errLine}
     <button class="btn" type="submit">Sign in</button>
-    <!-- Also the "forgot my password" path, which is why there is no separate
-         reset link: submitting with the password cleared is what gate.mjs
-         reads as "email me a link instead", and a link signs you in without
-         one. formnovalidate so the browser does not demand the field this is
-         deliberately skipping. -->
-    <button class="alt" type="submit" formnovalidate
-      onclick="document.getElementById('password').value=''">Email me a sign-in link instead</button>
   </form>
   ${failNote}
   <p class="fine">By signing in you agree we may store the usage data you upload in order to
