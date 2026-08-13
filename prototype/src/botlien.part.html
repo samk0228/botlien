@@ -206,7 +206,9 @@ function sensBase(){
   const bench = BENCH[dom.work];
   return {
     work: dom.work, unit: bench.unit, unitPlural: bench.unitPlural,
-    wageCentsHour: bench.wageCentsHour, benchUnitsPerHour: bench.humanUnitsPerHour,
+    // The owner's own numbers, so the "what if a person did more per hour"
+    // slider starts from what they told us a person does, not our default.
+    wageCentsHour: Math.round(wageFor(dom.work) * 100), benchUnitsPerHour: throughputFor(dom.work),
     domUnits: domRows.reduce((a,r) => a+r.units, 0),
     domCount: domRows.length,
     fixedWork: Math.round((s.totalValue - dom.value) * 100) / 100,
@@ -409,10 +411,11 @@ const ROBOTS = [
   { name:'Scrubber (Airport)', model:'Gausium · priced by the hour', site:2, duty:'duty 38%', dutyPct:'38%', hours:'90.0h of 240h' }
 ];
 
-const RATES = [
-  { work:'Order picking', wage:'$24.00 / hr', does:'60 picks / hr', rate:'$0.40 per pick', source:'your wage' },
-  { work:'Floor cleaning', wage:'$25.00 / hr', does:'1 hour / hr', rate:'$25.00 per hour', source:'benchmark' }
-];
+// RATES used to be typed here: two rows of pre-formatted strings that the
+// "Where the rates come from" table rendered verbatim. It looked derived and
+// was not, so an owner could change a wage and watch that table not move.
+// The table reads wageFor/throughputFor/rateCentsFor live now, per work
+// category actually in the fleet, and both inputs are editable there.
 
 // Work, invoice, rate, and wage used to be typed here as static strings,
 // duplicate copies of numbers computeStatement() already knows from
@@ -517,6 +520,42 @@ const BENCH = {
   'Laundry handling':       { wageCentsHour:1900, humanUnitsPerHour:1,  invoiceCentsMonth:90000, unit:'active hour', unitPlural:'active hours', basis:'active_hour' },
 };
 
+// Both halves of the rate are the owner's to set, and neither has a right
+// answer we could know. A loaded wage depends on the state they operate in
+// (minimum wage alone varies by more than 2x across the US) and on what they
+// actually load onto it; how many picks a person gets through in an hour
+// depends on their aisles, their pick faces, their shift. BENCH above is a
+// starting point so a first statement is not blank, never an answer.
+//
+// Resolution order is the same for both: the owner's value if they set one,
+// the published benchmark otherwise, and the UI marks which of the two it
+// used everywhere the figure appears.
+function wageFor(work, robotIndex) {
+  if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return S.robotWage[robotIndex];
+  if (S.workWage[work] !== undefined) return S.workWage[work];
+  return (BENCH[work] ?? BENCH['Order picking']).wageCentsHour / 100;
+}
+function wageIsOwnSet(work, robotIndex) {
+  if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return true;
+  return S.workWage[work] !== undefined;
+}
+/** Units a PERSON gets through in an hour, the denominator of the rate. */
+function throughputFor(work) {
+  if (S.workThroughput[work] !== undefined) return S.workThroughput[work];
+  return (BENCH[work] ?? BENCH['Order picking']).humanUnitsPerHour;
+}
+function throughputIsOwnSet(work) {
+  return S.workThroughput[work] !== undefined;
+}
+/** Rounded to the cent BEFORE it multiplies anything, so the rate an owner
+ * checks on a napkin is the rate that gets used. Guarded against a zero or
+ * blank throughput while someone is mid-keystroke, which would divide by 0. */
+function rateCentsFor(work, robotIndex) {
+  const per = throughputFor(work);
+  if (!(per > 0)) return null;
+  return Math.round((wageFor(work, robotIndex) * 100) / per);
+}
+
 // Purchase-equivalent cost per work category, roughly what a mission-basis
 // service robot or an active-hour scrubber actually costs to buy, not what
 // it leases for. Separate from BENCH's wageCentsHour/invoiceCentsMonth on
@@ -598,13 +637,21 @@ function computeStatement(full, scope){
     // exists, the category benchmark otherwise, this is what makes an edit
     // on Setup actually move the number here instead of just saving text
     // nobody reads back.
-    const wage = S.robotWage[i] ?? (b.wageCentsHour / 100);
-    const benchmarkWage = S.robotWage[i] === undefined;
-    // Rounded to the cent BEFORE multiplying by units, matching the real
-    // backend's derivedRateCents: the rate is what an owner checks on a
-    // napkin ("$22.00 ÷ 30 = $0.73"), so it has to be the same $0.73 that
-    // gets multiplied, not an unrounded 73.33 that quietly drifts the total.
-    const rateCents = Math.round((wage * 100) / b.humanUnitsPerHour);
+    const wage = wageFor(work, i);
+    const benchmarkWage = !wageIsOwnSet(work, i);
+    // Both halves are the owner's inputs now (see wageFor/throughputFor).
+    // A blank or zero throughput mid-edit yields a null rate rather than a
+    // division by zero, and every figure downstream reads as unpriced.
+    const rateCents = rateCentsFor(work, i);
+    if (rateCents === null) {
+      return {
+        i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
+        units: range ? unitsInRange(i, range.start, range.end) : c.units,
+        unit: b.unitPlural, rate: null, value: 0,
+        invoice: Math.round((S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100)) * (rangeDays / periodDays) * 100) / 100,
+        excluded: !!S.excluded[i], wage, benchmarkWage, cov: null,
+      };
+    }
     const units = range ? unitsInRange(i, range.start, range.end) : c.units;
     const value = Math.round(units * rateCents) / 100;
     const invoiceFull = S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100);
@@ -760,7 +807,11 @@ const S = {
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
   robotWage: { 0:24, 1:24, 2:24, 3:24 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
-  timezone: 'America/Los_Angeles', siteHours: '12.0',
+  // Per work category, not per robot: what a person is paid and how much of
+  // that work they get through in an hour. Undefined means "still on our
+  // published benchmark", which is what the benchmark badge reads.
+  workWage: {}, workThroughput: {},
+  timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   // ?demo=1 (see bootScreen) sets this once, at load, and nothing in-app
@@ -1789,9 +1840,13 @@ function costCard(){
   // fleet still gets a real number, just for the work that carries it.
   const top = s.byCategory[0];
   const b = BENCH[top.work];
-  const rate = money(b.wageCentsHour / b.humanUnitsPerHour / 100);
+  // Reads the owner's own wage and throughput (see wageFor/throughputFor),
+  // not the published benchmark, so this headline agrees with the rate the
+  // Numbers page derives rather than quoting our defaults back at them.
+  const rc = rateCentsFor(top.work);
+  const rate = rc === null ? '—' : money(rc / 100);
   const label = 'Cost per '+b.unit;
-  const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = $'+(b.wageCentsHour/100).toFixed(2)+'/hr ÷ '+b.humanUnitsPerHour;
+  const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = '+money(wageFor(top.work))+'/hr ÷ '+throughputFor(top.work);
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig(label, rate, note, '', '')+'</div>';
 }
 
@@ -1990,6 +2045,20 @@ function viewRobots(){
 // answers back, so editing a field doesn't leave you wondering whether it
 // took. Resets to "Save" the moment this row is touched again, see the
 // setupSaved reset in the input/change handlers below.
+/** The division spelled out, one line per work category in use. Same
+ * arithmetic the table above performs, written the way an owner would check
+ * it by hand. */
+function rateDerivationLines(works){
+  return works.map(work => {
+    const b = BENCH[work];
+    const per = throughputFor(work);
+    const rc = rateCentsFor(work);
+    const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
+    if (rc === null) return esc(work)+': set how many '+esc(perLabel)+' a person does in an hour to derive a rate.';
+    return money(wageFor(work))+' / hr &divide; '+per+' '+esc(perLabel)+' per hour = '+money(rc/100)+' per '+esc(b.unit);
+  }).join('<br>');
+}
+
 function setupSaveButton(i){
   const saved = !!S.setupSaved[i];
   return '<button type="button" data-act="saveSetupRow" data-i="'+i+'" id="setupSaveBtn-'+i+'" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(saved?'var(--ghost2)':'var(--ink)')+';color:'+(saved?'var(--fg1)':'var(--ink-fg)')+'">'
@@ -2079,7 +2148,7 @@ function viewSetup(){
           + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
           + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+money(s.rate)+' / '+b.unit+'</div>'
-          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour</div></div>'
+          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour</div></div>'
         + '<div><label for="setupWage-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</label>'
           + '<input id="setupWage-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.wage.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><label for="setupHours-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</label>'
@@ -2103,6 +2172,10 @@ function viewSetup(){
   // S.dashScope, so all three never say a different count for "how many
   // robots" at the same scope.
   const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s';
+  // Only the categories this fleet actually does. The old table listed a
+  // fixed two regardless of scope, so a single site with no scrubbers still
+  // showed a floor-cleaning rate nothing on the page used.
+  const usedWorks = [...new Set(stmt.rows.map(r => r.work))];
 
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
   + '<div style="padding:0;margin-bottom:48px">'
@@ -2115,16 +2188,27 @@ function viewSetup(){
   + '<div style="padding:0;margin-bottom:56px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Where the rates come from</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Change a robot&#39;s Loaded wage above to move its rate.</span></div>'
+      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Both inputs are yours: correct either one and every figure built on it moves.</span></div>'
     + '<div style="overflow-x:auto;min-width:0"><div style="min-width:720px">'
       + '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
-      + RATES.map((v,i) => '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:20px 4px;border-top:1px solid var(--hair);align-items:baseline">'
-        + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+v.work+'</div>'
-        + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+RATE_HISTORY[i===0?0:2].span+'</div></div>'
-        + '<div style="font-size:14px;color:var(--fg2);font-variant-numeric:tabular-nums">'+v.wage+'</div>'
-        + '<div style="font-size:14px;color:var(--fg2);font-variant-numeric:tabular-nums">'+v.does+'</div>'
-        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+v.rate+'</span>'
-        + '<span style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+v.source+'</span></div></div>').join('')
+      + usedWorks.map(work => {
+          const b = BENCH[work];
+          const rc = rateCentsFor(work);
+          const own = wageIsOwnSet(work) || throughputIsOwnSet(work);
+          const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
+          return '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
+          + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+esc(work)+'</div>'
+            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div></div>'
+          + '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">$'
+            + '<input data-rate-wage="'+esc(work)+'" type="number" min="0" step="0.25" inputmode="decimal" value="'+wageFor(work).toFixed(2)+'" aria-label="Loaded wage for '+esc(work)+'" style="width:74px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+            + '<span style="color:var(--fg3);font-size:12.5px">/ hr</span></div>'
+          + '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">'
+            + '<input data-rate-through="'+esc(work)+'" type="number" min="0" step="any" inputmode="decimal" value="'+throughputFor(work)+'" aria-label="Units a person does per hour for '+esc(work)+'" style="width:64px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+            + '<span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span></div>'
+          + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            + '<span data-rate-out="'+esc(work)+'" style="font-size:14.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+(rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit)+'</span>'
+            + '<span data-rate-src="'+esc(work)+'" style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+(own ? 'your numbers' : 'benchmark')+'</span></div></div>';
+        }).join('')
     + '</div></div>'
     + '<div style="margin-top:26px;padding:18px 20px;border:1px solid var(--hair2);border-radius:4px;font-size:13.5px;line-height:1.7;color:var(--fg2)">A rate change applies from the day you make it. The five closed periods keep the rate they were computed with, so a statement you already sent your accountant never changes after the fact.</div>'
     + '<div style="margin-top:20px">'
@@ -2144,8 +2228,14 @@ function viewSetup(){
           + '</div></div>'
         : '')
     + '</div>'
-    + '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until the input above is corrected.</div>'
-    + '<div style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$24.00 / hr ÷ 60 picks per hour = $0.40 per pick<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div>'
+    + (() => {
+        // Named live rather than hardcoded to one category: whichever ones
+        // are still on our published numbers are the ones to call out.
+        const onBench = usedWorks.filter(w => !wageIsOwnSet(w) && !throughputIsOwnSet(w));
+        if (!onBench.length) return '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Every rate above is built from numbers you set. Nothing here is our benchmark any more.</div>';
+        return '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">'+onBench.map(esc).join(' and ')+' still use'+(onBench.length===1?'s':'')+' our published benchmark, not your numbers. Every figure '+(onBench.length===1?'it feeds':'they feed')+' is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until both inputs above are corrected.</div>';
+      })()
+    + '<div data-rate-derivations style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">'+rateDerivationLines(usedWorks)+'</div>'
   + '</div>'
 
   + '<div style="padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
@@ -2442,9 +2532,14 @@ function viewSettings(){
 
   return '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Site</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">These feed the math. Timezone decides which day a run counts toward; operating hours are what utilization is measured against.</p>'
+    // Operating hours per day used to sit here too, as a single site-wide
+    // figure. It was a duplicate of the per-robot hours on Numbers, which is
+    // the one utilization is actually measured against, and this copy fed
+    // nothing: a robot that runs nights and one that runs lunch do not share
+    // a number, so the per-robot field is the honest place for it.
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">Timezone decides which day a run counts toward. Operating hours are set per robot, on Numbers.</p>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">'
-      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone) + field('Operating hours / day','settingsSiteHours',S.siteHours,true)
+      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone)
     + '</div></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
@@ -2618,6 +2713,34 @@ function render(){
   }
 }
 
+/** Patches the "Where the rates come from" row for one work category, and
+ * every Setup row priced by it, after a wage or throughput keystroke. Same
+ * live-patch reason as applySetupRow: re-rendering would drop focus out of
+ * the field being typed into. */
+function applyRateRow(work){
+  if (S.view !== 'setup') return;
+  const b = BENCH[work];
+  const rc = rateCentsFor(work);
+  const out = document.querySelector('[data-rate-out="'+cssEsc(work)+'"]');
+  if (out) out.textContent = rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit;
+  const src = document.querySelector('[data-rate-src="'+cssEsc(work)+'"]');
+  if (src) src.textContent = (wageIsOwnSet(work) || throughputIsOwnSet(work)) ? 'your numbers' : 'benchmark';
+  // The derivation lines and every per-robot row that prices off this
+  // category move with it, or the page would show a new rate above and the
+  // old arithmetic below.
+  const stmt = computeStatement(true, scopeFilter());
+  const derivs = document.querySelector('[data-rate-derivations]');
+  if (derivs) derivs.innerHTML = rateDerivationLines([...new Set(stmt.rows.map(r => r.work))]);
+  stmt.rows.filter(r => r.work === work).forEach(r => applySetupRow(r.i));
+}
+
+/** Escapes a value for use inside a CSS attribute selector. Work categories
+ * are known strings today, but building a selector out of unescaped text is
+ * the kind of thing that breaks the day one contains a quote. */
+function cssEsc(s){
+  return String(s).replace(/["\\]/g, '\\$&');
+}
+
 // Same live-patch reason as applySensitivity below: a full re-render on
 // every keystroke in the rate/interest inputs would blow away focus in the
 // very field being typed into. The trace block gets its whole innerHTML
@@ -2668,7 +2791,7 @@ function applySetupRow(i){
   if (!s) return;
   const b = BENCH[s.work];
   put('setupRate-'+i, money(s.rate)+' / '+b.unit);
-  put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour');
+  put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour');
   const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
   put('setupSummary-'+i, s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day');
   // An edit after Save undoes the reassurance: back to "Save" until they
@@ -3044,7 +3167,6 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'emailChangeCodeInput'){ S.emailChangeCode = e.target.value; return; }
   if (e.target.id === 'businessName'){ S.businessName = e.target.value; return; }
   if (e.target.id === 'settingsTimezone'){ S.timezone = e.target.value; return; }
-  if (e.target.id === 'settingsSiteHours'){ S.siteHours = e.target.value; return; }
   if (e.target.id === 'manualCount'){ S.manualCount = e.target.value; return; }
   if (e.target.id === 'manualCost'){ S.manualCost = e.target.value; return; }
   if (e.target.id === 'manualRevenue'){ S.manualRevenue = e.target.value; return; }
@@ -3092,6 +3214,23 @@ document.addEventListener('input', (e) => {
     const i = Number(e.target.id.slice(11));
     S.robotHours[i] = Number(e.target.value) || 0;
     applySetupRow(i);
+    return;
+  }
+  // The two halves of a category's rate. Blank clears the override back to
+  // the published benchmark rather than storing 0, which would otherwise
+  // read as "this work is worth nothing" / divide by zero.
+  const wageWork = e.target.getAttribute && e.target.getAttribute('data-rate-wage');
+  if (wageWork){
+    const raw = e.target.value.trim();
+    if (raw === '') delete S.workWage[wageWork]; else S.workWage[wageWork] = Number(raw) || 0;
+    applyRateRow(wageWork);
+    return;
+  }
+  const throughWork = e.target.getAttribute && e.target.getAttribute('data-rate-through');
+  if (throughWork){
+    const raw = e.target.value.trim();
+    if (raw === '') delete S.workThroughput[throughWork]; else S.workThroughput[throughWork] = Number(raw) || 0;
+    applyRateRow(throughWork);
     return;
   }
 });
