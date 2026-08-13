@@ -551,23 +551,57 @@ function isCustomWork(work) {
   return !BENCH[work];
 }
 
+/** The people doing one kind of work. Both halves of that work's rate come
+ * from them when any are listed. */
+function employeesFor(work) {
+  return S.employees.filter(e => e.work === work);
+}
+
+/** Hours-weighted mean, so somebody on 40 hours moves the blended figure
+ * more than somebody on 4. A blank or zero hours still counts as one
+ * person's worth rather than vanishing from the average entirely, since a
+ * missing schedule is not a claim that they never work. */
+function weightedMean(list, pick) {
+  let num = 0, den = 0;
+  list.forEach(e => {
+    const v = Number(pick(e));
+    if (!(v > 0)) return;
+    const w = Number(e.hoursWeek) > 0 ? Number(e.hoursWeek) : 1;
+    num += v * w; den += w;
+  });
+  return den > 0 ? num / den : null;
+}
+
 function wageFor(work, robotIndex) {
   if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return S.robotWage[robotIndex];
+  // A roster is a stronger statement than a typed number, so when one
+  // exists it IS the wage, and the field above it goes read-only rather
+  // than letting the page hold two disagreeing answers at once.
+  const fromPeople = weightedMean(employeesFor(work), e => e.wage);
+  if (fromPeople !== null) return Math.round(fromPeople * 100) / 100;
   if (S.workWage[work] !== undefined) return S.workWage[work];
   return workDef(work).wageCentsHour / 100;
 }
 function wageIsOwnSet(work, robotIndex) {
   if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return true;
+  if (weightedMean(employeesFor(work), e => e.wage) !== null) return true;
   return S.workWage[work] !== undefined;
 }
 /** Units a PERSON gets through in an hour, the denominator of the rate. */
 function throughputFor(work) {
+  const fromPeople = weightedMean(employeesFor(work), e => e.unitsPerHour);
+  if (fromPeople !== null) return Math.round(fromPeople * 10) / 10;
   if (S.workThroughput[work] !== undefined) return S.workThroughput[work];
   return workDef(work).humanUnitsPerHour;
 }
 function throughputIsOwnSet(work) {
+  if (weightedMean(employeesFor(work), e => e.unitsPerHour) !== null) return true;
   return S.workThroughput[work] !== undefined;
 }
+/** True when a roster is driving the figure, which is what makes the inputs
+ * above it read-only. */
+function wageFromPeople(work) { return weightedMean(employeesFor(work), e => e.wage) !== null; }
+function throughputFromPeople(work) { return weightedMean(employeesFor(work), e => e.unitsPerHour) !== null; }
 /** Rounded to the cent BEFORE it multiplies anything, so the rate an owner
  * checks on a napkin is the rate that gets used. Guarded against a zero or
  * blank throughput while someone is mid-keystroke, which would divide by 0. */
@@ -843,6 +877,17 @@ const S = {
   // Which slice the cost-per-unit comparison is showing: "work:<category>"
   // or "robot:<index>". Empty falls back to the biggest category.
   costScope: '',
+  // The people whose pay and output define each kind of work's rate.
+  // { id, role, work, wage, unitsPerHour, hoursWeek }. Roles, not names:
+  // the rate needs what the job pays and produces, and putting named staff
+  // in here would make this personal data for no arithmetic gain.
+  employees: [
+    { id:1, role:'Picker, day shift',   work:'Order picking', wage:24, unitsPerHour:62, hoursWeek:40 },
+    { id:2, role:'Picker, night shift', work:'Order picking', wage:26, unitsPerHour:55, hoursWeek:30 },
+  ],
+  nextEmployeeId: 3,
+  // Which rate rows have their roster expanded.
+  rateOpen: {},
   timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -2213,6 +2258,45 @@ function workInput(id, i, value){
         + ' style="width:100%;margin-top:8px;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--fg1);outline:none;font-family:inherit">');
 }
 
+/** The people behind one kind of work's rate, collapsed under its row.
+ *
+ * Roles rather than names on purpose: the arithmetic needs what a job pays
+ * and what it produces, and naming staff would turn a rates table into
+ * personal data without making a single figure more accurate.
+ *
+ * Both halves of the rate come from here when anyone is listed, weighted by
+ * hours, so a 40-hour picker moves the blend more than a 4-hour one. */
+function rosterBlock(work, b, perLabel, people){
+  const open = !!S.rateOpen[work];
+  const head = '<div data-act="toggleRoster" data-work="'+esc(work)+'" class="hv-fade" style="display:flex;align-items:center;gap:9px;padding:8px 4px 14px;cursor:pointer">'
+    + '<span style="font-size:12px;color:var(--fg3);width:10px;text-align:center">'+(open?'–':'+')+'</span>'
+    + '<span style="font-size:12px;font-weight:600;color:var(--fg2)">'
+      + (people.length ? people.length+' role'+(people.length===1?'':'s')+' doing this work' : 'No people added, so this rate is still a benchmark')
+    + '</span></div>';
+  if (!open) return head;
+
+  const cell = (attr, id, value, w, step) =>
+    '<input data-emp-'+attr+'="'+id+'" type="'+(attr==='role'?'text':'number')+'"'+(attr==='role'?'':' min="0" step="'+step+'" inputmode="decimal"')
+    + ' value="'+esc(value)+'" style="width:'+w+';font-size:12.5px;color:var(--fg1);background:transparent;padding:6px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit'+(attr==='role'?'':';font-variant-numeric:tabular-nums')+'">';
+
+  const rows = people.map(e =>
+    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:9px 0;border-top:1px solid var(--hair)">'
+    + cell('role', e.id, e.role, '150px', '')
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">$'+cell('wage', e.id, e.wage, '62px', '0.25')+'<span style="font-size:11px;color:var(--fg3)">/ hr</span></span>'
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">'+cell('units', e.id, e.unitsPerHour, '54px', 'any')+'<span style="font-size:11px;color:var(--fg3)">'+esc(perLabel)+' / hr</span></span>'
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">'+cell('hours', e.id, e.hoursWeek, '46px', '1')+'<span style="font-size:11px;color:var(--fg3)">hrs / wk</span></span>'
+    + '<button type="button" data-act="removeEmployee" data-id="'+e.id+'" title="Remove this role" class="hv-ghost" style="margin-left:auto;padding:5px 9px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg2);cursor:pointer;font-size:11.5px;font-weight:600">Remove</button>'
+  + '</div>').join('');
+
+  return head
+    + '<div style="padding:0 4px 18px">'
+      + (people.length ? '<div style="display:flex;gap:14px;font-size:10.5px;font-weight:700;color:var(--fg3);padding-bottom:2px"><span style="width:150px">Role</span><span>Loaded wage</span><span>Output</span><span>Hours</span></div>' : '')
+      + rows
+      + '<button type="button" data-act="addEmployee" data-work="'+esc(work)+'" class="hv-ghost" style="margin-top:12px;padding:8px 14px;border-radius:4px;border:1px dashed var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12px;font-weight:600">+ Add a role</button>'
+      + '<div style="font-size:11px;color:var(--fg3);margin-top:10px;line-height:1.6">Loaded wage means pay plus taxes and benefits, what the hour actually costs you. Output is what one person gets through in an hour of it. Both are averaged across roles, weighted by hours, to give the rate above.</div>'
+    + '</div>';
+}
+
 /** The division spelled out, one line per work category in use. Same
  * arithmetic the table above performs, written the way an owner would check
  * it by hand. */
@@ -2363,6 +2447,7 @@ function viewSetup(){
           const rc = rateCentsFor(work);
           const own = wageIsOwnSet(work) || throughputIsOwnSet(work);
           const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
+          const people = employeesFor(work);
           return '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
           + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+esc(work)+'</div>'
             + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div>'
@@ -2379,15 +2464,25 @@ function viewSetup(){
                   + '<option value="active_hour"'+(b.basis==='active_hour'?' selected':'')+'>counted per hour</option>'
                 + '</select></div>')
             + '</div>'
-          + '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">$'
-            + '<input data-rate-wage="'+esc(work)+'" type="number" min="0" step="0.25" inputmode="decimal" value="'+wageFor(work).toFixed(2)+'" aria-label="Loaded wage for '+esc(work)+'" style="width:74px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
-            + '<span style="color:var(--fg3);font-size:12.5px">/ hr</span></div>'
-          + '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">'
-            + '<input data-rate-through="'+esc(work)+'" type="number" min="0" step="any" inputmode="decimal" value="'+throughputFor(work)+'" aria-label="Units a person does per hour for '+esc(work)+'" style="width:64px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
-            + '<span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span></div>'
+          // Read-only while a roster defines it: two editable answers to the
+          // same question, disagreeing, is worse than one you have to open
+          // the roster to change.
+          + (wageFromPeople(work)
+            ? '<div style="font-size:14px;color:var(--fg1);font-variant-numeric:tabular-nums"><span data-rate-wage-out="'+esc(work)+'">'+money(wageFor(work))+'</span> <span style="color:var(--fg3);font-size:12.5px">/ hr</span>'
+              + '<div style="font-size:10.5px;color:var(--fg3);margin-top:3px">averaged from '+people.length+' role'+(people.length===1?'':'s')+'</div></div>'
+            : '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">$'
+              + '<input data-rate-wage="'+esc(work)+'" type="number" min="0" step="0.25" inputmode="decimal" value="'+wageFor(work).toFixed(2)+'" aria-label="Loaded wage for '+esc(work)+'" style="width:74px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+              + '<span style="color:var(--fg3);font-size:12.5px">/ hr</span></div>')
+          + (throughputFromPeople(work)
+            ? '<div style="font-size:14px;color:var(--fg1);font-variant-numeric:tabular-nums"><span data-rate-through-out="'+esc(work)+'">'+throughputFor(work)+'</span> <span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span>'
+              + '<div style="font-size:10.5px;color:var(--fg3);margin-top:3px">averaged from '+people.length+' role'+(people.length===1?'':'s')+'</div></div>'
+            : '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">'
+              + '<input data-rate-through="'+esc(work)+'" type="number" min="0" step="any" inputmode="decimal" value="'+throughputFor(work)+'" aria-label="Units a person does per hour for '+esc(work)+'" style="width:64px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+              + '<span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span></div>')
           + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             + '<span data-rate-out="'+esc(work)+'" style="font-size:14.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+(rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit)+'</span>'
-            + '<span data-rate-src="'+esc(work)+'" style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+(own ? 'your numbers' : 'benchmark')+'</span></div></div>';
+            + '<span data-rate-src="'+esc(work)+'" style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+(own ? 'your numbers' : 'benchmark')+'</span></div></div>'
+          + rosterBlock(work, b, perLabel, people);
         }).join('')
     + '</div></div>'
     + '<div style="margin-top:26px;padding:18px 20px;border:1px solid var(--hair2);border-radius:4px;font-size:13.5px;line-height:1.7;color:var(--fg2)">A rate change applies from the day you make it. The five closed periods keep the rate they were computed with, so a statement you already sent your accountant never changes after the fact.</div>'
@@ -2912,6 +3007,13 @@ function applyRateRow(work){
   if (out) out.textContent = rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit;
   const src = document.querySelector('[data-rate-src="'+cssEsc(work)+'"]');
   if (src) src.textContent = (wageIsOwnSet(work) || throughputIsOwnSet(work)) ? 'your numbers' : 'benchmark';
+  // The averaged figures shown in place of the inputs when a roster drives
+  // them, or editing a role would move the rate and leave the average it
+  // supposedly came from unchanged.
+  const wOut = document.querySelector('[data-rate-wage-out="'+cssEsc(work)+'"]');
+  if (wOut) wOut.textContent = money(wageFor(work));
+  const tOut = document.querySelector('[data-rate-through-out="'+cssEsc(work)+'"]');
+  if (tOut) tOut.textContent = throughputFor(work);
   // The derivation lines and every per-robot row that prices off this
   // category move with it, or the page would show a new rate above and the
   // old arithmetic below.
@@ -3254,6 +3356,25 @@ const ACTIONS = {
   },
   calClear: () => set({ dashRange: null }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
+  toggleRoster: (el) => {
+    const w = el.dataset.work;
+    set({ rateOpen: Object.assign({}, S.rateOpen, { [w]: !S.rateOpen[w] }) });
+  },
+  addEmployee: (el) => {
+    const work = el.dataset.work;
+    // Seeded from whatever the rate currently uses, so adding the first
+    // role does not lurch the numbers before anything has been typed.
+    S.employees = S.employees.concat([{
+      id: S.nextEmployeeId, role: '', work,
+      wage: wageFor(work), unitsPerHour: throughputFor(work), hoursWeek: 40,
+    }]);
+    set({ nextEmployeeId: S.nextEmployeeId + 1, rateOpen: Object.assign({}, S.rateOpen, { [work]: true }) });
+  },
+  removeEmployee: (el) => {
+    const id = Number(el.dataset.id);
+    S.employees = S.employees.filter(e => e.id !== id);
+    set({});
+  },
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
   saveSetupRow: (el) => { const i = Number(el.dataset.i); set({ setupSaved: Object.assign({}, S.setupSaved, { [i]: true }) }); },
@@ -3420,6 +3541,18 @@ document.addEventListener('input', (e) => {
     applyRateRow(throughWork);
     return;
   }
+  // One employee's fields. Patch in place rather than re-render, or the
+  // field being typed into is replaced mid-keystroke.
+  for (const [attr, key] of [['role','role'],['wage','wage'],['units','unitsPerHour'],['hours','hoursWeek']]){
+    const id = e.target.getAttribute && e.target.getAttribute('data-emp-'+attr);
+    if (id){
+      const emp = S.employees.find(x => x.id === Number(id));
+      if (!emp) return;
+      emp[key] = attr === 'role' ? e.target.value : (e.target.value.trim() === '' ? 0 : Number(e.target.value) || 0);
+      applyRateRow(emp.work);
+      return;
+    }
+  }
 });
 
 // A robot's "kind of work" counts as reviewed the moment its select opens,
@@ -3498,7 +3631,10 @@ function commitWorkName(i, raw){
     // price it, so the rates table has a row to render immediately.
     if (isCustomWork(name) && !S.customWork[name]) setCustomWork(name, {});
   }
-  set({});
+  // Deferred by a tick because this also fires on blur, and re-rendering
+  // synchronously inside a blur handler rips out the node the browser is
+  // still dispatching against ("node to be removed is no longer a child").
+  setTimeout(() => set({}), 0);
 }
 
 /** Merge into one owner-named category's shape. */
