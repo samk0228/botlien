@@ -840,6 +840,9 @@ const S = {
   // Which rows have "+ Type my own…" open, so the text field survives the
   // re-render that opening it causes. Keyed by robot index, transient.
   workEntry: {},
+  // Which slice the cost-per-unit comparison is showing: "work:<category>"
+  // or "robot:<index>". Empty falls back to the biggest category.
+  costScope: '',
   timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -1861,22 +1864,125 @@ function sensitivityTrace(base, c, t){
     + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>';
 }
 
+/** Which robots the cost comparison is about. S.costScope is either
+ * "work:<category>" or "robot:<index>"; anything stale (a category that no
+ * longer exists, a robot outside the current site scope) falls back to the
+ * biggest category rather than rendering an empty card. */
+function costScope(s){
+  const fallback = () => {
+    const top = s.byCategory[0];
+    return { key: 'work:'+top.work, work: top.work, label: esc(top.work)+' · all '+s.included.filter(r => r.work === top.work).length+' robots',
+             rows: s.included.filter(r => r.work === top.work) };
+  };
+  const raw = String(S.costScope || '');
+  if (raw.startsWith('robot:')){
+    const i = Number(raw.slice(6));
+    const row = s.included.find(r => r.i === i);
+    if (!row) return fallback();
+    return { key: raw, work: row.work, label: esc(row.name)+' · one robot, against a person doing '+esc(row.work.toLowerCase()), rows: [row] };
+  }
+  if (raw.startsWith('work:')){
+    const w = raw.slice(5);
+    const rows = s.included.filter(r => r.work === w);
+    if (!rows.length) return fallback();
+    return { key: raw, work: w, label: esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s'), rows };
+  }
+  return fallback();
+}
+
+/** Kind of work, or one robot. Grouped so the two ways of slicing it read
+ * as different questions rather than one flat list. */
+function costScopePicker(s, scope){
+  const works = [...new Set(s.included.map(r => r.work))];
+  return '<select data-cost-scope style="width:100%;font-size:12.5px;color:var(--fg1);background:transparent;padding:7px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+    + '<optgroup label="By kind of work">'
+      + works.map(w => '<option value="work:'+esc(w)+'"'+(scope.key === 'work:'+w ? ' selected' : '')+'>'+esc(w)+'</option>').join('')
+    + '</optgroup>'
+    + '<optgroup label="By robot">'
+      + s.included.map(r => '<option value="robot:'+r.i+'"'+(scope.key === 'robot:'+r.i ? ' selected' : '')+'>'+esc(r.name)+'</option>').join('')
+    + '</optgroup>'
+  + '</select>';
+}
+
 function costCard(){
   const s = computeStatement();
   if (s.byCategory.length === 0) return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig('Cost per task','—',noRobotNote(),'','')+'</div>';
   // The dashboard's biggest category by value, since "cost per task" only
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
-  const top = s.byCategory[0];
-  const b = workDef(top.work);
+  // What is being compared: a whole kind of work, or one robot against the
+  // person who would do that same work. Per-robot matters because a fleet
+  // average hides the one unit that is not paying for itself, which is the
+  // finding an owner actually needs.
+  const scope = costScope(s);
+  const rows = scope.rows;
+  const top = { work: scope.work, count: rows.length };
+  const b = workDef(scope.work);
   // Reads the owner's own wage and throughput (see wageFor/throughputFor),
-  // not the published benchmark, so this headline agrees with the rate the
-  // Numbers page derives rather than quoting our defaults back at them.
-  const rc = rateCentsFor(top.work);
-  const rate = rc === null ? '—' : money(rc / 100);
-  const label = 'Cost per '+b.unit;
-  const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = '+money(wageFor(top.work))+'/hr ÷ '+throughputFor(top.work);
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig(label, rate, note, '', '')+'</div>';
+  // not the published benchmark, so this agrees with the rate the Numbers
+  // page derives rather than quoting our defaults back at them.
+  const rc = rateCentsFor(scope.work);
+  const human = rc === null ? null : rc / 100;
+
+  // What the robots in scope actually cost per unit: what was invoiced for
+  // the period over what they produced in it. Deliberately the lease
+  // invoice and not the purchase price, so both sides are "cost this period
+  // over output this period" and neither needs an assumed useful life on
+  // top of everything else.
+  const invoiceSum = Math.round(rows.reduce((a,r) => a + r.invoice, 0) * 100) / 100;
+  const unitSum = Math.round(rows.reduce((a,r) => a + r.units, 0) * 10) / 10;
+  // No output means the cost per unit has no answer, not an infinite one,
+  // same rule the rest of the statement follows for a missing denominator.
+  const robot = unitSum > 0 ? invoiceSum / unitSum : null;
+
+  const line = (who, val, deriv) =>
+    '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:3px">'
+      + '<span style="font-size:12.5px;color:var(--fg2)">'+who+'</span>'
+      + '<span style="font-size:17px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>'
+    + '<div style="font-size:11px;color:var(--fg3);line-height:1.5;margin-bottom:14px">'+deriv+'</div>';
+
+  // "Your robots" is wrong when the scope is one robot, and the ratio is
+  // that robot's coverage, not the whole category's.
+  const one = rows.length === 1;
+  const subject = one ? 'This robot' : 'Your robots';
+
+  let verdict = '';
+  if (human !== null && robot !== null && robot > 0){
+    const ratio = human / robot;
+    const cheaper = ratio >= 1;
+    // Stated either way round. A robot costing more per unit than a person
+    // is the finding this product exists to surface, so it is not something
+    // to bury by only rendering the flattering case.
+    verdict = '<div style="border-top:1px solid var(--hair);padding-top:12px">'
+      + '<div style="font-size:12.5px;color:var(--fg1);font-weight:600;margin-bottom:6px">'
+        + (cheaper
+            ? subject+' do'+(one?'es':'')+' it for '+money(Math.round((human - robot) * 100) / 100)+' less per '+esc(b.unit)
+            : subject+' cost'+(one?'s':'')+' '+money(Math.round((robot - human) * 100) / 100)+' more per '+esc(b.unit))
+      + '</div>'
+      + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg2);line-height:1.7">'
+        + money(human)+' &divide; '+money(robot)+' = <b style="color:var(--fg1);font-weight:700">'+ratio.toFixed(2)+'x</b><br>'
+        // Named as this category's coverage, not "your coverage". The
+        // headline figure is the whole fleet, and on a mixed fleet the two
+        // legitimately differ; letting this imply otherwise would have the
+        // page appear to contradict itself.
+        + '<span style="color:var(--fg3)">That is '+(one ? 'this robot&#39;s' : 'your')+' coverage'+(one ? '' : ' on '+esc(scope.work.toLowerCase()))+': what the work was worth against what you paid for it.'
+        + (s.byCategory.length > 1 || one ? ' The headline figure covers the whole fleet, so it reads differently.' : '')
+        + '</span></div>'
+    + '</div>';
+  }
+
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:10px">Cost per '+esc(b.unit)+'</div>'
+    + costScopePicker(s, scope)
+    + '<div style="font-size:12px;color:var(--fg3);margin:8px 0 16px">'+esc(scope.label)+'</div>'
+    + line('A person', human === null ? '—' : money(human),
+        human === null ? 'Set how many '+esc(b.unitPlural)+' a person does in an hour, on Numbers.'
+          : money(wageFor(top.work))+' / hr &divide; '+throughputFor(top.work)+' '+esc(b.unitPlural)+' per hour')
+    + line('Your robots', robot === null ? '—' : money(robot),
+        robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
+          : money(invoiceSum)+' invoiced &divide; '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
+    + verdict
+  + '</div>';
 }
 
 // The percentile, median, and cohort size are inherently about OTHER
@@ -3351,6 +3457,10 @@ document.addEventListener('change', (e) => {
   if (basisWork){
     setCustomWork(basisWork, { basis: e.target.value });
     set({});
+    return;
+  }
+  if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-cost-scope')){
+    set({ costScope: e.target.value });
     return;
   }
   // The name typed into "+ Type my own…".
