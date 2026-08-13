@@ -603,8 +603,7 @@ function weightedMean(list, pick) {
   return den > 0 ? num / den : null;
 }
 
-function wageFor(work, robotIndex) {
-  if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return S.robotWage[robotIndex];
+function wageFor(work) {
   // A roster is a stronger statement than a typed number, so when one
   // exists it IS the wage, and the field above it goes read-only rather
   // than letting the page hold two disagreeing answers at once.
@@ -613,8 +612,7 @@ function wageFor(work, robotIndex) {
   if (S.workWage[work] !== undefined) return S.workWage[work];
   return workDef(work).wageCentsHour / 100;
 }
-function wageIsOwnSet(work, robotIndex) {
-  if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return true;
+function wageIsOwnSet(work) {
   if (weightedMean(employeesFor(work), e => e.wage) !== null) return true;
   return S.workWage[work] !== undefined;
 }
@@ -636,10 +634,10 @@ function throughputFromPeople(work) { return weightedMean(employeesFor(work), e 
 /** Rounded to the cent BEFORE it multiplies anything, so the rate an owner
  * checks on a napkin is the rate that gets used. Guarded against a zero or
  * blank throughput while someone is mid-keystroke, which would divide by 0. */
-function rateCentsFor(work, robotIndex) {
+function rateCentsFor(work) {
   const per = throughputFor(work);
   if (!(per > 0)) return null;
-  return Math.round((wageFor(work, robotIndex) * 100) / per);
+  return Math.round((wageFor(work) * 100) / per);
 }
 
 // Purchase-equivalent cost per work category, roughly what a mission-basis
@@ -723,12 +721,12 @@ function computeStatement(full, scope){
     // exists, the category benchmark otherwise, this is what makes an edit
     // on Setup actually move the number here instead of just saving text
     // nobody reads back.
-    const wage = wageFor(work, i);
-    const benchmarkWage = !wageIsOwnSet(work, i);
+    const wage = wageFor(work);
+    const benchmarkWage = !wageIsOwnSet(work);
     // Both halves are the owner's inputs now (see wageFor/throughputFor).
     // A blank or zero throughput mid-edit yields a null rate rather than a
     // division by zero, and every figure downstream reads as unpriced.
-    const rateCents = rateCentsFor(work, i);
+    const rateCents = rateCentsFor(work);
     if (rateCents === null) {
       return {
         i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
@@ -902,7 +900,7 @@ const S = {
   // benchmark," present means "this robot's own number," read by
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
-  robotWage: { 0:24, 1:24, 2:24, 3:24 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
+  robotInvoice: {}, robotHours: {}, setupSaved: {},
   // Per work category, not per robot: what a person is paid and how much of
   // that work they get through in an hour. Undefined means "still on our
   // published benchmark", which is what the benchmark badge reads.
@@ -1682,26 +1680,27 @@ function coverageKpiCard(){
   const tag = s.mode === 'estimate'
     ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
     : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">open period, still moving</span>';
+  // Says what it is in the first line rather than behind a disclosure.
+  // "How this number is calculated" was a dropdown holding a paragraph of
+  // methodology, and an explainer that has to be opened reads as a warning
+  // that the thing is hard. The scope is the part people actually need:
+  // whose robots, how many, over what.
+  const scopeWord = S.dashScope === 'all' ? 'all 3 sites' : SITES[S.dashScope].name;
   const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
       : money(s.totalInvoice)+' of lease cost from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+'. Add what the work is worth per robot to see a coverage ratio.')
-    : money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased';
-  const detail = s.mode === 'estimate'
-    ? 'One number spread evenly across '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+', not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement, priced at category benchmarks until you set your own numbers.'
-    : 'Replacement cost of the work performed, divided by the lease. Not revenue, not profit, not labor you stopped paying for, just what it would have cost to buy this work another way, priced at category benchmarks until you set your own numbers. Change a robot&#39;s kind of work or exclude one on the confirm screen and this recalculates from those '+s.included.length+' robots, nothing here is fixed.';
+    : 'Your whole fleet across '+scopeWord+', '+s.included.length+' robot'+(s.included.length===1?'':'s')+' averaged together.';
+  const under = s.mode === 'estimate' ? ''
+    : 'Every $1 of lease bought '+(s.coverage === null ? '—' : '$'+s.coverage.toFixed(2))+' of work a person would otherwise have been paid to do. '
+      + money(s.totalValue)+' of work against '+money(s.totalInvoice)+' leased.';
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
       + '<div style="font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</div>'
       + tag
     + '</div>'
-    + '<div style="font-size:13px;color:var(--fg2);margin-bottom:14px">'+subhead+'</div>'
-    + '<details class="bl-acc">'
-      + '<summary style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg3)">'
-        + '<span class="chev" style="display:inline-flex">'+ic('chevron-down',13)+'</span>How this number is calculated'
-      + '</summary>'
-      + '<div style="margin-top:10px;font-size:13px;line-height:1.65;color:var(--fg2)">'+detail+'</div>'
-    + '</details>'
+    + '<div style="font-size:13px;font-weight:600;color:var(--fg1);margin-bottom:8px">'+subhead+'</div>'
+    + (under ? '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">'+under+'</div>' : '')
     + (s.mode === 'estimate' ? '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)"><button type="button" data-act="startRealImport" class="hv-dim" style="padding:11px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Import my export</button></div>' : '')
   + '</div>';
 }
@@ -2191,8 +2190,25 @@ function viewRobots(){
     const covLabel = s.cov === null ? '—' : s.cov.toFixed(2)+'x';
     const unitsPhrase = s.basis === 'active_hour'
       ? s.units.toFixed(1)+' active hours'
-      : s.units.toLocaleString('en-US')+' '+s.unit+' started';
-    const eq = unitsPhrase+' x '+money(s.rate)+' = '+money(s.value)+' / invoice '+money(s.invoice)+' = '+covLabel;
+      : s.units.toLocaleString('en-US')+' '+s.unit;
+    // Every line says whose number it is. Unlabelled, this read as
+    // "10,360 picks x $0.40" with no way to tell that the count is the
+    // robot's and the price is a person's, which is the single most
+    // confusing thing on the page in an industry where nobody has a prior
+    // for what any of it means.
+    const eqRow = (who, what, val) =>
+      '<div style="display:flex;align-items:baseline;gap:10px;padding:3px 0">'
+        + '<span style="flex:none;width:52px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3)">'+who+'</span>'
+        + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--fg2)">'+what+'</span>'
+        + '<span style="flex:none;font-size:12.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>';
+    const eq = eqRow('Robot', 'did', unitsPhrase)
+      + eqRow('Person', 'would cost, each', s.rate === null ? '—' : money(s.rate))
+      + eqRow('', 'so the work is worth', s.rate === null ? '—' : money(s.value))
+      + eqRow('Robot', 'invoice for the period', money(s.invoice))
+      + '<div style="display:flex;align-items:baseline;gap:10px;padding:7px 0 0;margin-top:5px;border-top:1px solid var(--hair)">'
+        + '<span style="flex:none;width:52px"></span>'
+        + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--fg2)">work &divide; invoice</span>'
+        + '<span style="flex:none;font-size:14px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</span></div>';
     // Same wording the fully-reported condition block already uses for
     // an all-clear ("Every part is inside its rated life"), and the same
     // per-part count the row header used to show as its own chip, so
@@ -2220,7 +2236,9 @@ function viewRobots(){
       + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:4px">'
         + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
           + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
-        + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+eq+'</div>'
+        // nowrap and horizontal scroll were for the old one-line equation;
+        // this is a labelled block that should wrap in its column.
+        + '<div style="min-width:0">'+eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
 
     return '<div style="border-top:1px solid var(--hair)">' + summary + detail + '</div>';
@@ -2382,6 +2400,23 @@ function rateDerivationLines(works){
   }).join('<br>');
 }
 
+/** What one robot costs per unit: its own invoice over its own output.
+ * The counterpart to the person figure beside it, and the number an owner
+ * assumes "replacement rate" means until told otherwise. */
+function robotUnitCost(s){
+  return s.units > 0 ? s.invoice / s.units : null;
+}
+function robotUnitCostLabel(s, b){
+  const c = robotUnitCost(s);
+  return c === null ? '—' : money(c)+' / '+b.unit;
+}
+function robotUnitCostDerivation(s, b){
+  const c = robotUnitCost(s);
+  if (c === null) return 'No '+b.unitPlural+' recorded, so there is nothing to divide by.';
+  const n = s.basis === 'active_hour' ? s.units.toFixed(1) : s.units.toLocaleString('en-US');
+  return money(s.invoice)+' ÷ '+n+' '+b.unitPlural;
+}
+
 function setupSaveButton(i){
   const saved = !!S.setupSaved[i];
   return '<button type="button" data-act="saveSetupRow" data-i="'+i+'" id="setupSaveBtn-'+i+'" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(saved?'var(--ghost2)':'var(--ink)')+';color:'+(saved?'var(--fg1)':'var(--ink-fg)')+'">'
@@ -2471,11 +2506,18 @@ function viewSetup(){
           + '</div>'
         + '<div><label for="setupInvoice-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</label>'
           + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
-          + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+money(s.rate)+' / '+b.unit+'</div>'
-          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour</div></div>'
-        + '<div><label for="setupWage-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</label>'
-          + '<input id="setupWage-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.wage.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
+        // Both sides of the comparison, side by side and labelled by WHO,
+        // because "Replacement rate: $0.40 per pick" on a robot's own panel
+        // reads as what the robot costs. It is the opposite: what a person
+        // costs, which is the thing being replaced.
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">A person costs</div>'
+          + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+(s.rate === null ? '—' : money(s.rate)+' / '+b.unit)+'</div>'
+          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour</div>'
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Set below, from the people who do this work.</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">This robot costs</div>'
+          + '<div id="setupRobotRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+robotUnitCostLabel(s, b)+'</div>'
+          + '<div id="setupRobotDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+robotUnitCostDerivation(s, b)+'</div>'
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Its invoice over what it actually did.</div></div>'
         + '<div><label for="setupHours-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</label>'
           + '<input id="setupHours-'+i+'" data-i="'+i+'" type="number" min="0" step="0.5" inputmode="decimal" value="'+hoursVal+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">&nbsp;</div>'
@@ -3619,12 +3661,6 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'taxInterestInput'){
     S.taxInterestRate = Number(e.target.value) || 0;
     applyTaxShield();
-    return;
-  }
-  if (/^setupWage-\d+$/.test(e.target.id)){
-    const i = Number(e.target.id.slice(10));
-    S.robotWage[i] = Number(e.target.value) || 0;
-    applySetupRow(i);
     return;
   }
   if (/^setupInvoice-\d+$/.test(e.target.id)){
