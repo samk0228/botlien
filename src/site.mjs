@@ -58,6 +58,13 @@ input[type=email]:focus{border-bottom-color:var(--fg1)}
 footer{margin-top:72px;padding:28px 0 48px;border-top:1px solid var(--hair);
   font-size:12.5px;color:var(--fg3)}
 @media(max-width:600px){.hero{padding:72px 0 48px}.auth{padding:64px 22px 48px}}
+/* Sign-in is the one page every customer meets on a phone, and its fields
+   were under the 16px below which iOS zooms in on focus and stays there.
+   Keyed off a coarse pointer, so the desktop sizing is untouched. */
+@media (pointer:coarse){
+  input[type=email],input[type=password]{font-size:16px}
+  button,.btn{min-height:44px}
+}
 `;
 
 export function esc(s) {

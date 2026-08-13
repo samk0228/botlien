@@ -551,6 +551,29 @@ body.solo .stage-card{width:100%;max-width:860px}
   .fl{grid-template-columns:minmax(0,1fr) 68px}
   .fl .bar{display:none}
 }
+
+/* ---- Phone -----------------------------------------------------------
+   The layout already survives a small screen on its own: every grid above
+   is auto-fit, so nothing overflows a 390px viewport and none of it needs
+   rearranging. What does not survive is the ergonomics. iOS zooms the page
+   in whenever a focused control's text is under 16px and never zooms back
+   out, which is the single thing that makes a form-heavy page feel broken
+   on a phone. A 16px-tall nav link is not a tap target either. Sizes only,
+   deliberately no layout changes, so this cannot disturb the desktop view.
+   The input rule keys off a coarse pointer rather than width: a laptop
+   window dragged narrow has no zoom problem to solve. */
+@media (pointer:coarse){
+  input,select,textarea{font-size:16px}
+  button{min-height:44px;padding:12px 20px}
+  .nav a{display:inline-flex;align-items:center;min-height:44px}
+}
+@media (max-width:600px){
+  body{padding:16px}
+  .nav{gap:18px;flex-wrap:wrap}
+  /* A long robot name plus a make plus a tag plus the ratio is more than a
+     phone row holds; wrapping beats letting the ratio push off the edge. */
+  .rob .top{flex-wrap:wrap;row-gap:4px}
+}
 `;
 
 const HONESTY_NOTE = `
