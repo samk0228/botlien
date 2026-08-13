@@ -22,21 +22,25 @@ body{margin:0;background:var(--page-bg);color:var(--fg1);
 a{color:var(--fg1)}
 a:hover{color:var(--fg2)}
 .wrap{max-width:1040px;margin:0 auto;padding:0 28px}
-.auth{max-width:420px;margin:0 auto;padding:96px 28px 64px}
-.mark{display:block;margin-bottom:36px;line-height:0}
-.mark img{display:block;height:24px;width:auto}
-.mark .icon-only{display:none}
-@media(max-width:600px){.mark .full-lockup{display:none}.mark .icon-only{display:block;height:26px}}
-h1{font-size:clamp(26px,4.6vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px}
-.lede{font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 36px}
-label{display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px}
-input[type=email]{width:100%;font-size:15px;color:var(--fg1);background:transparent;
-  padding:12px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit}
-input[type=email]:focus{border-bottom-color:var(--fg1)}
-.btn{width:100%;margin-top:28px;padding:15px 22px;border-radius:4px;border:none;
-  background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:700;
+/* A login box, not a page section: the card is vertically centred in the
+   viewport, fixed to a form's width, and bordered, so it reads as the one
+   thing on screen to fill in. */
+.auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 20px}
+.auth{width:100%;max-width:400px;background:#fff;border:1px solid var(--hair);
+  border-radius:10px;padding:38px 36px 32px;box-shadow:0 1px 2px rgba(10,10,10,.04)}
+.mark{display:block;margin-bottom:26px;line-height:0}
+.mark img{display:block;height:22px;width:auto}
+h1{font-size:22px;font-weight:600;letter-spacing:-0.02em;line-height:1.2;margin:0 0 8px}
+.lede{font-size:13.5px;line-height:1.6;color:var(--fg2);margin:0 0 26px}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--fg1);margin-bottom:7px}
+input[type=email]{width:100%;font-size:14.5px;color:var(--fg1);background:#fff;
+  padding:11px 13px;border:1px solid var(--hair2);border-radius:6px;outline:none;font-family:inherit}
+input[type=email]:focus{border-color:var(--fg1)}
+input[type=email]::placeholder{color:var(--fg3)}
+.btn{width:100%;margin-top:20px;padding:12px 20px;border-radius:6px;border:none;
+  background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:600;
   font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
-.btn:hover{opacity:.9}
+.btn:hover{background:#2A2A2A}
 .ghost{display:inline-block;padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);
   background:transparent;color:var(--fg1);cursor:pointer;font-size:13.5px;font-weight:600;
   font-family:inherit;text-decoration:none}
@@ -45,7 +49,8 @@ input[type=email]:focus{border-bottom-color:var(--fg1)}
   font-size:13.5px;line-height:1.6;color:var(--fg2)}
 .ok{display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid var(--hair);
   border-radius:4px;margin-bottom:28px;font-size:13.5px;color:var(--fg2)}
-.fine{font-size:12.5px;color:var(--fg3);margin-top:22px;line-height:1.6}
+.fine{font-size:11.5px;color:var(--fg3);margin-top:20px;padding-top:18px;
+  border-top:1px solid var(--hair);line-height:1.55}
 .row{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
 /* front door */
 .hero{padding:110px 0 72px}
@@ -80,13 +85,13 @@ function page(title, body) {
 <body>${body}</body></html>`;
 }
 
-// Same two assets and the same full-lockup/icon-only swap the marketing
-// site's own nav uses (see website/public/index.html), loaded from
-// botlien.com directly rather than duplicated into this app's own static
-// assets, so one logo file update covers both.
+// The marketing site's own lockup (mark + "botlien" wordmark), loaded from
+// botlien.com rather than duplicated into this app's static assets, so one
+// logo file update covers both. Always the full lockup here, no icon-only
+// variant: the site's nav shrinks to the bare mark to save horizontal room
+// next to its links, and a centred login card has no such constraint.
 const MARK = `<a href="https://botlien.com" class="mark">
-  <img class="full-lockup" src="https://botlien.com/logo-lockup.png" alt="Botlien">
-  <img class="icon-only" src="https://botlien.com/logo-mark.png" alt="Botlien">
+  <img src="https://botlien.com/logo-lockup.png" alt="Botlien">
 </a>`;
 
 /** S0. No pricing, no logo wall, no testimonial, no outcome claim: we have no
@@ -139,21 +144,21 @@ export function renderSignInHTML({ variant = "signin", email = "", error = null 
 
   return page(
     "Botlien · Sign in",
-    `<div class="auth">
+    `<div class="auth-shell"><div class="auth">
   ${banner}${MARK}
   <h1>${heading}</h1>
   <p class="lede">${lede}</p>
   <form method="post" action="/signin">
     <label for="email">Email</label>
     <input id="email" name="email" type="email" autocomplete="email"
-      placeholder="sam@harborgrill.com" value="${esc(email)}" required autofocus>
+      placeholder="you@company.com" value="${esc(email)}" required autofocus>
     ${errLine}
     <button class="btn" type="submit">Email me a sign-in link</button>
   </form>
   ${failNote}
   <p class="fine">By signing in you agree we may store the usage data you upload in order to
     produce your statement. You can delete your account and its data at any time.</p>
-</div>`,
+</div></div>`,
   );
 }
 
@@ -167,7 +172,7 @@ export function renderCheckEmailHTML({ email = "", devLink = null, resent = fals
     : "";
   return page(
     "Botlien · Check your email",
-    `<div class="auth">
+    `<div class="auth-shell"><div class="auth">
   ${resent ? `<div class="ok">Sent again.</div>` : ""}
   ${MARK}
   <h1>Check your email</h1>
@@ -182,7 +187,7 @@ export function renderCheckEmailHTML({ email = "", devLink = null, resent = fals
     </form>
     <a class="ghost" href="/signin" style="border-color:transparent;color:var(--fg2)">Use a different email</a>
   </div>
-</div>`,
+</div></div>`,
   );
 }
 
@@ -208,25 +213,25 @@ export function renderLinkFailedHTML(reason = "unknown") {
   const [heading, lede] = LINK_FAILURES[reason] ?? LINK_FAILURES.unknown;
   return page(
     "Botlien · Sign in",
-    `<div class="auth">
+    `<div class="auth-shell"><div class="auth">
   ${MARK}
   <h1>${esc(heading)}</h1>
   <p class="lede">${esc(lede)}</p>
   <a class="cta" href="/signin" style="display:inline-block">Email me a new link</a>
-</div>`,
+</div></div>`,
   );
 }
 
 export function renderRateLimitedHTML(email = "") {
   return page(
     "Botlien · Sign in",
-    `<div class="auth">
+    `<div class="auth-shell"><div class="auth">
   ${MARK}
   <h1>Too many links</h1>
   <p class="lede">We have already sent several sign-in links to
     <b style="font-weight:600;color:var(--fg1)">${esc(email)}</b> in the last hour.
     Check your inbox and spam folder, then try again later, or write to
     <a href="mailto:info@botlien.com" style="font-weight:600">info@botlien.com</a>.</p>
-</div>`,
+</div></div>`,
   );
 }
