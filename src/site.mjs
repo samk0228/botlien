@@ -22,25 +22,29 @@ body{margin:0;background:var(--page-bg);color:var(--fg1);
 a{color:var(--fg1)}
 a:hover{color:var(--fg2)}
 .wrap{max-width:1040px;margin:0 auto;padding:0 28px}
-/* A login box, not a page section: the card is vertically centred in the
-   viewport, fixed to a form's width, and bordered, so it reads as the one
-   thing on screen to fill in. */
+/* Centred in the viewport and held to a form's width, but no card: the page
+   is already blank white, so a border around the only thing on it would be
+   drawing a box around a box. */
 .auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 20px}
-.auth{width:100%;max-width:400px;background:#fff;border:1px solid var(--hair);
-  border-radius:10px;padding:38px 36px 32px;box-shadow:0 1px 2px rgba(10,10,10,.04)}
-.mark{display:block;margin-bottom:26px;line-height:0}
+.auth{width:100%;max-width:360px}
+.mark{display:block;margin-bottom:28px;line-height:0}
 .mark img{display:block;height:22px;width:auto}
-h1{font-size:22px;font-weight:600;letter-spacing:-0.02em;line-height:1.2;margin:0 0 8px}
-.lede{font-size:13.5px;line-height:1.6;color:var(--fg2);margin:0 0 26px}
+h1{font-size:24px;font-weight:600;letter-spacing:-0.02em;line-height:1.2;margin:0 0 8px}
+.lede{font-size:13.5px;line-height:1.6;color:var(--fg2);margin:0 0 28px}
+.field{margin-bottom:16px}
 label{display:block;font-size:12.5px;font-weight:600;color:var(--fg1);margin-bottom:7px}
-input[type=email]{width:100%;font-size:14.5px;color:var(--fg1);background:#fff;
+input[type=email],input[type=password]{width:100%;font-size:14.5px;color:var(--fg1);background:#fff;
   padding:11px 13px;border:1px solid var(--hair2);border-radius:6px;outline:none;font-family:inherit}
-input[type=email]:focus{border-color:var(--fg1)}
-input[type=email]::placeholder{color:var(--fg3)}
-.btn{width:100%;margin-top:20px;padding:12px 20px;border-radius:6px;border:none;
+input[type=email]:focus,input[type=password]:focus{border-color:var(--fg1)}
+input[type=email]::placeholder,input[type=password]::placeholder{color:var(--fg3)}
+.btn{width:100%;margin-top:8px;padding:12px 20px;border-radius:6px;border:none;
   background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14.5px;font-weight:600;
   font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
 .btn:hover{background:#2A2A2A}
+.alt{width:100%;margin-top:10px;padding:11px 20px;border-radius:6px;border:1px solid var(--hair2);
+  background:#fff;color:var(--fg1);cursor:pointer;font-size:14px;font-weight:500;
+  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.alt:hover{background:var(--ghost)}
 .ghost{display:inline-block;padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);
   background:transparent;color:var(--fg1);cursor:pointer;font-size:13.5px;font-weight:600;
   font-family:inherit;text-decoration:none}
@@ -132,7 +136,7 @@ export function renderSignInHTML({ variant = "signin", email = "", error = null 
   const lede =
     variant === "new"
       ? "Enter your email and we&#39;ll send you a link to get started. No card. Nothing is charged until you choose a paid plan."
-      : "No password to remember. We email you a link that signs you in.";
+      : "Welcome back. Sign in to your statement.";
 
   const banner = variant === "signedout" ? `<div class="ok">Signed out.</div>` : "";
   const errLine = error ? `<div class="err">${esc(error)}</div>` : "";
@@ -149,11 +153,25 @@ export function renderSignInHTML({ variant = "signin", email = "", error = null 
   <h1>${heading}</h1>
   <p class="lede">${lede}</p>
   <form method="post" action="/signin">
-    <label for="email">Email</label>
-    <input id="email" name="email" type="email" autocomplete="email"
-      placeholder="you@company.com" value="${esc(email)}" required autofocus>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email"
+        placeholder="you@company.com" value="${esc(email)}" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password"
+        placeholder="••••••••••">
+    </div>
     ${errLine}
-    <button class="btn" type="submit">Email me a sign-in link</button>
+    <button class="btn" type="submit">Sign in</button>
+    <!-- Also the "forgot my password" path, which is why there is no separate
+         reset link: submitting with the password cleared is what gate.mjs
+         reads as "email me a link instead", and a link signs you in without
+         one. formnovalidate so the browser does not demand the field this is
+         deliberately skipping. -->
+    <button class="alt" type="submit" formnovalidate
+      onclick="document.getElementById('password').value=''">Email me a sign-in link instead</button>
   </form>
   ${failNote}
   <p class="fine">By signing in you agree we may store the usage data you upload in order to

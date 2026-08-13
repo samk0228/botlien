@@ -7,7 +7,7 @@
 // things signing cannot: a link can be made single-use, a session can be
 // revoked the instant it is deleted, and there is no signing key to rotate or
 // leak. Sessions survive a restart because they are rows, not memory.
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual, scryptSync } from "node:crypto";
 
 export const LINK_TTL_MS = 15 * 60 * 1000; // "expires in 15 minutes", per the design
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -46,6 +46,110 @@ export function tokensEqual(a, b) {
   const bb = Buffer.from(String(b ?? ""));
   if (ab.length !== bb.length || ab.length === 0) return false;
   return timingSafeEqual(ab, bb);
+}
+
+// ---- passwords ----
+//
+// scrypt from node:crypto, not bcrypt/argon2: this codebase ships with no
+// native dependencies and scrypt is memory-hard, in the standard library, and
+// good enough that the weak link is the owner's own password, not the KDF.
+//
+// Parameters are stored INSIDE the hash string rather than as constants read
+// at verify time, so raising the cost later does not lock out everyone who
+// registered before the change: an old hash still verifies with the old
+// parameters recorded in it.
+
+const SCRYPT_N = 16384; // 16 MiB at r=8, comfortably under node's 32 MiB default maxmem
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 32;
+
+/** Minimum that is worth enforcing. Length beats composition rules, which
+ * mostly teach people to write Password1! and reuse it, so there is no
+ * uppercase/symbol requirement here on purpose. */
+export const MIN_PASSWORD_LENGTH = 10;
+
+export function validPassword(raw) {
+  const p = String(raw ?? "");
+  return p.length >= MIN_PASSWORD_LENGTH && p.length <= 1024;
+}
+
+/** `scrypt$N$r$p$salt$key`, all hex. Self-describing so verifyPassword needs
+ * no knowledge of what the parameters were when this was written. */
+export function hashPassword(password) {
+  const salt = randomBytes(16);
+  const key = scryptSync(password, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P });
+  return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt.toString("hex")}$${key.toString("hex")}`;
+}
+
+/** False for a null/!malformed hash rather than throwing: an account with no
+ * password must fail the check, never bypass it. Comparison is constant-time. */
+export function verifyPassword(password, stored) {
+  if (!stored || typeof stored !== "string") return false;
+  const parts = stored.split("$");
+  if (parts.length !== 6 || parts[0] !== "scrypt") return false;
+  const [, n, r, p, saltHex, keyHex] = parts;
+  const N = Number(n);
+  const R = Number(r);
+  const P = Number(p);
+  if (!Number.isInteger(N) || !Number.isInteger(R) || !Number.isInteger(P)) return false;
+  let expected;
+  let actual;
+  try {
+    expected = Buffer.from(keyHex, "hex");
+    if (expected.length === 0) return false;
+    actual = scryptSync(password, Buffer.from(saltHex, "hex"), expected.length, { N, r: R, p: P });
+  } catch {
+    return false;
+  }
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+/** Sign in with an email and a password, opening a session on success.
+ *
+ * Every failure returns the SAME reason ("bad_credentials"), whether the
+ * address has no account, the account has no password, or the password is
+ * simply wrong. Telling those apart on the sign-in page would turn it into a
+ * customer-list oracle, which is the same reason the check-your-email screen
+ * looks identical for a known and an unknown address.
+ *
+ * A dummy verify runs when no hash exists so the response takes about as long
+ * either way, rather than returning instantly for an unknown address and
+ * leaking the difference through timing. */
+const DUMMY_HASH = hashPassword(randomBytes(16).toString("hex"));
+
+export function signInWithPassword(control, rawEmail, password, nowMs, { userAgent = null } = {}) {
+  const email = String(rawEmail ?? "").trim();
+  if (!validEmail(email) || !password) return { ok: false, reason: "bad_credentials" };
+
+  const hash = control.passwordHashFor(email);
+  if (!hash) {
+    verifyPassword(String(password), DUMMY_HASH);
+    return { ok: false, reason: "bad_credentials" };
+  }
+  if (!verifyPassword(String(password), hash)) return { ok: false, reason: "bad_credentials" };
+
+  const account = control.accountByEmail(email);
+  if (!account) return { ok: false, reason: "bad_credentials" };
+  control.touchAccount(account.id, nowMs);
+
+  const sessionToken = newToken();
+  control.insertSession({
+    token: sessionToken,
+    accountId: account.id,
+    createdAt: nowMs,
+    expiresAt: nowMs + SESSION_TTL_MS,
+    userAgent,
+  });
+  return { ok: true, account, sessionToken };
+}
+
+/** Set or replace an account's password. Returns false if the password is too
+ * short, so a caller cannot store something the sign-in page would refuse. */
+export function setPassword(control, accountId, password) {
+  if (!validPassword(password)) return false;
+  control.setPasswordHash(accountId, hashPassword(String(password)));
+  return true;
 }
 
 // ---- cookies ----

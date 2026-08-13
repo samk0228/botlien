@@ -399,7 +399,7 @@ test("the front door states the job, offers one button, and claims nothing", () 
 });
 
 test("sign-in screens carry the approved copy for each variant", () => {
-  assert.match(renderSignInHTML({ variant: "signin" }), /No password to remember/);
+  assert.match(renderSignInHTML({ variant: "signin" }), /Welcome back/);
   assert.match(renderSignInHTML({ variant: "new" }), /Start with your usage export/);
   assert.match(renderSignInHTML({ variant: "new" }), /Nothing is charged/);
   assert.match(renderSignInHTML({ variant: "failed" }), /couldn&#39;t send that email/);

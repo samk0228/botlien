@@ -7,6 +7,7 @@
 import {
   requestLink,
   redeemLink,
+  signInWithPassword,
   currentAccount,
   signOut,
   sessionCookie,
@@ -70,7 +71,12 @@ export async function handlePublicRoute(req, res, path, ctx) {
     return true;
   }
 
-  // ---- asking for a link ----
+  // ---- signing in ----
+  //
+  // One POST /signin for two ways in, split on whether a password came with
+  // the form, because they are one form to the owner: the password is what
+  // they use day to day, and "email me a link instead" is the way back in
+  // when they have forgotten it.
   if (req.method === "POST" && path === "/signin") {
     const form = await formBody(req, readBody);
     if (form === null) {
@@ -78,6 +84,30 @@ export async function handlePublicRoute(req, res, path, ctx) {
       return true;
     }
     const email = (form.get("email") ?? "").trim();
+    const password = form.get("password") ?? "";
+
+    // -- with a password --
+    if (password) {
+      const out = signInWithPassword(control, email, password, now(), {
+        userAgent: (req.headers["user-agent"] ?? "").slice(0, 200),
+      });
+      if (!out.ok) {
+        // 401 so a script sees the refusal. The message never says which half
+        // was wrong, see signInWithPassword.
+        send(
+          res,
+          401,
+          renderSignInHTML({ email, error: "That email and password do not match an account." }),
+        );
+        return true;
+      }
+      redirect(res, "/owner", {
+        "Set-Cookie": sessionCookie(out.sessionToken, { secure: secureCookies }),
+      });
+      return true;
+    }
+
+    // -- or with an emailed link --
     const out = requestLink(control, email, now());
 
     if (!out.ok && out.reason === "invalid_email") {

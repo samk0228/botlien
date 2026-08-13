@@ -14,7 +14,13 @@ CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,
-  last_seen_at INTEGER
+  last_seen_at INTEGER,
+  -- Nullable on purpose. An account can exist with no password: every account
+  -- created before passwords existed has none, and one created through Google
+  -- never needs one. Null means "this account cannot sign in with a password",
+  -- never "any password works", which is why verifyPassword rejects null
+  -- before it compares anything.
+  password_hash TEXT
 );
 
 -- Sign-in links. Single-use: consumed_at is stamped on redemption and checked
@@ -70,7 +76,20 @@ export function openControl(path) {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(SCHEMA);
+  migrate(db);
   return new Control(db);
+}
+
+/** Columns added after the first release. CREATE TABLE IF NOT EXISTS does
+ * nothing to a table that already exists, so a database created before a
+ * column was introduced never gets it from SCHEMA alone. Checked against
+ * PRAGMA table_info rather than tracking a version number, so this is safe to
+ * run on every open and safe to run twice. */
+function migrate(db) {
+  const columns = new Set(db.prepare(`PRAGMA table_info(accounts)`).all().map((c) => c.name));
+  if (!columns.has("password_hash")) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN password_hash TEXT`);
+  }
 }
 
 /** Emails are matched case-insensitively and stored lowercase. Owners type
@@ -121,6 +140,32 @@ export class Control {
 
   touchAccount(id, nowMs) {
     this.db.prepare(`UPDATE accounts SET last_seen_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  // ---- passwords ----
+  //
+  // The hash is deliberately NOT returned by accountByEmail/accountById: those
+  // results get passed around, logged and rendered, and a credential hash has
+  // no business riding along. Anything that needs it asks for it by name.
+
+  /** The stored hash for an email, or null if the address has no account or
+   * that account has no password set. Both cases are null on purpose, so a
+   * caller cannot tell "no such account" from "no password" and use this to
+   * enumerate customers. */
+  passwordHashFor(email) {
+    const row = this.db
+      .prepare(`SELECT password_hash FROM accounts WHERE email=?`)
+      .get(normalizeEmail(email));
+    return row?.password_hash ?? null;
+  }
+
+  setPasswordHash(accountId, hash) {
+    this.db.prepare(`UPDATE accounts SET password_hash=? WHERE id=?`).run(hash, accountId);
+  }
+
+  hasPassword(accountId) {
+    const row = this.db.prepare(`SELECT password_hash FROM accounts WHERE id=?`).get(accountId);
+    return Boolean(row?.password_hash);
   }
 
   countAccounts() {
