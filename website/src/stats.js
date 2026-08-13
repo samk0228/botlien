@@ -23,9 +23,6 @@ const ALLOWED_EVENTS = new Set([
   "demo_view",
   "demo_input",
   "demo_time",
-  "deck_open",
-  "deck_slide",
-  "deck_time",
   "session_time",
 ]);
 
@@ -173,45 +170,6 @@ async function demoDepth(db, since) {
   };
 }
 
-async function deckStats(db, since) {
-  const opens = await sessionsSince(db, "deck_open", since);
-  if (opens === 0) return { opens: 0, avgSeconds: null, avgSlide: null, slides: [] };
-
-  const [avgTime, deepest, slideRows] = await Promise.all([
-    db
-      .prepare("SELECT AVG(value) AS avg FROM events WHERE event = 'deck_time' AND ts >= ? AND value > 0")
-      .bind(since)
-      .first(),
-    // How far the average reader actually got, per session, not per event.
-    db
-      .prepare(
-        `SELECT AVG(deepest) AS avg FROM (
-           SELECT session, MAX(value) AS deepest FROM events
-           WHERE event = 'deck_slide' AND ts >= ? GROUP BY session)`
-      )
-      .bind(since)
-      .first(),
-    db
-      .prepare(
-        `SELECT value AS slide, COUNT(DISTINCT session) AS n FROM events
-         WHERE event = 'deck_slide' AND ts >= ? GROUP BY value ORDER BY value ASC`
-      )
-      .bind(since)
-      .all(),
-  ]);
-
-  return {
-    opens,
-    avgSeconds: avgTime && avgTime.avg ? Math.round(avgTime.avg) : null,
-    avgSlide: deepest && deepest.avg ? Math.round(deepest.avg * 10) / 10 : null,
-    slides: (slideRows.results || []).map((r) => ({
-      slide: r.slide,
-      sessions: r.n,
-      pct: Math.round((r.n / opens) * 1000) / 10,
-    })),
-  };
-}
-
 async function topBy(db, column, since, limit = 10) {
   const { results } = await db
     .prepare(
@@ -236,15 +194,13 @@ export async function handleStatsApi(request, env) {
   const now = Date.now();
   const since30d = now - 30 * DAY;
 
-  const [visits, demoOpens, demoEngaged, leads, deckOpens, depth, deck, referrers, countries] =
+  const [visits, demoOpens, demoEngaged, leads, depth, referrers, countries] =
     await Promise.all([
       windowedCounts(db, "pageview", now),
       windowedCounts(db, "demo_open", now),
       windowedCounts(db, "demo_engage", now),
       windowedCounts(db, "lead_submit", now),
-      windowedCounts(db, "deck_open", now),
       demoDepth(db, since30d),
-      deckStats(db, since30d),
       topBy(db, "referrer", since30d),
       topBy(db, "country", since30d),
     ]);
@@ -294,7 +250,7 @@ export async function handleStatsApi(request, env) {
 
   return Response.json({
     generatedAt: now,
-    totals: { visits, demoOpens, demoEngaged, leads, deckOpens },
+    totals: { visits, demoOpens, demoEngaged, leads },
     previous30d: { visits: prevVisits, demoOpens: prevDemo, leads: prevLeads },
     daily,
     funnel: [
@@ -304,7 +260,6 @@ export async function handleStatsApi(request, env) {
       { label: "Let's talk sent", value: leads.last30d },
     ],
     demo: depth,
-    deck,
     referrers,
     countries,
   });
@@ -453,9 +408,6 @@ const DASHBOARD_HTML = `<!doctype html>
   <h2>Inside the demo &middot; last 30 days</h2>
   <div id="demo"></div>
 
-  <h2>Investor deck &middot; last 30 days</h2>
-  <div id="deck"></div>
-
   <h2>Top referrers</h2><div id="referrers"></div>
   <h2>Top countries</h2><div id="countries"></div>
 </div>
@@ -552,19 +504,6 @@ function renderDemo(d) {
     "<h2 style='margin-top:26px'>Which tabs they opened</h2>" + bars(d.tabs, "label", "sessions", "pct");
 }
 
-function renderDeck(d) {
-  const el = document.getElementById("deck");
-  if (!d.opens) { el.innerHTML = '<div class="empty">No deck opens in the last 30 days. The deck is only tracked once it is served from botlien.com/deck.</div>'; return; }
-  el.innerHTML =
-    '<div class="cards" style="margin-top:0">' +
-      '<div class="card"><div class="label">Deck opens</div><div class="big">' + fmt(d.opens) + "</div></div>" +
-      '<div class="card"><div class="label">Avg. time reading</div><div class="big">' + secs(d.avgSeconds) + "</div></div>" +
-      '<div class="card"><div class="label">Avg. slide reached</div><div class="big">' + (d.avgSlide ?? "—") + "</div></div>" +
-    "</div>" +
-    "<h2 style='margin-top:26px'>How far they got</h2>" +
-    bars(d.slides.map((s) => ({ label: "Slide " + s.slide, sessions: s.sessions, pct: s.pct })), "label", "sessions", "pct");
-}
-
 function table(rows) {
   if (!rows.length) return '<div class="empty">Nothing recorded yet.</div>';
   return "<table>" + rows.map((r) =>
@@ -581,7 +520,6 @@ async function load() {
   renderFunnel(d.funnel);
   renderChart(d.daily);
   renderDemo(d.demo);
-  renderDeck(d.deck);
   document.getElementById("referrers").innerHTML = table(d.referrers);
   document.getElementById("countries").innerHTML = table(d.countries);
 }
@@ -618,10 +556,9 @@ export function recordEvent(env, ctx, request, event, extra = {}) {
 
 /* ─────────────────────────  CLIENT BEACON  ───────────────────────── */
 
-/* Injected into every HTML page the worker serves. One script covers three
- * page kinds because they share a session id: a visitor who lands on the site,
- * opens the demo and then reads the deck is one session across all three, so
- * the funnel can actually follow them.
+/* Injected into every HTML page the worker serves. Marketing pages and the
+ * demo share one session id, so a visitor who lands on the site and then opens
+ * the demo is a single session across both and the funnel can follow them.
  *
  * No cookies, no fingerprinting, no third party. The session id lives in
  * sessionStorage, so it dies with the tab and cannot track anyone between
@@ -637,8 +574,8 @@ function send(ev,label,value){try{
   if(navigator.sendBeacon){navigator.sendBeacon('/api/event',new Blob([b],{type:'application/json'}));}
   else{fetch('/api/event',{method:'POST',body:b,keepalive:true,headers:{'Content-Type':'application/json'}});}
 }catch(e){}}
-var isDemo=p.indexOf('/demo')===0||p.indexOf('/software')===0,isDeck=p.indexOf('/deck')===0;
-send(isDemo?'demo_open':isDeck?'deck_open':'pageview');
+var isDemo=p.indexOf('/demo')===0||p.indexOf('/software')===0;
+send(isDemo?'demo_open':'pageview');
 var t0=Date.now(),engaged=false,typed=false;
 var NAMES={dashv2:'Dashboard',robots:'Fleet',setup:'Numbers'};
 if(isDemo){
@@ -650,16 +587,10 @@ if(isDemo){
   },{passive:true,capture:true});
   addEventListener('change',function(){if(!typed){typed=true;send('demo_input');}},{passive:true,capture:true});
 }
-if(isDeck){
-  var seen={};
-  function slide(){var n=parseInt((location.hash||'#1').slice(1),10);
-    if(n>0&&!seen[n]){seen[n]=1;send('deck_slide',null,n);}}
-  slide();addEventListener('hashchange',slide);
-}
 /* pagehide rather than unload: unload does not fire on iOS Safari, which is
-   exactly where a deck or demo gets read. */
+   exactly where the demo gets opened from a phone. */
 addEventListener('pagehide',function(){
   var s=Math.round((Date.now()-t0)/1000);
-  if(s>0&&s<7200){send(isDemo?'demo_time':isDeck?'deck_time':'session_time',null,s);}
+  if(s>0&&s<7200){send(isDemo?'demo_time':'session_time',null,s);}
 });
 }catch(e){}})();</script>`;
