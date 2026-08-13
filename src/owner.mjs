@@ -346,7 +346,7 @@ a{color:#7aa2f7}
 .rob .mk{color:#8b93a7;font-size:11px}
 .rob .cov{margin-left:auto;font-weight:700}
 .rob .cov.ok{color:#37c26a}.rob .cov.under{color:#e8b93e}.rob .cov.none{color:#5b6272}
-.rob .fml{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598;margin-top:5px}
+.fml{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598;margin-top:5px}
 .tag{font-size:10px;padding:1px 6px;border-radius:3px;background:#232733;color:#8b93a7}
 .tag.def{background:#3d2f00;color:#e8b93e}
 .note{color:#5b6272;font-size:11px;margin-top:8px;line-height:1.6}
@@ -442,6 +442,10 @@ function shell(title, body) {
 export function renderOwnerHTML(m) {
   const covClass = (c) => (c === null ? "none" : c >= 1 ? "ok" : "under");
 
+  // The raw formula line used to sit right here on every robot row. Moved
+  // to the setup screen (next to the inputs that actually feed it) so the
+  // board reads as figures, not arithmetic homework, same call made on the
+  // demo. Setup still shows the identical formulaLine(f) output per robot.
   const robotRow = (r) => `
     <div class="rob">
       <div class="top">
@@ -451,7 +455,6 @@ export function renderOwnerHTML(m) {
         ${!r.fin ? '<span class="tag">no rate set</span>' : ""}
         <span class="cov ${covClass(r.fin?.coverage ?? null)}">${ratio(r.fin?.coverage ?? null)}</span>
       </div>
-      <div class="fml">${esc(r.formula)}</div>
     </div>`;
 
   const site = (s) => `
@@ -799,9 +802,14 @@ export function renderSetupHTML(m, { saved = false } = {}) {
     const wage = r.wageCentsHour ? (r.wageCentsHour / 100).toFixed(2) : "";
     const hours = f?.capacityMs && f.windowMs ? ((f.capacityMs / f.windowMs) * 24).toFixed(1) : b.operatingHoursDay ?? "";
     const sel = (v) => (basis === v ? " selected" : "");
+    // Same audit line that used to sit on every dashboard row, formulaLine(f)
+    // is unchanged, only where it's shown moved: here, next to the inputs
+    // that actually produce it, for whoever wants to check it by hand.
+    const formula = f ? formulaLine(f) : null;
     return `
     <fieldset>
       <legend>${esc(r.name)} ${r.configured ? "" : '<span class="tag def">using benchmarks</span>'}</legend>
+      ${formula ? `<div class="fml">${esc(formula)}</div>` : ""}
       <div class="grid">
         <div>
           <label for="type-${r.id}">What it does</label>
