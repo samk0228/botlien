@@ -321,8 +321,13 @@ footer.site-footer a.foot-icon svg { width: 20px; height: 20px; }
 .modal-sub { font-size: 14px; color: var(--gray-1); margin: 0 0 22px; line-height: 1.5; }
 .modal .field { margin-bottom: 14px; }
 .modal .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--gray-1); margin-bottom: 6px; }
-.modal .field input { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; color: var(--ink); }
-.modal .field input:focus { outline: none; border-color: var(--ink); }
+.modal .field input,
+.modal .field textarea { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; color: var(--ink); }
+.modal .field input:focus,
+.modal .field textarea:focus { outline: none; border-color: var(--ink); }
+.modal .field textarea { resize: vertical; min-height: 88px; line-height: 1.5; }
+.modal .field textarea::placeholder { color: var(--gray-2); }
+.modal .field label .opt { font-weight: 400; color: var(--gray-2); margin-left: 5px; }
 .modal .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .modal-submit { width: 100%; margin-top: 6px; }
 .modal-submit[disabled] { opacity: 0.6; cursor: default; }
@@ -617,8 +622,13 @@ footer.site-footer a.foot-icon svg { width: 20px; height: 20px; }
           <input type="email" id="demoEmail" name="email" autocomplete="email" required>
         </div>
         <div class="field">
-          <label for="demoPhone">Number</label>
-          <input type="tel" id="demoPhone" name="phone" autocomplete="tel" required>
+          <label for="demoPhone">Number <span class="opt">optional</span></label>
+          <input type="tel" id="demoPhone" name="phone" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label for="demoMessage">Message <span class="opt">optional</span></label>
+          <textarea id="demoMessage" name="message" rows="4"
+            placeholder="How many robots, which vendor, and what you're trying to figure out."></textarea>
         </div>
         <input type="text" name="company_site" id="demoHoneypot" class="hp" tabindex="-1" autocomplete="off">
         <button class="btn-ink modal-submit" type="submit">Submit</button>
@@ -705,10 +715,13 @@ footer.site-footer a.foot-icon svg { width: 20px; height: 20px; }
       name: document.getElementById('demoName').value.trim(),
       company: document.getElementById('demoCompany').value.trim(),
       email: document.getElementById('demoEmail').value.trim(),
-      phone: document.getElementById('demoPhone').value.trim()
+      phone: document.getElementById('demoPhone').value.trim(),
+      message: document.getElementById('demoMessage').value.trim()
     };
-    if (!payload.name || !payload.company || !payload.email || !payload.phone) {
-      errorEl.textContent = 'Fill in every field to continue.';
+    // Phone and message are optional, so only the three that identify who is
+    // asking are checked here.
+    if (!payload.name || !payload.company || !payload.email) {
+      errorEl.textContent = 'Name, company and email are needed to continue.';
       errorEl.classList.add('show');
       return;
     }

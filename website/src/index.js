@@ -2,6 +2,30 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/** HTML-escape, because every value below is attacker-controlled and lands in
+ * the HTML half of an email we send ourselves. */
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Header injection guard. A newline in a value that reaches a header (the
+ * subject, or reply_to) could add headers of its own, so they are flattened
+ * to spaces before use. */
+function oneLine(s) {
+  return String(s ?? "").replace(/[\r\n]+/g, " ").trim();
+}
+
+const LEAD_TO = "contact@botlien.com";
+const LEAD_FROM = "Botlien Site <info@botlien.com>";
+
+/** An inquiry from the "Let's talk" form. Emailed rather than stored: there
+ * is no funnel tooling to feed yet, and an inquiry that lands in an inbox
+ * gets answered, where a row in a table has to be remembered. Reply-To is the
+ * prospect, so answering is a plain reply. */
 async function handleLead(request, env) {
   let body;
   try {
@@ -13,34 +37,65 @@ async function handleLead(request, env) {
   const name = String(body.name || "").trim().slice(0, 200);
   const company = String(body.company || "").trim().slice(0, 200);
   const email = String(body.email || "").trim().slice(0, 200);
+  // Optional: a number is a nice-to-have, and demanding one costs more
+  // inquiries than it is worth at the top of the funnel.
   const phone = String(body.phone || "").trim().slice(0, 60);
+  const message = String(body.message || "").trim().slice(0, 5000);
 
-  if (!name || !company || !email || !phone || !isValidEmail(email)) {
+  if (!name || !company || !email || !isValidEmail(email)) {
     return Response.json({ error: "Missing or invalid fields." }, { status: 400 });
   }
 
-  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+  if (!env.RESEND_API_KEY) {
     return Response.json({ error: "Not configured." }, { status: 500 });
   }
 
-  const supabaseRes = await fetch(`${env.SUPABASE_URL}/rest/v1/Contact%20Information%20Via%20Website`, {
+  const subject = oneLine(`New inquiry — ${name}, ${company}`).slice(0, 200);
+  const rows = [
+    ["Name", name],
+    ["Company", company],
+    ["Email", email],
+    ["Phone", phone || "not given"],
+  ];
+
+  const text =
+    rows.map(([k, v]) => `${k}: ${v}`).join("\n") +
+    `\n\nMessage:\n${message || "(none)"}\n`;
+
+  const html =
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#0A0A0A">` +
+    `<h2 style="font-size:17px;margin:0 0 14px">New inquiry from botlien.com</h2>` +
+    `<table style="border-collapse:collapse;margin-bottom:18px">` +
+    rows
+      .map(
+        ([k, v]) =>
+          `<tr><td style="padding:4px 16px 4px 0;color:#58585F">${esc(k)}</td>` +
+          `<td style="padding:4px 0;font-weight:600">${esc(v)}</td></tr>`,
+      )
+      .join("") +
+    `</table>` +
+    `<div style="color:#58585F;margin-bottom:6px">Message</div>` +
+    `<div style="white-space:pre-wrap;padding:12px 14px;background:#F7F7F8;border-radius:6px">` +
+    `${esc(message) || "<i style='color:#8B8B93'>(none)</i>"}</div></div>`;
+
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      "apikey": env.SUPABASE_SECRET_KEY,
-      "Authorization": `Bearer ${env.SUPABASE_SECRET_KEY}`,
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
-      "Prefer": "return=minimal"
     },
     body: JSON.stringify({
-      "Name": name,
-      "Company Name": company,
-      "Company Email": email,
-      "Number": phone
-    })
+      from: LEAD_FROM,
+      to: [LEAD_TO],
+      reply_to: oneLine(email),
+      subject,
+      text,
+      html,
+    }),
   });
 
-  if (!supabaseRes.ok) {
-    return Response.json({ error: "Could not save submission." }, { status: 502 });
+  if (!res.ok) {
+    return Response.json({ error: "Could not send submission." }, { status: 502 });
   }
 
   return Response.json({ ok: true });

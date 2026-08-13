@@ -3,9 +3,6 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-04",
   "workers_dev": true,
-  "vars": {
-    "SUPABASE_URL": "https://nssxelgggpnaehgnbxwb.supabase.co"
-  },
   "routes": [
     { "pattern": "botlien.com", "custom_domain": true },
     { "pattern": "www.botlien.com", "custom_domain": true }
