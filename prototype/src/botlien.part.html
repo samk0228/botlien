@@ -242,6 +242,14 @@ const PERIODS = [
 // each site's current robot count, the same weighting computeStatement()
 // itself uses to blend sites for "all 3 sites."
 function covForPeriod(p, scope){
+  // Same rule as utilization: the open period is computed from the fleet as
+  // configured right now, so any input that moves the headline moves this
+  // chart's last point with it. Closed periods keep what they were
+  // computed with, so a statement already sent is never rewritten.
+  if (p.status === 'open'){
+    const live = computeStatement(true, scope === 'all' ? null : Number(scope));
+    if (live.coverage !== null) return live.coverage;
+  }
   if (scope !== 'all') return p.siteCov[scope];
   const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
   return p.siteCov.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
@@ -2230,24 +2238,40 @@ function viewRobots(){
     const unitsPhrase = s.basis === 'active_hour'
       ? s.units.toFixed(1)+' active hours'
       : s.units.toLocaleString('en-US')+' '+s.unit;
-    // Every line says whose number it is. Unlabelled, this read as
-    // "10,360 picks x $0.40" with no way to tell that the count is the
-    // robot's and the price is a person's, which is the single most
-    // confusing thing on the page in an industry where nobody has a prior
-    // for what any of it means.
-    const eqRow = (who, what, val) =>
-      '<div style="display:flex;align-items:baseline;gap:10px;padding:3px 0">'
-        + '<span style="flex:none;width:52px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3)">'+who+'</span>'
-        + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--fg2)">'+what+'</span>'
-        + '<span style="flex:none;font-size:12.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>';
-    const eq = eqRow('Robot', 'did', unitsPhrase)
-      + eqRow('Person', 'would cost, each', s.rate === null ? '—' : money(s.rate))
-      + eqRow('', 'so the work is worth', s.rate === null ? '—' : money(s.value))
-      + eqRow('Robot', 'invoice for the period', money(s.invoice))
-      + '<div style="display:flex;align-items:baseline;gap:10px;padding:7px 0 0;margin-top:5px;border-top:1px solid var(--hair)">'
-        + '<span style="flex:none;width:52px"></span>'
-        + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--fg2)">work &divide; invoice</span>'
-        + '<span style="flex:none;font-size:14px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</span></div>';
+    // A stepped block rather than a label column with numbers stranded on
+    // the far right: each step is the number first, then where it came
+    // from underneath it, so the eye reads down one edge instead of
+    // ping-ponging across the card.
+    //
+    // Source is stated per step, because the difference between "the robot
+    // reported this" and "you typed this" is the difference between a
+    // measurement and an assumption, and nothing on screen said which.
+    const step = (label, val, src, srcKind) =>
+      '<div style="padding:9px 0;border-top:1px solid var(--hair)">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">'
+        + '<span style="font-size:12.5px;color:var(--fg2)">'+label+'</span>'
+        + '<span style="font-size:15px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>'
+      // Three states, not two: measured by the robot, entered by the owner,
+      // or worked out from the other two. Calling a derived figure
+      // "you set this" would be a lie about where it came from, which is
+      // exactly the confusion these badges exist to remove.
+      + '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
+        + '<span style="flex:none;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1.5px 5px;border-radius:3px;'
+          + (srcKind === 'telemetry' ? 'background:var(--ghost2);color:var(--fg2)'
+             : srcKind === 'derived' ? 'background:transparent;color:var(--fg3);border:1px dashed var(--hair2)'
+             : 'background:transparent;color:var(--fg3);border:1px solid var(--hair)')
+          + '">'+(srcKind === 'telemetry' ? 'from the robot' : srcKind === 'derived' ? 'worked out' : 'you set this')+'</span>'
+        + '<span style="font-size:11px;color:var(--fg3);min-width:0">'+src+'</span></div>'
+    + '</div>';
+    const eq = step('Work the robot did', unitsPhrase, 'Counted by the robot itself, from your usage import', 'telemetry')
+      + step('What a person costs for one', s.rate === null ? '—' : money(s.rate),
+          money(s.wage)+' / hr &divide; '+throughputFor(s.work)+' '+esc(workDef(s.work).unitPlural)+' per hour', 'set')
+      + step('So the work is worth', s.rate === null ? '—' : money(s.value), unitsPhrase+' &times; '+(s.rate === null ? '—' : money(s.rate)), 'derived')
+      + step('You paid to lease it', money(s.invoice), 'Your invoice, charged for the same days', 'set')
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0 0;margin-top:4px;border-top:2px solid var(--fg1)">'
+        + '<span style="font-size:12.5px;font-weight:600;color:var(--fg1)">Every $1 of lease bought</span>'
+        + '<span style="font-size:19px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+(s.cov === null ? '—' : '$'+s.cov.toFixed(2))+'</span></div>'
+      + '<div style="font-size:11px;color:var(--fg3);margin-top:3px">of work a person would have been paid for. That is '+covLabel+'.</div>';
     // Same wording the fully-reported condition block already uses for
     // an all-clear ("Every part is inside its rated life"), and the same
     // per-part count the row header used to show as its own chip, so
@@ -2272,11 +2296,18 @@ function viewRobots(){
     + '</div>';
 
     const detail = !open ? '' : '<div style="padding:0 4px 26px">'
-      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:4px">'
-        + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
-          + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
-        // nowrap and horizontal scroll were for the old one-line equation;
-        // this is a labelled block that should wrap in its column.
+      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:start;margin-bottom:4px">'
+        + '<div>'
+          + '<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>Time it actually ran</span><span style="font-variant-numeric:tabular-nums">'+r.duty+'</span></div>'
+          + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div>'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-top:8px">'
+            + '<span style="flex:none;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1.5px 5px;border-radius:3px;background:var(--ghost2);color:var(--fg2)">from the robot</span>'
+            + '<span style="font-size:11px;color:var(--fg3)">'+esc(r.hours)+'</span></div>'
+          // The bar's full width is the schedule the owner declared on
+          // Numbers, not anything the robot said, and the two being
+          // different things is the whole point of the measure.
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Measured against the '+(S.robotHours[i] ?? parseFloat((SETUP[i]||{}).hours||'0'))+' h a day you scheduled it for. Raise the schedule and this reads lower, because the robot ran the same hours either way.</div>'
+        + '</div>'
         + '<div style="min-width:0">'+eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
 
@@ -2421,7 +2452,15 @@ function rosterBlock(work, b, perLabel, people){
       + (people.length ? '<div style="display:flex;gap:14px;font-size:10.5px;font-weight:700;color:var(--fg3);padding-bottom:2px"><span style="width:150px">Role</span><span>Loaded wage</span><span>Output</span><span>Hours</span></div>' : '')
       + rows
       + '<button type="button" data-act="addEmployee" data-work="'+esc(work)+'" class="hv-ghost" style="margin-top:12px;padding:8px 14px;border-radius:4px;border:1px dashed var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12px;font-weight:600">+ Add a role</button>'
-      + '<div style="font-size:11px;color:var(--fg3);margin-top:10px;line-height:1.6">Loaded wage means pay plus taxes and benefits, what the hour actually costs you. Output is what one person gets through in an hour of it. Both are averaged across roles, weighted by hours, to give the rate above.</div>'
+      + '<div style="font-size:11px;color:var(--fg3);margin-top:10px;line-height:1.6">'
+        + '<b style="color:var(--fg2);font-weight:600">Loaded wage</b> is pay plus taxes and benefits, what the hour really costs you. '
+        + '<b style="color:var(--fg2);font-weight:600">Output</b> is what one person gets through in an hour of this work. '
+        // Hours only ever acts as a weight, so with one role it genuinely
+        // does nothing and looks broken. Say so rather than leave someone
+        // typing into a field that appears dead.
+        + '<b style="color:var(--fg2);font-weight:600">Hours</b> decides how much each role counts toward the average: someone on 40 hours moves it more than someone on 4.'
+        + (people.length === 1 ? ' With only one role it changes nothing yet, since an average of one is just that one. Add a second and it starts to matter.' : '')
+      + '</div>'
     + '</div>';
 }
 
