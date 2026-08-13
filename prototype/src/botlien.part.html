@@ -71,9 +71,16 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
    always in the DOM, only one ever shown, hover flips which. */
 .bl-brand-toggle{cursor:pointer}
 .bl-brand-toggle .bl-brand-chev{display:none}
-@media (hover:hover){
+/* The badge only offers to collapse the sidebar while there is a sidebar to
+   collapse. At 900px and below it is a topbar and toggleRail is already
+   inert, so swapping the logo for a collapse icon there advertises an
+   action that does nothing. The affordance appears with the sidebar and
+   disappears with it. */
+@media (hover:hover) and (min-width:901px){
   .bl-brand-toggle:hover .bl-brand-logo{display:none}
   .bl-brand-toggle:hover .bl-brand-chev{display:flex}
+}
+@media (hover:hover){
   .hv-fg1:hover{color:var(--fg1)}
   .hv-dim:hover{opacity:.86}
   .hv-dim9:hover{opacity:.9}
@@ -147,6 +154,9 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
      a topbar. Leaving it would be a 4px invisible ew-resize strip down the
      side of a touch screen. */
   .bl-rail{display:none !important}
+  /* Same reasoning for the brand badge: nothing to collapse, so it should
+     not present itself as something you can click. */
+  .bl-brand-toggle{cursor:default !important}
 
   /* "Where the rates come from" is a four-column table pinned to 720px, so
      on a phone it survived only as a sideways-scrolling strip: you cannot
