@@ -149,8 +149,7 @@ const AUTH_JOURNEY = [
   ['landed-info','Tell us about you'],
   ['landed-new','What kind of business'],
   ['first-run-2','Where they work'],
-  ['first-run-3','Who else needs it'],
-  ['first-run-4','Benchmark opt-in']
+  ['first-run-3','Who else needs it']
 ];
 
 /* Everything the flow can also do: forks, failures and the screens reached from
@@ -346,8 +345,6 @@ const SITES = [
    earned), never a vendor throughput spec. */
 /* Consumable life lives on the robot itself, in ROBOTS[].parts, so the inline
    block and the Condition page cannot drift apart. */
-
-const BENCHMARK = { median:'1.84x', n:214, percentile:'78th', cohort:'fulfillment, 4 to 6 robots, US' };
 
 const RATE_HISTORY = [
   { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'$24.00 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jun 28, 2026', current:true },
@@ -894,7 +891,7 @@ const S = {
   ownerName: '', businessName: '', infoTouched: false,
   manualMode: false, manualStage: 'form', manualCount: '', manualCost: '', manualRevenue: '', manualTouched: false, manualApplied: false,
   confirmWork: {}, confirmName: {}, confirmSeen: {}, confirmTriedSubmit: false,
-  siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0, benchmarkOptIn: true,
+  siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0,
   // Per-robot overrides for Setup's editable inputs, same overlay pattern as
   // confirmWork/confirmName above: undefined means "still the category
   // benchmark," present means "this robot's own number," read by
@@ -941,7 +938,7 @@ const S = {
   // a real account. Dashboard/Fleet/Numbers all still work normally on
   // real mock data, this only gates Settings and the sidebar identity.
   demoMode: false,
-  dashLayout: ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'], dashHidden: [], dashEdit: false,
+  dashLayout: ['kpi','cost','recap','util','attn','work','taxshield','sens'], dashHidden: [], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
@@ -1082,7 +1079,7 @@ function authStage(){
   // first-run-2/3/4 stay addressable via ?screen= for reference, they are
   // just not chained into anymore.
   const ONBOARD_STEPS = 2;
-  const STEP_OF = { 'landed-info':1, 'landed-new':2, 'first-run-2':3, 'first-run-3':4, 'first-run-4':5 };
+  const STEP_OF = { 'landed-info':1, 'landed-new':2, 'first-run-2':3, 'first-run-3':4 };
   if (STEP_OF[sc]){
     const n = Math.min(STEP_OF[sc], ONBOARD_STEPS);
     body += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:18px">'
@@ -1165,21 +1162,11 @@ function authStage(){
       + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'+inviteNote()+'</p>';
   }
 
-  if (sc === 'first-run-4'){
-    body += '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">Compare yourself to similar operators?</h1>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 24px">Your coverage on its own tells you whether the robots cover their lease. Set against operators of your size it also tells you whether your lease is a good one.</p>'
-      + '<div data-act="toggleBenchmark" class="hv-ghost" style="display:flex;align-items:flex-start;gap:14px;padding:20px;border:1px solid '+(S.benchmarkOptIn?'var(--fg1)':'var(--hair)')+';border-radius:4px;cursor:pointer;background:'+(S.benchmarkOptIn?'var(--ghost2)':'transparent')+';margin-bottom:20px">'
-      + '<span style="width:12px;height:12px;border:1px solid var(--hair2);background:'+(S.benchmarkOptIn?'var(--fg1)':'transparent')+';flex:none;margin-top:4px"></span>'
-      + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1);margin-bottom:6px">Include my site in the benchmark</div>'
-      + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">Shared: robot model, kind of work, runs per robot, coverage. Never shared: your name, your address, your invoices, your wage, anything a person could trace back to you. You get the comparison only while you contribute to it.</div></div></div>'
-      + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
-        + '<div style="font-size:12px;font-weight:700;color:var(--fg3);margin-bottom:8px">What it looks like on your statement</div>'
-        + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators<br>cohort: '+BENCHMARK.cohort+'</div></div>'
-      + '<button type="button" data-act="finishFirstRun" class="hv-dim" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:pointer">'+(S.benchmarkOptIn?'Finish and import my usage':'Finish without the benchmark')+'</button>'
-      + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'
-      + (S.invitesSent ? S.invitesSent + (S.invitesSent === 1 ? ' invite goes out' : ' invites go out') + ' when you finish. ' : '')
-      + 'Next is your usage export. Nothing has been read yet, so the statement opens on Import.</p>';
-  }
+  // A "compare yourself to similar operators" opt-in stood here, the last
+  // onboarding step. It asked permission to contribute to a benchmark that
+  // fed one dashboard card, and that card is gone until the cohort is real,
+  // so this was collecting consent for something the product does not do.
+  // Inviting people is the last step now.
 
   if (sc === 'landed-returning'){
     body += '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:14px">Signed in</div>'
@@ -1826,9 +1813,8 @@ const DASH_BLOCKS = {
   work:      { label: 'Where the work is',    render: workSplitCard },
   taxshield: { label: 'Tax shield & depreciation', render: taxShieldCard },
   sens:      { label: 'Rate assumption',      render: sensitivityCard },
-  venuebench:{ label: 'Benchmark vs other operators', render: benchmarkVenueCard },
 };
-const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'];
+const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens'];
 const DASH_HIDDEN_DEFAULT = [];
 let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render (see dragstart/dragover/dragend below)
 
@@ -1965,45 +1951,66 @@ function sensitivityTrace(base, c, t){
  * "work:<category>" or "robot:<index>"; anything stale (a category that no
  * longer exists, a robot outside the current site scope) falls back to the
  * biggest category rather than rendering an empty card. */
-function costScope(s){
-  // Named so it is visible that this card sits inside the site filter:
-  // s.included is already scoped to it, so "all 3 robots" means all 3 at
-  // the site you are looking at, not all 13 you own.
-  const where = S.dashScope === 'all' ? 'across all 3 sites' : 'at '+esc(SITES[S.dashScope].name);
-  const fallback = () => {
-    const top = s.byCategory[0];
-    const rows = s.included.filter(r => r.work === top.work);
-    return { key: 'work:'+top.work, work: top.work,
-             label: esc(top.work)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' '+where,
-             rows };
+/** The whole fleet, one site, one kind of work, or one robot.
+ *
+ * Reads from every robot rather than from the site-filtered statement, so
+ * this card can go BROADER than the site filter as well as narrower. The
+ * site filter still drives it: changing site sets this to that site (see
+ * setDashScope), and from there you can drill down without the page moving.
+ *
+ * `perUnit` is false wherever the scope mixes units. Picks and active hours
+ * cannot be averaged into one cost per unit, so those levels compare total
+ * dollars instead, which is unit-free and says the same thing. */
+function costScope(){
+  const all = computeStatement(true, null);
+  const rowsOf = (pred) => all.rows.filter(r => !r.excluded && pred(r));
+  const unitsOf = (rows) => [...new Set(rows.map(r => r.work))];
+  const build = (key, label, rows) => {
+    const works = unitsOf(rows);
+    const perUnit = works.length === 1;
+    return { key, label, rows, perUnit, work: perUnit ? works[0] : null, workCount: works.length };
   };
+  const whole = () => build('all', 'Your whole fleet · all 13 robots, every kind of work', rowsOf(() => true));
+
   const raw = String(S.costScope || '');
+  if (raw === 'all') return whole();
+  if (raw.startsWith('site:')){
+    const n = Number(raw.slice(5));
+    const rows = rowsOf(r => CONFIRM[r.i].site === n);
+    if (!rows.length) return whole();
+    return build(raw, esc(SITES[n].name)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' at this site', rows);
+  }
   if (raw.startsWith('robot:')){
     const i = Number(raw.slice(6));
-    const row = s.included.find(r => r.i === i);
-    if (!row) return fallback();
-    return { key: raw, work: row.work, label: esc(row.name)+' · one robot, against a person doing '+esc(row.work.toLowerCase()), rows: [row] };
+    const row = all.rows.find(r => r.i === i && !r.excluded);
+    if (!row) return whole();
+    return build(raw, esc(row.name)+' · one robot, against a person doing '+esc(row.work.toLowerCase()), [row]);
   }
   if (raw.startsWith('work:')){
     const w = raw.slice(5);
-    const rows = s.included.filter(r => r.work === w);
-    if (!rows.length) return fallback();
-    return { key: raw, work: w, label: esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' '+where, rows };
+    const rows = rowsOf(r => r.work === w);
+    if (!rows.length) return whole();
+    return build(raw, esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' doing it', rows);
   }
-  return fallback();
+  return whole();
 }
 
-/** Kind of work, or one robot. Grouped so the two ways of slicing it read
- * as different questions rather than one flat list. */
-function costScopePicker(s, scope){
-  const works = [...new Set(s.included.map(r => r.work))];
-  const where = S.dashScope === 'all' ? 'all 3 sites' : SITES[S.dashScope].name;
+/** Four levels, widest first, so the list reads as zooming in. */
+function costScopePicker(scope){
+  const all = computeStatement(true, null);
+  const live = all.rows.filter(r => !r.excluded);
+  const works = [...new Set(live.map(r => r.work))];
+  const opt = (val, text) => '<option value="'+esc(val)+'"'+(scope.key === val ? ' selected' : '')+'>'+esc(text)+'</option>';
   return '<select data-cost-scope style="width:100%;font-size:12.5px;color:var(--fg1);background:transparent;padding:7px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
-    + '<optgroup label="By kind of work · '+esc(where)+'">'
-      + works.map(w => '<option value="work:'+esc(w)+'"'+(scope.key === 'work:'+w ? ' selected' : '')+'>'+esc(w)+'</option>').join('')
+    + opt('all', 'Your whole fleet')
+    + '<optgroup label="One site">'
+      + SITES.map((st,i) => live.some(r => CONFIRM[r.i].site === i) ? opt('site:'+i, st.name) : '').join('')
     + '</optgroup>'
-    + '<optgroup label="By robot · '+esc(where)+'">'
-      + s.included.map(r => '<option value="robot:'+r.i+'"'+(scope.key === 'robot:'+r.i ? ' selected' : '')+'>'+esc(r.name)+'</option>').join('')
+    + '<optgroup label="One kind of work">'
+      + works.map(w => opt('work:'+w, w)).join('')
+    + '</optgroup>'
+    + '<optgroup label="One robot">'
+      + live.map(r => opt('robot:'+r.i, r.name)).join('')
     + '</optgroup>'
   + '</select>';
 }
@@ -2014,30 +2021,31 @@ function costCard(){
   // The dashboard's biggest category by value, since "cost per task" only
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
-  // What is being compared: a whole kind of work, or one robot against the
-  // person who would do that same work. Per-robot matters because a fleet
-  // average hides the one unit that is not paying for itself, which is the
-  // finding an owner actually needs.
-  const scope = costScope(s);
+  // Whole fleet, one site, one kind of work, or one robot. Per-robot
+  // matters because an average hides the one unit that is not paying for
+  // itself, which is the finding an owner actually needs.
+  const scope = costScope();
   const rows = scope.rows;
-  const top = { work: scope.work, count: rows.length };
-  const b = workDef(scope.work);
+  const b = scope.perUnit ? workDef(scope.work) : null;
+
+  // Totals work at every level. Per-unit only works where the scope has one
+  // unit: picks and active hours cannot be averaged into a single "cost per
+  // unit" without inventing a number.
+  const invoiceSum = Math.round(rows.reduce((a,r) => a + r.invoice, 0) * 100) / 100;
+  const valueSum = Math.round(rows.reduce((a,r) => a + r.value, 0) * 100) / 100;
+  const unitSum = Math.round(rows.reduce((a,r) => a + r.units, 0) * 10) / 10;
+
   // Reads the owner's own wage and throughput (see wageFor/throughputFor),
   // not the published benchmark, so this agrees with the rate the Numbers
   // page derives rather than quoting our defaults back at them.
-  const rc = rateCentsFor(scope.work);
-  const human = rc === null ? null : rc / 100;
-
-  // What the robots in scope actually cost per unit: what was invoiced for
-  // the period over what they produced in it. Deliberately the lease
-  // invoice and not the purchase price, so both sides are "cost this period
-  // over output this period" and neither needs an assumed useful life on
-  // top of everything else.
-  const invoiceSum = Math.round(rows.reduce((a,r) => a + r.invoice, 0) * 100) / 100;
-  const unitSum = Math.round(rows.reduce((a,r) => a + r.units, 0) * 10) / 10;
-  // No output means the cost per unit has no answer, not an infinite one,
-  // same rule the rest of the statement follows for a missing denominator.
-  const robot = unitSum > 0 ? invoiceSum / unitSum : null;
+  const rc = scope.perUnit ? rateCentsFor(scope.work) : null;
+  const human = scope.perUnit ? (rc === null ? null : rc / 100) : valueSum;
+  // Robot cost: what was invoiced over what was produced. Deliberately the
+  // lease invoice and not the purchase price, so both sides are "cost this
+  // period over output this period" and neither needs an assumed useful
+  // life on top of everything else.
+  const robot = scope.perUnit ? (unitSum > 0 ? invoiceSum / unitSum : null) : invoiceSum;
+  const money2 = (v) => v === null ? '—' : money(v);
 
   // A bar per side, both scaled to whichever costs more, so the gap is seen
   // before it is read. Two numbers in a column make you do the comparison
@@ -2065,70 +2073,64 @@ function costCard(){
   if (human !== null && robot !== null && robot > 0){
     const ratio = human / robot;
     const cheaper = ratio >= 1;
-    // Stated either way round. A robot costing more per unit than a person
-    // is the finding this product exists to surface, so it is not something
-    // to bury by only rendering the flattering case.
     const gap = Math.round(Math.abs(human - robot) * 100) / 100;
-    // The per-unit gap times the units actually done. A cent a pick means
-    // nothing on its own; the same cent across 74,570 picks is the number
-    // an operator can act on, and it is arithmetic we already have rather
-    // than a projection.
-    const periodGap = Math.round(gap * unitSum * 100) / 100;
+    // Per unit, the gap only means something once multiplied out by what
+    // was actually done. At totals it already is the period figure.
+    const periodGap = scope.perUnit ? Math.round(gap * unitSum * 100) / 100 : gap;
+    // Stated either way round. Robots costing more than people is the
+    // finding this product exists to surface, not something to bury by
+    // rendering only the flattering case.
+    const headline = scope.perUnit
+      ? subject+' cost'+(one?'s':'')+' '+money(gap)+' '+(cheaper?'less':'more')+' per '+esc(b.unit)
+      : subject+' cost'+(one?'s':'')+' '+money(gap)+' '+(cheaper?'less':'more')+' this period';
     verdict = '<div style="border-top:1px solid var(--hair);padding-top:12px">'
-      + '<div style="font-size:13px;color:var(--fg1);font-weight:700;margin-bottom:5px">'
-        + (cheaper
-            ? subject+' cost'+(one?'s':'')+' '+money(gap)+' less per '+esc(b.unit)
-            : subject+' cost'+(one?'s':'')+' '+money(gap)+' more per '+esc(b.unit))
-      + '</div>'
-      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-bottom:8px">'
-        + 'Across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural)+' this period, that is <b style="color:var(--fg1);font-weight:700">'+money(periodGap)+'</b> '
-        + (cheaper ? 'less than paying people to do it.' : 'more than paying people to do it.')
-      + '</div>'
+      + '<div style="font-size:13px;color:var(--fg1);font-weight:700;margin-bottom:5px">'+headline+'</div>'
+      + (scope.perUnit
+        ? '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-bottom:8px">'
+            + 'Across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural)+' this period, that is <b style="color:var(--fg1);font-weight:700">'+money(periodGap)+'</b> '
+            + (cheaper ? 'less than paying people to do it.' : 'more than paying people to do it.')
+          + '</div>'
+        : '')
       + '<div style="font-size:11px;color:var(--fg3);line-height:1.6">'
         + money(human)+' &divide; '+money(robot)+' = '+ratio.toFixed(2)+'x, '
-        + (one ? 'this robot&#39;s' : 'this work&#39;s')+' coverage.'
-        + (s.byCategory.length > 1 || one ? ' The headline covers the whole fleet, so it reads differently.' : '')
+        + (one ? 'this robot&#39;s' : 'this slice&#39;s')+' coverage.'
       + '</div>'
     + '</div>';
   }
 
+  const subtitle = scope.perUnit
+    ? 'What one '+esc(b.unit)+' costs each way'
+    : 'What this period cost each way, across '+scope.workCount+' kinds of work';
+
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
     + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">A person vs your robots</div>'
-    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">What one '+esc(b.unit)+' costs each way</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+subtitle+'</div>'
     // Labelled, and says its reach. Sitting near the site filter, an
     // unlabelled dropdown invites the assumption that it scopes the page;
     // this one only ever changes this card.
     + '<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:5px">Compare</div>'
-    + costScopePicker(s, scope)
-    + '<div style="font-size:11px;color:var(--fg3);margin:6px 0 18px;line-height:1.5">'+esc(scope.label)+' · this card only</div>'
-    + line('A person', human === null ? '—' : money(human),
-        human === null ? 'Set how many '+esc(b.unitPlural)+' a person does in an hour, on Numbers.'
-          : money(wageFor(scope.work))+' / hr &divide; '+throughputFor(scope.work)+' '+esc(b.unitPlural)+' per hour',
+    + costScopePicker(scope)
+    + '<div style="font-size:11px;color:var(--fg3);margin:6px 0 18px;line-height:1.5">'+scope.label+' · this card only</div>'
+    + line('A person', money2(human),
+        scope.perUnit
+          ? (human === null ? 'Set how many '+esc(b.unitPlural)+' a person does in an hour, on Numbers.'
+             : money(wageFor(scope.work))+' / hr &divide; '+throughputFor(scope.work)+' '+esc(b.unitPlural)+' per hour')
+          : 'What people would have been paid for the same work',
         human, 'var(--hatch2)')
-    + line(one ? 'This robot' : 'Your robots', robot === null ? '—' : money(robot),
-        robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
-          : money(invoiceSum)+' invoiced &divide; '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural),
+    + line(one ? 'This robot' : 'Your robots', money2(robot),
+        scope.perUnit
+          ? (robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
+             : money(invoiceSum)+' invoiced &divide; '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
+          : 'Invoiced across '+rows.length+' robot'+(rows.length===1?'':'s'),
         robot, 'var(--ink)')
     + verdict
   + '</div>';
 }
 
-// The percentile, median, and cohort size are inherently about OTHER
-// operators' anonymized data, not derivable from this owner's own onboarding
-// answers, so those stay illustrative of the feature. "You" is not: that
-// half is always the real computed number, never the frozen 2.38x.
-function benchmarkVenueCard(){
-  const s = computeStatement();
-  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against operators like yours</div>'
-      + '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">'
-        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+BENCHMARK.percentile+'</span>'
-        + '<span style="font-size:12.5px;color:var(--fg2)">percentile</span></div>'
-      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-top:10px;font-variant-numeric:tabular-nums">You '+covLabel+' · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators, '+BENCHMARK.cohort+'</div>'
-      + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">Illustrative: the median and cohort size shown are a sample, not computed from your fleet, opting in is what would make this real. A lease at your price is normal for this cohort either way.</div>'
-    + '</div>';
-}
+// benchmarkVenueCard lived here: a percentile and a cohort median against
+// other operators. Removed. With no customers there is no cohort, so every
+// figure on it was a sample dressed as a comparison, and the card had to
+// admit that in its own footnote. It comes back when the benchmark is real.
 
 function fig(label, value, note, wrap, noteStyle){
   return '<div style="'+wrap+'">'
@@ -3424,9 +3426,10 @@ const ACTIONS = {
     inv[i] = !inv[i];
     set({ invites: inv });
   },
-  firstRun4: () => set({ screen:'first-run-4', invitesSent: invitesReady().length }),
-  skipInvites: () => set({ screen:'first-run-4', invites:{}, inviteEmail:{}, invitesSent:0 }),
-  toggleBenchmark: () => set({ benchmarkOptIn: !S.benchmarkOptIn }),
+  // Both used to land on a benchmark opt-in step. That step existed only
+  // to feed a card that no longer exists, so they finish onboarding now.
+  firstRun4: () => { S.invitesSent = invitesReady().length; goView('start', { upload:'idle', onboarding:true }); },
+  skipInvites: () => { S.invites = {}; S.inviteEmail = {}; S.invitesSent = 0; goView('start', { upload:'idle', onboarding:true }); },
   finishFirstRun: () => goView('start', { upload:'idle', onboarding:true }),
   requestAccess: () => set({ screen:'check', sentAgain:false }),
   // Reachable both pre-signin (already fine, onboarding was never true) and
@@ -3488,15 +3491,14 @@ const ACTIONS = {
     }, 700);
   },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
-  // Changing site clears the cost card's own selection. Left alone, a robot
-  // picked at Pier 4 stays stored while you look at Marina (where it is
-  // silently ignored), then reappears the moment you switch back, which
-  // reads as the card choosing for you. Cleared, it re-defaults to the
-  // biggest kind of work at whichever site you are now looking at.
+  // The cost card follows the site filter to the matching level, rather
+  // than being cleared: pick Marina up top and the comparison is Marina,
+  // and you can drill from there into one kind of work or one robot
+  // without the rest of the page moving.
   setDashScope: (el) => set({
     dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope),
     dashScopeMenu: false,
-    costScope: '',
+    costScope: el.dataset.scope === 'all' ? 'all' : 'site:'+el.dataset.scope,
   }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, dashScopeMenu:false }),
   pickPeriod: (el) => {
