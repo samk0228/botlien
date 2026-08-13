@@ -199,11 +199,11 @@ function money(n){ return '$' + n.toLocaleString('en-US',{ minimumFractionDigits
 // fleet (cleaning, laundry) has no such assumption to test.
 function sensBase(){
   const s = computeStatement();
-  const missionCats = s.byCategory.filter(k => (BENCH[k.work]||{}).basis === 'mission');
+  const missionCats = s.byCategory.filter(k => workDef(k.work).basis === 'mission');
   if (!missionCats.length) return null;
   const dom = missionCats[0];
   const domRows = s.included.filter(r => r.work === dom.work);
-  const bench = BENCH[dom.work];
+  const bench = workDef(dom.work);
   return {
     work: dom.work, unit: bench.unit, unitPlural: bench.unitPlural,
     // The owner's own numbers, so the "what if a person did more per hour"
@@ -530,10 +530,31 @@ const BENCH = {
 // Resolution order is the same for both: the owner's value if they set one,
 // the published benchmark otherwise, and the UI marks which of the two it
 // used everywhere the figure appears.
+// What a kind of work IS: its unit, whether it is counted per task or per
+// hour, and the fallback economics. BENCH covers the seven we publish
+// numbers for; anything else is the owner's own words, and every field they
+// have not told us yet falls back to something neutral rather than to
+// another category's assumptions.
+//
+// Every read of a category's shape goes through here, so a robot doing
+// "tote consolidation" is not a special case anywhere downstream.
+const CUSTOM_WORK_DEFAULT = {
+  wageCentsHour: 2400, humanUnitsPerHour: 1, invoiceCentsMonth: 150000,
+  unit: 'task', unitPlural: 'tasks', basis: 'mission',
+};
+function workDef(work) {
+  if (BENCH[work]) return BENCH[work];
+  return Object.assign({}, CUSTOM_WORK_DEFAULT, S.customWork[work] || {});
+}
+/** True for a category the owner typed rather than one we publish. */
+function isCustomWork(work) {
+  return !BENCH[work];
+}
+
 function wageFor(work, robotIndex) {
   if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return S.robotWage[robotIndex];
   if (S.workWage[work] !== undefined) return S.workWage[work];
-  return (BENCH[work] ?? BENCH['Order picking']).wageCentsHour / 100;
+  return workDef(work).wageCentsHour / 100;
 }
 function wageIsOwnSet(work, robotIndex) {
   if (robotIndex !== undefined && S.robotWage[robotIndex] !== undefined) return true;
@@ -542,7 +563,7 @@ function wageIsOwnSet(work, robotIndex) {
 /** Units a PERSON gets through in an hour, the denominator of the rate. */
 function throughputFor(work) {
   if (S.workThroughput[work] !== undefined) return S.workThroughput[work];
-  return (BENCH[work] ?? BENCH['Order picking']).humanUnitsPerHour;
+  return workDef(work).humanUnitsPerHour;
 }
 function throughputIsOwnSet(work) {
   return S.workThroughput[work] !== undefined;
@@ -632,7 +653,7 @@ function computeStatement(full, scope){
   const rangeDays = range ? daysBetweenInclusive(range.start, range.end) : periodDays;
   const rows = entries.map(({c,i}) => {
     const work = S.confirmWork[i] ?? c.work;
-    const b = BENCH[work] ?? BENCH['Tray delivery'];
+    const b = workDef(work);
     // Wage and invoice come from Setup's per-robot overrides when one
     // exists, the category benchmark otherwise, this is what makes an edit
     // on Setup actually move the number here instead of just saving text
@@ -811,6 +832,11 @@ const S = {
   // that work they get through in an hour. Undefined means "still on our
   // published benchmark", which is what the benchmark badge reads.
   workWage: {}, workThroughput: {},
+  // Shape of a work category the owner named themselves: what one unit of
+  // it is called and whether it is counted per task or per hour. Keyed by
+  // the name they typed. Categories we publish benchmarks for are not in
+  // here, they come from BENCH.
+  customWork: {},
   timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -1839,7 +1865,7 @@ function costCard(){
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
   const top = s.byCategory[0];
-  const b = BENCH[top.work];
+  const b = workDef(top.work);
   // Reads the owner's own wage and throughput (see wageFor/throughputFor),
   // not the published benchmark, so this headline agrees with the rate the
   // Numbers page derives rather than quoting our defaults back at them.
@@ -2045,12 +2071,39 @@ function viewRobots(){
 // answers back, so editing a field doesn't leave you wondering whether it
 // took. Resets to "Save" the moment this row is touched again, see the
 // setupSaved reset in the input/change handlers below.
+/** "What it does", as a free text field with our seven as suggestions
+ * rather than a closed dropdown. Every fleet is different and a robot doing
+ * tote consolidation or cart retrieval was previously forced into whichever
+ * of our categories was least wrong, which then priced it with that
+ * category's wage and throughput. Typing a new name is allowed; what a unit
+ * of it is called and what it is worth are set on the rates table below.
+ *
+ * A datalist keeps the seven one keystroke away without closing the field,
+ * and needs no JavaScript of its own. */
+function workInput(id, i, value){
+  return '<input id="'+id+'" data-i="'+i+'" list="workCategoryList" type="text" autocomplete="off"'
+    + ' value="'+esc(value)+'" placeholder="What this robot does"'
+    + ' style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">';
+}
+
+/** One shared datalist for every "What it does" field on the page. */
+function workCategoryDatalist(){
+  const known = new Set(WORK_CATEGORIES);
+  // Anything the owner has already named counts as a suggestion too, so a
+  // second robot doing the same custom work is one keystroke, not retyping.
+  Object.keys(S.customWork).forEach(w => known.add(w));
+  CONFIRM.forEach((c,i) => { const w = S.confirmWork[i] ?? c.work; if (w) known.add(w); });
+  return '<datalist id="workCategoryList">'
+    + [...known].map(w => '<option value="'+esc(w)+'"></option>').join('')
+  + '</datalist>';
+}
+
 /** The division spelled out, one line per work category in use. Same
  * arithmetic the table above performs, written the way an owner would check
  * it by hand. */
 function rateDerivationLines(works){
   return works.map(work => {
-    const b = BENCH[work];
+    const b = workDef(work);
     const per = throughputFor(work);
     const rc = rateCentsFor(work);
     const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
@@ -2134,16 +2187,15 @@ function viewSetup(){
     const r = SETUP[s.i];
     const i = s.i;
     const open = S.openSetup === i;
-    const b = BENCH[s.work];
+    const b = workDef(s.work);
     const hoursVal = S.robotHours[i] ?? parseFloat(r.hours);
     const summary = s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day';
     let panel = '';
     if (open){
       panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
         + '<div><label for="confirmWork-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</label>'
-          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
-            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===s.work?' selected':'')+'>'+esc(w)+'</option>').join('')
-          + '</select></div>'
+          + workInput('confirmWork-'+i, i, s.work)
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">'+(isCustomWork(s.work) ? 'Your own category. Set what a unit of it is called, and its rate, below.' : 'Type your own if none of these fit.')+'</div></div>'
         + '<div><label for="setupInvoice-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</label>'
           + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
@@ -2177,7 +2229,8 @@ function viewSetup(){
   // showed a floor-cleaning rate nothing on the page used.
   const usedWorks = [...new Set(stmt.rows.map(r => r.work))];
 
-  return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
+  return workCategoryDatalist()
+  + '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
   + '<div style="padding:0;margin-bottom:48px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five inputs per robot</h2>'
@@ -2192,13 +2245,26 @@ function viewSetup(){
     + '<div style="overflow-x:auto;min-width:0"><div style="min-width:720px">'
       + '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
       + usedWorks.map(work => {
-          const b = BENCH[work];
+          const b = workDef(work);
           const rc = rateCentsFor(work);
           const own = wageIsOwnSet(work) || throughputIsOwnSet(work);
           const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
           return '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
           + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+esc(work)+'</div>'
-            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div></div>'
+            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div>'
+            // A category we publish numbers for already knows what one of
+            // its units is called and how it is counted. One the owner named
+            // does not, and guessing would put "tasks" on a statement they
+            // have to hand a lender, so they name it here.
+            + (!isCustomWork(work) ? '' :
+                '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">'
+                + '<span style="font-size:11px;color:var(--fg3)">one is a</span>'
+                + '<input data-work-unit="'+esc(work)+'" type="text" value="'+esc(b.unit)+'" aria-label="Name for one unit of '+esc(work)+'" style="width:78px;font-size:12.5px;color:var(--fg1);background:transparent;padding:4px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">'
+                + '<select data-work-basis="'+esc(work)+'" aria-label="How '+esc(work)+' is counted" style="font-size:11.5px;color:var(--fg2);background:transparent;padding:4px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+                  + '<option value="mission"'+(b.basis==='mission'?' selected':'')+'>counted per task</option>'
+                  + '<option value="active_hour"'+(b.basis==='active_hour'?' selected':'')+'>counted per hour</option>'
+                + '</select></div>')
+            + '</div>'
           + '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">$'
             + '<input data-rate-wage="'+esc(work)+'" type="number" min="0" step="0.25" inputmode="decimal" value="'+wageFor(work).toFixed(2)+'" aria-label="Loaded wage for '+esc(work)+'" style="width:74px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
             + '<span style="color:var(--fg3);font-size:12.5px">/ hr</span></div>'
@@ -2408,14 +2474,13 @@ function viewConfirm(){
       + '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px">'
         + '<div style="min-width:200px">'
           + '<label for="confirmWork-'+i+'" style="display:block;font-size:10.5px;font-weight:700;color:var(--fg3);margin-bottom:4px">Kind of work'+(!excl && !seen ? ' <span style="color:var(--fg1)">· look at this</span>' : '')+'</label>'
-          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid '+(!excl && !seen ? 'var(--fg1)' : 'var(--hair2)')+';outline:none;font-family:inherit;cursor:pointer">'
-            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===work?' selected':'')+'>'+esc(w)+'</option>').join('')
-          + '</select></div>'
+          + '<input id="confirmWork-'+i+'" data-i="'+i+'" list="workCategoryList" type="text" autocomplete="off" value="'+esc(work)+'" placeholder="What this robot does" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid '+(!excl && !seen ? 'var(--fg1)' : 'var(--hair2)')+';outline:none;font-family:inherit"></div>'
         + '<button type="button" data-act="toggleExclude" data-i="'+i+'" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:'+(excl?'var(--ink)':'transparent')+';color:'+(excl?'var(--ink-fg)':'var(--fg1)')+';cursor:pointer;font-size:12.5px;font-weight:600">'+(excl?'Excluded':'Exclude')+'</button>'
       + '</div></div>';
   };
 
-  return '<div style="padding:0;margin-bottom:40px">'
+  return workCategoryDatalist()
+    + '<div style="padding:0;margin-bottom:40px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">'+CONFIRM.length+' robots found in that export</h2>'
       + '<span style="font-size:13px;color:var(--fg3)">Rename anything you call something else. Exclude what you don&#39;t lease.</span></div>'
@@ -2719,7 +2784,7 @@ function render(){
  * the field being typed into. */
 function applyRateRow(work){
   if (S.view !== 'setup') return;
-  const b = BENCH[work];
+  const b = workDef(work);
   const rc = rateCentsFor(work);
   const out = document.querySelector('[data-rate-out="'+cssEsc(work)+'"]');
   if (out) out.textContent = rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit;
@@ -2789,7 +2854,7 @@ function applySetupRow(i){
   // global index no longer lines up with rows' position in the array.
   const s = computeStatement(true, scopeFilter()).rows.find(row => row.i === i);
   if (!s) return;
-  const b = BENCH[s.work];
+  const b = workDef(s.work);
   put('setupRate-'+i, money(s.rate)+' / '+b.unit);
   put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour');
   const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
@@ -3254,15 +3319,48 @@ document.addEventListener('change', (e) => {
     reader.readAsDataURL(file);
     return;
   }
+  // What one unit of an owner-named category is called, and whether it is
+  // counted per task or per hour.
+  const unitWork = e.target.getAttribute && e.target.getAttribute('data-work-unit');
+  if (unitWork){
+    const unit = e.target.value.trim() || 'task';
+    // Naive plural is right far more often than it is wrong for the words
+    // that land here (pick, tote, tray, cycle), and the owner can type the
+    // singular they want; nothing derives meaning from the plural.
+    setCustomWork(unitWork, { unit, unitPlural: unit.endsWith('s') ? unit : unit + 's' });
+    set({});
+    return;
+  }
+  const basisWork = e.target.getAttribute && e.target.getAttribute('data-work-basis');
+  if (basisWork){
+    setCustomWork(basisWork, { basis: e.target.value });
+    set({});
+    return;
+  }
   if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
   const i = Number(e.target.id.slice(12));
-  S.confirmWork[i] = e.target.value;
-  // This select is also Setup's "What it does" field (same overlay, same
-  // id pattern, reused rather than duplicated). applySetupRow is a no-op
-  // when Setup isn't the page currently rendered, its ids just aren't
-  // in the document, so this is safe to call unconditionally.
-  applySetupRow(i);
+  const typed = e.target.value.trim();
+  // Blank falls back to whatever the import guessed rather than creating a
+  // nameless category that every downstream figure would key off "".
+  S.confirmWork[i] = typed || CONFIRM[i].work;
+  // A name we do not publish numbers for needs a shape before anything can
+  // price it. Seeding it here means the rates table has a row to render the
+  // moment the name is committed.
+  if (isCustomWork(S.confirmWork[i]) && !S.customWork[S.confirmWork[i]]) {
+    setCustomWork(S.confirmWork[i], {});
+  }
+  // A category change can add or remove a whole row from the rates table,
+  // so this one re-renders rather than patching in place. Focus has already
+  // left the field by the time change fires.
+  set({});
 });
+
+/** Merge into one owner-named category's shape. */
+function setCustomWork(work, patch){
+  S.customWork = Object.assign({}, S.customWork, {
+    [work]: Object.assign({}, CUSTOM_WORK_DEFAULT, S.customWork[work] || {}, patch),
+  });
+}
 
 // Opening a "how this is calculated" accordion grows its own card without
 // going through render(), a native <details> toggle, not a data-act click,
