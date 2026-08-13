@@ -19,7 +19,7 @@ function oneLine(s) {
   return String(s ?? "").replace(/[\r\n]+/g, " ").trim();
 }
 
-const LEAD_TO = "contact@botlien.com";
+const LEAD_TO = "info@botlien.com";
 const LEAD_FROM = "Botlien Site <info@botlien.com>";
 
 /** An inquiry from the "Let's talk" form. Emailed rather than stored: there
