@@ -347,6 +347,16 @@ export function startBoard(port, {
             res.end();
             return;
           }
+          // The ops board and its JSON show the operator's own connector-fed
+          // fleet, not the signed-in owner's. A session is necessary but not
+          // sufficient: only an allowlisted operator may see it. A non-operator
+          // gets the same 404 as a route that does not exist, so the board's
+          // existence is not advertised to customers.
+          if ((path === "/ops" || path === "/api/state") && !tenancy.ctx.isOperator(account.email)) {
+            res.writeHead(404, { "Content-Type": "text/plain" });
+            res.end("not found");
+            return;
+          }
           const bound = tenancy.forAccount(account);
           getOwnerState = bound.getOwnerState;
           saveEconomics = bound.saveEconomics;

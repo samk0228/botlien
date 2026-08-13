@@ -31,7 +31,7 @@ function csv(prefix, days = 3) {
 
 /** Boots the real server on an ephemeral port with a console mailer, so the
  * sign-in link is captured rather than emailed. */
-async function boot() {
+async function boot({ opsEmails = ["sam@harborgrill.com"] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "botlien-gate-"));
   const control = openControl(join(dir, "control.db"));
   const sent = [];
@@ -48,6 +48,7 @@ async function boot() {
     baseUrl: "http://127.0.0.1",
     secureCookies: false,
     readBody,
+    opsEmails,
   });
 
   const server = startBoard(0, {
@@ -255,7 +256,7 @@ test("the ops board moves off the front door and the funnel records the journey"
     assert.equal(anon.headers.get("location"), "/signin");
 
     const cookie = await app.signIn("sam@harborgrill.com");
-    assert.equal((await app.get("/ops", cookie)).status, 200, "a signed-in request reaches /ops");
+    assert.equal((await app.get("/ops", cookie)).status, 200, "the operator reaches /ops");
     assert.equal((await app.get("/api/state", cookie)).status, 200, "and /api/state");
     await app.post("/owner/business", new URLSearchParams({ business: "restaurant" }), cookie);
     await fetch(`${app.base}/owner/import?name=usage.csv`, {
@@ -269,6 +270,33 @@ test("the ops board moves off the front door and the funnel records the journey"
     assert.ok(f.counts.landed >= 1, "landed recorded");
     assert.equal(f.counts.account_created, 1);
     assert.equal(f.counts.data_connected, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a signed-in customer who is not an operator cannot reach the ops board", async () => {
+  const app = await boot({ opsEmails: ["sam@harborgrill.com"] });
+  try {
+    const outsider = await app.signIn("alice@othergrill.com");
+    for (const path of ["/ops", "/api/state"]) {
+      const res = await app.get(path, outsider);
+      assert.equal(res.status, 404, `${path} is hidden from a non-operator`);
+    }
+    // but her own statement is reachable, so this is authorization, not a lockout
+    assert.notEqual((await app.get("/owner", outsider)).headers.get("location"), "/signin");
+  } finally {
+    await app.close();
+  }
+});
+
+test("an empty operator allowlist denies everyone, signed in or not", async () => {
+  const app = await boot({ opsEmails: [] });
+  try {
+    assert.equal((await app.get("/ops")).status, 303, "anonymous still bounced to sign-in");
+    const cookie = await app.signIn("sam@harborgrill.com");
+    assert.equal((await app.get("/ops", cookie)).status, 404, "no operator set means the board is closed");
+    assert.equal((await app.get("/api/state", cookie)).status, 404);
   } finally {
     await app.close();
   }

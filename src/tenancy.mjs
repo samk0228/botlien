@@ -22,6 +22,17 @@ import {
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { defaultWorkFor } from "./rates.mjs";
+import { normalizeEmail } from "./control.mjs";
+
+/** Parse the operator allowlist from a comma-separated string or an array into
+ * a normalized Set. The ops board shows the operator's own fleet, so only these
+ * accounts may see it; everyone else, signed in or not, is turned away. An empty
+ * allowlist denies everyone, which is the safe default: a forgotten env var
+ * leaves the board closed rather than open to every customer. */
+export function parseOpsEmails(raw) {
+  const list = Array.isArray(raw) ? raw : String(raw ?? "").split(",");
+  return new Set(list.map((e) => normalizeEmail(e)).filter(Boolean));
+}
 
 const DEFAULT_BUCKET_MS = 3_600_000;
 
@@ -42,8 +53,10 @@ export function createTenancy({
   baseUrl = "http://127.0.0.1:3230",
   secureCookies = false,
   readBody,
+  opsEmails = process.env.BOTLIEN_OPS_EMAILS ?? "",
   log = () => {},
 }) {
+  const opsSet = parseOpsEmails(opsEmails);
   /** Events with no account attached (`landed`) still belong in the funnel. */
   const onEvent = (name, { accountId = null, detail = null } = {}) => {
     try {
@@ -69,6 +82,8 @@ export function createTenancy({
     secureCookies,
     now,
     readBody,
+    /** Whether a signed-in account may see the ops board. */
+    isOperator: (email) => opsSet.has(normalizeEmail(email)),
     // Pass the whole payload through. An earlier version took (name, detail)
     // and wrapped it, which silently dropped accountId: `account_created` was
     // then stored unattached, funnel() could not join it to `activated`, and
