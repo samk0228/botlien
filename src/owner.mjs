@@ -319,109 +319,238 @@ function describeWindow({ fromMs, toMs, observedDays, clamped, windowDays }) {
 }
 
 const OWNER_CSS = `
-:root{color-scheme:dark}
-body{background:#0f1115;color:#d5d9e2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px;max-width:980px;margin-inline:auto}
-h1{font-size:20px;letter-spacing:2px;margin:0}
-h2{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7;margin:26px 0 8px}
-a{color:#7aa2f7}
-.badge{background:#3d2f00;color:#e8b93e;border:1px solid #6b5400;border-radius:4px;padding:2px 8px;font-size:11px;margin-left:10px;vertical-align:middle}
-.sub{color:#8b93a7;font-size:12px;margin-top:4px}
-.nav{margin-top:14px;font-size:12px;display:flex;gap:14px}
-.panel{background:#171a21;border:1px solid #232733;border-radius:8px;padding:14px}
-.empty{color:#5b6272;font-size:13px;padding:6px}
-.headline{background:#141a16;border:1px solid #1f3d2a;border-radius:8px;padding:18px;margin-top:16px}
-.headline .big{font-size:40px;font-weight:700;color:#37c26a;line-height:1.1}
-.headline .big.under{color:#e8b93e}
-.headline .cap{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7}
-.headline .say{font-size:14px;color:#aab1c2;margin-top:8px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
-.tile{background:#171a21;border:1px solid #232733;border-radius:8px;padding:12px}
-.tile .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#8b93a7}
-.tile .v{font-size:24px;font-weight:600;margin-top:4px}
-.tile .n{font-size:11px;color:#5b6272;margin-top:4px}
-.rob{padding:10px 4px;border-bottom:1px solid #1d212b}
+/* Ported from prototype/src/botlien.part.html (c0c25e0). One committed light
+   palette: the page paints its own background and every colour explicitly, so
+   it holds whatever theme the viewer is in.
+
+   No status colours anywhere, deliberately. The prototype carries none, and the
+   reason is stated in its own copy: a row "holds the coverage figure on its own
+   line, so it reads as a problem before the number is even parsed." Shortfall is
+   signalled by weight and layout, never by painting a number green or amber.
+   Colouring the figure would editorialise it, which is the one thing a statement
+   an owner checks by hand must not do. */
+:root{
+  --page-bg:#F1F2FC;
+  --page:linear-gradient(160deg,#EDEFFC 0%,#F4F1FB 45%,#F2F6FD 100%);
+  --fg1:#16204A; --fg2:#6B7392; --fg3:#9AA1BC;
+  --ink:#0A0A0A; --ink-fg:#FFFFFF;
+  --hair:rgba(10,10,10,.10); --hair2:rgba(10,10,10,.16); --hair3:rgba(10,10,10,.28);
+  --ghost:rgba(10,10,10,.04); --ghost2:rgba(10,10,10,.05);
+  --menu:#F6F6FB;
+  --sb-border:hsl(220 13% 91%);
+  --mono:ui-monospace,Menlo,"SF Mono",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--page-bg);background-image:var(--page);background-attachment:fixed;color:var(--fg1);
+  font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  margin:0;padding:32px 24px 64px;max-width:1060px;margin-inline:auto;font-size:14px;line-height:1.5}
+h1{font-size:21px;font-weight:700;letter-spacing:-.01em;margin:0;color:var(--fg1)}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--fg3);margin:34px 0 10px}
+a{color:var(--fg1);text-underline-offset:3px}
+a:hover{color:var(--fg2)}
+.badge{background:var(--ghost);color:var(--fg2);border:1px solid var(--hair2);border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.06em;margin-left:10px;vertical-align:middle}
+.sub{color:var(--fg2);font-size:12.5px;margin-top:5px}
+.nav{margin-top:16px;font-size:12.5px;font-weight:600;display:flex;flex-wrap:wrap;gap:16px}
+
+/* Card frame. One border, one radius, everywhere, so the page reads as one
+   surface rather than a stack of unrelated widgets. */
+.panel{background:transparent;border:1px solid var(--hair);border-radius:6px;padding:4px 18px}
+.empty{color:var(--fg3);font-size:13px;padding:14px 4px}
+
+/* The coverage headline. The figure gets its own line at display size; that
+   placement, not a colour, is what makes a shortfall read as a problem. */
+.headline{background:transparent;border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-top:18px}
+.headline .cap{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--fg3)}
+.headline .big{display:block;font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-.03em;line-height:1.1;color:var(--fg1);margin-top:6px;font-variant-numeric:tabular-nums}
+.headline .big.under{font-weight:800}
+.headline .say{font-size:13.5px;color:var(--fg2);margin-top:12px;line-height:1.65;max-width:64ch}
+.headline .say b{color:var(--fg1);font-weight:600}
+.headline .why{font-size:13px;color:var(--fg2);margin-top:14px;padding-top:13px;border-top:1px solid var(--hair);line-height:1.65}
+.headline .why b{color:var(--fg1);font-weight:600}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:14px}
+.tile{background:transparent;border:1px solid var(--hair);border-radius:6px;padding:15px 16px}
+.tile .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--fg3)}
+.tile .v{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-top:6px;color:var(--fg1);font-variant-numeric:tabular-nums}
+.tile .n{font-size:11.5px;color:var(--fg3);margin-top:5px;line-height:1.55}
+
+/* Robot rows. Coverage sits on its own line under the name, per the prototype:
+   the figure is not squeezed onto the end of a sentence. */
+.rob{padding:13px 0;border-bottom:1px solid var(--hair)}
 .rob:last-child{border-bottom:0}
-.rob .top{display:flex;gap:10px;align-items:baseline;font-size:13px}
-.rob .nm{font-weight:600}
-.rob .mk{color:#8b93a7;font-size:11px}
-.rob .cov{margin-left:auto;font-weight:700}
-.rob .cov.ok{color:#37c26a}.rob .cov.under{color:#e8b93e}.rob .cov.none{color:#5b6272}
-.rob .fml{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598;margin-top:5px}
-.tag{font-size:10px;padding:1px 6px;border-radius:3px;background:#232733;color:#8b93a7}
-.tag.def{background:#3d2f00;color:#e8b93e}
-.note{color:#5b6272;font-size:11px;margin-top:8px;line-height:1.6}
-.honest{margin-top:26px;border-top:1px solid #1d212b;padding-top:12px;color:#5b6272;font-size:11px;line-height:1.7}
-form{display:grid;gap:14px}
-fieldset{border:1px solid #232733;border-radius:8px;background:#171a21;padding:14px;margin:0}
-legend{font-size:12px;color:#d5d9e2;padding:0 6px}
-label{display:block;font-size:11px;color:#8b93a7;margin-bottom:3px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-input,select{background:#0f1115;color:#d5d9e2;border:1px solid #2b3040;border-radius:5px;padding:7px 8px;font-size:13px;width:100%;box-sizing:border-box}
-button{background:#1f7a41;color:#fff;border:0;border-radius:6px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;justify-self:start}
-.hint{font-size:10px;color:#5b6272;margin-top:3px}
+.rob .top{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;font-size:13.5px}
+.rob .nm{font-weight:600;color:var(--fg1)}
+.rob .mk{color:var(--fg3);font-size:11.5px}
+.rob .cov{margin-left:auto;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;color:var(--fg1)}
+.rob .cov.under{font-weight:800}
+.rob .cov.none{color:var(--fg3);font-weight:600}
+.rob .fml{font-family:var(--mono);font-size:11px;color:var(--fg3);margin-top:7px;line-height:1.6}
+.tag{font-size:10px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:3px;background:var(--ghost);color:var(--fg2);border:1px solid var(--hair)}
+.tag.def{background:var(--ghost2);color:var(--fg2)}
+.note{color:var(--fg3);font-size:11.5px;margin-top:10px;line-height:1.65}
+.honest{margin-top:34px;border-top:1px solid var(--hair);padding-top:15px;color:var(--fg3);font-size:11.5px;line-height:1.75;max-width:80ch}
+
+form{display:grid;gap:16px}
+fieldset{border:1px solid var(--hair);border-radius:6px;background:transparent;padding:16px;margin:0}
+legend{font-size:12.5px;font-weight:600;color:var(--fg1);padding:0 7px}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--fg2);margin-bottom:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+input,select{background:#fff;color:var(--fg1);border:1px solid var(--hair2);border-radius:4px;padding:9px 10px;font-size:13px;width:100%;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--hair3)}
+button{background:var(--ink);color:var(--ink-fg);border:0;border-radius:4px;padding:12px 20px;font-size:13.5px;font-weight:700;cursor:pointer;justify-self:start;font-family:inherit}
+button:hover{opacity:.88}
+button[disabled]{opacity:.4;cursor:default}
+.hint{font-size:10.5px;color:var(--fg3);margin-top:4px;line-height:1.55}
 fieldset.excluded{opacity:.5}
-fieldset.excluded legend .tag{background:#232733;color:#8b93a7}
-.drop{border:1px dashed #2b3040;border-radius:10px;background:#131820;padding:44px 20px;text-align:center}
-.drop .big{font-size:17px;font-weight:600}
-.drop .sm{font-size:12.5px;color:#8b93a7;margin-top:8px;line-height:1.6;max-width:46ch;margin-inline:auto}
-.drop .pick{margin-top:16px}
-.second{margin-top:22px;border-top:1px solid #1d212b;padding-top:16px;color:#8b93a7;font-size:12.5px;line-height:1.6}
-.second b{color:#d5d9e2;font-weight:600}
-.cols{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#aab1c2;line-height:1.8}
-.err{border-left:3px solid #e05252;background:#1e1416;padding:12px 14px;font-size:13px;margin-bottom:16px}
-.steps{display:flex;gap:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#5b6272;margin-top:12px}
-.steps b{color:#37c26a;font-weight:600}
-.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
-.pick-card{display:block;background:#171a21;border:1px solid #232733;border-radius:8px;padding:14px;cursor:pointer}
-.pick-card:hover{border-color:#2f3646}
-.pick-card.on{border-color:#37c26a;background:#141a16}
+fieldset.excluded legend .tag{background:var(--ghost);color:var(--fg2)}
+
+.drop{border:1px dashed var(--hair2);border-radius:6px;background:transparent;padding:48px 20px;text-align:center}
+.drop .big{font-size:17px;font-weight:700;color:var(--fg1)}
+.drop .sm{font-size:12.5px;color:var(--fg2);margin-top:9px;line-height:1.65;max-width:48ch;margin-inline:auto}
+.drop .pick{margin-top:18px}
+.second{margin-top:24px;border-top:1px solid var(--hair);padding-top:18px;color:var(--fg2);font-size:12.5px;line-height:1.65}
+.second b{color:var(--fg1);font-weight:600}
+.cols{font-family:var(--mono);font-size:11.5px;color:var(--fg2);line-height:1.8}
+.err{border-left:2px solid var(--fg1);background:var(--ghost);padding:13px 15px;font-size:13px;margin-bottom:18px;border-radius:0 4px 4px 0}
+.steps{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--fg3);margin-top:14px}
+.steps b{color:var(--fg1);font-weight:700}
+
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.pick-card{display:block;background:transparent;border:1px solid var(--hair);border-radius:6px;padding:16px;cursor:pointer}
+.pick-card:hover{border-color:var(--hair2);background:var(--ghost)}
+.pick-card.on,.pick-card:has(input:checked){border-color:var(--hair3);background:var(--ghost2);box-shadow:inset 0 0 0 1px var(--hair2)}
 .pick-card input{position:absolute;opacity:0;pointer-events:none}
-.pick-card .t{display:block;font-size:14px;font-weight:600}
-.pick-card .d{display:block;font-size:12px;color:#8b93a7;margin-top:5px;line-height:1.5}
-.pick-card .w{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
-.pick-card .w i{font-style:normal;font-size:10px;letter-spacing:.03em;color:#8b93a7;background:#0f1115;border:1px solid #232733;border-radius:3px;padding:2px 6px}
-.consequence{background:#141a16;border:1px solid #1f3d2a;border-radius:8px;padding:13px 15px;margin-top:14px;font-size:13px;color:#aab1c2;line-height:1.6}
-.consequence b{color:#d5d9e2}
-.consequence .der{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#7d8598}
-button[disabled]{opacity:.45;cursor:default}
-.pick-card:has(input:checked){border-color:#37c26a;background:#141a16}
+.pick-card .t{display:block;font-size:14px;font-weight:700;color:var(--fg1)}
+.pick-card .d{display:block;font-size:12.5px;color:var(--fg2);margin-top:6px;line-height:1.55}
+.pick-card .w{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.pick-card .w i{font-style:normal;font-size:10px;letter-spacing:.03em;color:var(--fg2);background:var(--ghost);border:1px solid var(--hair);border-radius:3px;padding:2px 7px}
+.consequence{background:transparent;border:1px solid var(--hair);border-radius:6px;padding:15px 17px;margin-top:16px;font-size:13px;color:var(--fg2);line-height:1.65}
+.consequence b{color:var(--fg1);font-weight:600}
+.consequence .der{font-family:var(--mono);font-size:11px;color:var(--fg3)}
 
 /* Tips. Visually the loudest thing under the headline on purpose: it is the
-   only part of the page that tells the owner to do something. */
-.tip{border-left:2px solid #2f3646;padding:12px 0 12px 13px;margin-bottom:2px}
-.tip+.tip{border-top:1px solid #1d212b}
-.tip.money{border-left-color:#37c26a}
-.tip.risk{border-left-color:#e8b93e}
-.tip .h{display:flex;gap:12px;align-items:baseline}
-.tip .ti{font-size:14px;font-weight:600;color:#e6eaf2}
-.tip .amt{margin-left:auto;font-size:15px;font-weight:700;color:#37c26a;white-space:nowrap}
-.tip.risk .amt{color:#e8b93e}
-.tip .amt small{display:block;font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#5b6272;text-align:right;margin-top:2px}
-.tip .f{font-size:13px;color:#aab1c2;line-height:1.6;margin-top:7px}
-.tip .a{font-size:13px;color:#d5d9e2;line-height:1.6;margin-top:7px}
-.tip .a b{color:#37c26a;font-weight:600}
-.tip .b{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#6b7383;margin-top:8px;line-height:1.6}
-.tip .bd{font-size:10.5px;color:#5b6272;margin-top:4px;line-height:1.6;font-style:italic}
-.tipsum{font-size:12px;color:#8b93a7;margin-top:10px;line-height:1.6}
-.tipsum b{color:#37c26a}
+   only part of the page that tells the owner to do something. Emphasis comes
+   from the rule and the type scale, not from colour. */
+.tip{border-left:2px solid var(--hair2);padding:14px 0 14px 15px;margin-bottom:2px}
+.tip+.tip{border-top:1px solid var(--hair)}
+.tip.money{border-left-color:var(--fg1)}
+.tip.risk{border-left-color:var(--fg1);border-left-style:dashed}
+.tip .h{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+.tip .ti{font-size:14.5px;font-weight:700;color:var(--fg1)}
+.tip .amt{margin-left:auto;font-size:16px;font-weight:700;color:var(--fg1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .amt small{display:block;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);text-align:right;margin-top:3px}
+.tip .f{font-size:13px;color:var(--fg2);line-height:1.65;margin-top:8px}
+.tip .a{font-size:13px;color:var(--fg1);line-height:1.65;margin-top:8px}
+.tip .a b{color:var(--fg1);font-weight:700}
+.tip .b{font-family:var(--mono);font-size:10.5px;color:var(--fg3);margin-top:9px;line-height:1.65}
+.tip .bd{font-size:10.5px;color:var(--fg3);margin-top:5px;line-height:1.6;font-style:italic}
+.tipsum{font-size:12px;color:var(--fg2);margin-top:12px;line-height:1.65}
+.tipsum b{color:var(--fg1);font-weight:700}
 
 /* Period-over-period. Bars are signed and share one scale so a small effect
-   next to a large one looks small. */
-.varsent{font-size:14px;color:#d5d9e2;line-height:1.65}
-.vartable{margin-top:14px;display:grid;gap:7px}
-.varrow{display:grid;grid-template-columns:150px 1fr 74px;gap:10px;align-items:center;font-size:12px}
-.varrow .lb{color:#aab1c2}
-.varrow .tr{position:relative;height:16px;background:#12151c;border-radius:3px;overflow:hidden}
+   next to a large one looks small. Direction is carried by which side of the
+   midline the bar sits on and by the sign on the figure, not by hue. */
+.varsent{font-size:14px;color:var(--fg1);line-height:1.7}
+.vartable{margin-top:16px;display:grid;gap:8px}
+.varrow{display:grid;grid-template-columns:minmax(120px,150px) 1fr 74px;gap:12px;align-items:center;font-size:12px}
+.varrow .lb{color:var(--fg2)}
+.varrow .tr{position:relative;height:16px;background:var(--ghost);border-radius:3px;overflow:hidden;border:1px solid var(--hair)}
 .varrow .tr i{position:absolute;top:0;bottom:0;display:block}
-.varrow .tr i.pos{background:#1f7a41;left:50%}
-.varrow .tr i.neg{background:#8f3030;right:50%}
-.varrow .tr .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#2b3040}
-.varrow .dv{text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
-.varrow .dv.pos{color:#37c26a}.varrow .dv.neg{color:#e07a7a}
-.varfoot{font-size:11px;color:#5b6272;margin-top:12px;line-height:1.7}
-.varwho{font-size:12px;color:#8b93a7;margin-top:12px;line-height:1.7}
-.varwho b{color:#d5d9e2}
-.headline .why{font-size:13px;color:#8b93a7;margin-top:10px;padding-top:10px;border-top:1px solid #1f3d2a;line-height:1.6}
+.varrow .tr i.pos{background:var(--fg1);left:50%}
+.varrow .tr i.neg{background:var(--fg3);right:50%}
+.varrow .tr .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--hair3);z-index:1}
+.varrow .dv{text-align:right;font-family:var(--mono);font-size:11.5px;color:var(--fg1);font-variant-numeric:tabular-nums}
+.varrow .dv.neg{color:var(--fg2)}
+.varfoot{font-size:11px;color:var(--fg3);margin-top:14px;line-height:1.75}
+.varwho{font-size:12px;color:var(--fg2);margin-top:14px;line-height:1.75}
+.varwho b{color:var(--fg1);font-weight:600}
+
+/* ---- app shell ----
+   Measurements taken from the prototype's render() / appRail() / appStage() at
+   c0c25e0, not approximated: 256px is shadcn's SIDEBAR_WIDTH, which is what
+   that design is built against. The page gradient covers the whole frame, and
+   every screen's body sits inside one transparent bordered card. */
+body{padding:0;max-width:none;margin-inline:0}
+.frame{position:relative;min-height:100vh;background:var(--page);display:grid;align-items:start}
+body.app .frame{grid-template-columns:256px minmax(0,1fr)}
+body.solo .frame{grid-template-columns:minmax(0,1fr)}
+
+.stage{padding:36px 34px 44px 0;min-width:0}
+body.solo .stage{padding:56px 34px 80px;display:flex;justify-content:center}
+body.solo .stage-card{width:100%;max-width:860px}
+.stage-card{background:transparent;border:1px solid var(--hair);border-radius:4px;padding:40px 40px 44px}
+
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-top:36px;padding-top:28px;border-top:1px solid var(--hair)}
+.foot .fn{font-size:12.5px;color:var(--fg3);max-width:62ch}
+.foot .fl{display:flex;gap:20px;align-items:center}
+.foot .fl a{font-size:13px;font-weight:600;text-decoration:none}
+.foot .fl span{font-size:12.5px;color:var(--fg3)}
+
+/* Rail. Item metrics are the prototype's: 32px tall, 8px pad, 8px radius,
+   14px type, 500 idle / 600 active, shadcn sidebar tokens for the states. */
+.rail{position:sticky;top:0;min-height:100vh;display:flex;flex-direction:column;gap:4px;padding:16px 12px;background:var(--sb-bg);border-right:1px solid var(--sb-border)}
+.rail .brand{padding:8px 8px 20px}
+.rail .wm{display:block;font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--fg1)}
+.rail .org{display:block;font-size:11.5px;font-weight:500;color:var(--fg3);margin-top:4px}
+.rail .nav-list{display:flex;flex-direction:column;gap:2px}
+.rail .ni{position:relative;display:flex;align-items:center;box-sizing:border-box;width:100%;height:32px;gap:8px;padding:8px;
+  border-radius:8px;font-size:14px;font-weight:500;color:var(--sb-fg);background:transparent;text-decoration:none}
+.rail .ni:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
+.rail .ni.on{background:var(--sb-accent);color:var(--sb-accent-fg);font-weight:600}
+.rail .nb{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--sb-accent-fg);color:var(--sb-bg);
+  font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.rail .railout{margin-top:auto;padding:8px}
+.linkish{background:none;border:0;padding:0;color:var(--fg3);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.linkish:hover{color:var(--fg1);opacity:1}
+
+/* Cards carry a hairline and nothing else. The prototype fills none of them;
+   the page gradient is what shows through, and that is the whole surface
+   treatment. */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start;margin-top:18px}
+.card{border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px}
+.card.wide{grid-column:1/-1}
+.card>h3{font-size:13.5px;font-weight:700;color:var(--fg1);margin:0 0 3px}
+.card>.cs{font-size:12px;color:var(--fg3);margin-bottom:12px;line-height:1.55}
+
+.ph{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;justify-content:space-between}
+.ph h1{font-size:27px;letter-spacing:-.02em}
+.ph .per{font-size:12.5px;font-weight:700;color:var(--fg1);border:1px solid var(--hair);border-radius:4px;padding:8px 14px}
+
+/* Fleet rows carry a proportional bar, drawn against the strongest robot in
+   the fleet so the shape of the list is the finding, not any one number. */
+.fl{display:grid;grid-template-columns:minmax(0,1fr) 120px 68px;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--hair)}
+.fl:last-child{border-bottom:0}
+.fl .who .nm{font-size:13.5px;font-weight:600;color:var(--fg1)}
+.fl .who .mk{font-size:11.5px;color:var(--fg3);margin-top:3px}
+.fl .bar{height:8px;background:var(--ghost);border:1px solid var(--hair);border-radius:4px;overflow:hidden}
+.fl .bar i{display:block;height:100%;background:var(--fg1)}
+.fl .bar i.short{background:var(--fg3)}
+.fl .cv{text-align:right;font-size:14px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums}
+.fl .cv.under{font-weight:800}
+.fl .cv.none{color:var(--fg3);font-weight:600;font-size:12.5px}
+
+@media (max-width:860px){
+  body.app{grid-template-columns:1fr}
+  .rail{position:static;height:auto;flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--sb-border)}
+  .rail .brand{padding:0 8px 0 0}
+  .rail .org{display:none}
+  .rail .nav-list{flex-direction:row}
+  .rail .railout{margin-top:0;margin-left:auto;padding:0 4px}
+}
+@media (max-width:640px){
+  body{padding:20px 16px 48px}
+  body.app{padding:0}
+  body.app .content{padding:22px 16px 48px}
+  .headline{padding:20px 18px}
+  .headline .big{font-size:42px}
+  .ph h1{font-size:23px}
+  .varrow{grid-template-columns:1fr;gap:4px}
+  .varrow .dv{text-align:left}
+  .fl{grid-template-columns:minmax(0,1fr) 68px}
+  .fl .bar{display:none}
+}
 `;
 
 const HONESTY_NOTE = `
@@ -431,12 +560,61 @@ because telemetry cannot show what your business would have done without the rob
 Counts come from mission starts reported by the robot, so they read as runs started, not runs completed.
 Every figure above shows its arithmetic so you can check it by hand.`;
 
-function shell(title, body) {
+// The rail is the product, so it appears on the three app screens and nowhere
+// else. First run gets no rail on purpose: a nav pointing at a statement that
+// cannot be rendered yet invites a click that can only bounce back, and the
+// prototype makes the same call for the same reason.
+/** Short range for the period pill. The long sentence explaining the clamp
+ *  belongs in the headline caption, where it can be read once; repeating it in
+ *  a chip turns a label into a paragraph. */
+function periodPill(m) {
+  const f = { month: "short", day: "numeric" };
+  const from = new Date(m.fromMs).toLocaleDateString("en-US", f);
+  const to = new Date(m.toMs).toLocaleDateString("en-US", { ...f, year: "numeric" });
+  return `${from} – ${to}`;
+}
+
+const NAV_ITEMS = [
+  { key: "dashboard", href: "/owner", label: "Dashboard" },
+  { key: "fleet", href: "/owner/fleet", label: "Fleet" },
+  { key: "numbers", href: "/owner/setup", label: "Numbers" },
+];
+
+function rail({ active, fleetBadge = 0, businessLabel = null }) {
+  const item = (n) => {
+    const on = n.key === active;
+    // Live count of robots under their lease, matching the prototype's
+    // attnCount: an edit on Numbers that pushes a robot under, or pulls it
+    // back over, shows up here the same instant it shows up on Fleet.
+    const badge =
+      n.key === "fleet" && fleetBadge > 0 ? `<span class="nb">${fleetBadge}</span>` : "";
+    return `<a class="ni${on ? " on" : ""}" href="${n.href}"${on ? ' aria-current="page"' : ""}>${esc(n.label)}${badge}</a>`;
+  };
+  return `<nav class="rail">
+  <div class="brand"><span class="wm">BOTLIEN</span>${businessLabel ? `<span class="org">${esc(businessLabel)}</span>` : ""}</div>
+  <div class="nav-list">${NAV_ITEMS.map(item).join("")}</div>
+  <form class="railout" method="post" action="/signout"><button type="submit" class="linkish">Sign out</button></form>
+</nav>`;
+}
+
+// Footer sits inside the content card, not under it, exactly as appStage()
+// composes it in the prototype.
+const STAGE_FOOT = `<div class="foot">
+  <div class="fn">Counts are mission starts reported by the robot, so they read as runs started. Work is valued at replacement rates, never at what an order was worth.</div>
+  <div class="fl"><a href="mailto:info@botlien.com">info@botlien.com</a><span>© 2026 Botlien</span></div>
+</div>`;
+
+/** Frame from the prototype's render(): a full-height gradient page, a
+ *  256px rail beside a content column, and every screen's body inside one
+ *  transparent bordered card. Onboarding drops the rail and centres its own
+ *  column, because there is nothing to navigate to until a fleet exists. */
+function shell(title, body, { nav = null } = {}) {
+  const inner = `<div class="stage"><div class="stage-card">${body}${STAGE_FOOT}</div></div>`;
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>${OWNER_CSS}</style></head>
-<body>${body}</body></html>`;
+<body class="${nav ? "app" : "solo"}"><div class="frame">${nav ? rail(nav) : ""}${inner}</div></body></html>`;
 }
 
 export function renderOwnerHTML(m) {
@@ -565,9 +743,10 @@ export function renderOwnerHTML(m) {
 
   return shell(
     "Botlien · owner",
-    `<h1>BOTLIEN${m.demo ? '<span class="badge">DEMO — simulated fleet</span>' : ""}</h1>
+    `<div class="ph"><h1>Dashboard${m.demo ? '<span class="badge">DEMO — simulated fleet</span>' : ""}</h1>
+<div class="per">${esc(periodPill(m))}</div></div>
 <div class="sub">what your robots serviced · ${esc(new Date(m.nowMs).toLocaleString("en-US"))}</div>
-<div class="nav"><a href="/owner/setup">Set your numbers</a><a href="/">Risk board</a><a href="/api/owner">JSON</a></div>
+<div class="nav"><a href="/">Risk board</a><a href="/api/owner">JSON</a></div>
 
 <div class="headline">${headline}</div>
 
@@ -600,7 +779,65 @@ ${m.unpricedCount > 0 ? `<div class="note">${m.unpricedCount} robot${m.unpricedC
 ${m.sites.length === 0 ? '<h2>Robots</h2><div class="panel"><div class="empty">no robots yet</div></div>' : m.sites.map(site).join("")}
 
 <div class="honest">${esc(HONESTY_NOTE.trim())}</div>
-<script>setTimeout(() => location.reload(), 15000);</script>`
+<script>setTimeout(() => location.reload(), 15000);</script>`,
+    { nav: { active: "dashboard", fleetBadge: underLeaseCount(m) } }
+  );
+}
+
+/** Robots priced below their own lease. Unpriced robots are not counted: a
+ *  robot with no rate has not been shown to be under anything, and padding the
+ *  badge with unknowns would train the owner to ignore it. */
+export function underLeaseCount(m) {
+  return m.robots.filter((r) => r.fin && r.fin.coverage !== null && r.fin.coverage < 1).length;
+}
+
+export function renderFleetHTML(m) {
+  const covClass = (c) => (c === null ? "none" : c >= 1 ? "ok" : "under");
+  // Bars are drawn against the strongest robot present, not against 1.00x, so
+  // the list keeps its shape when every robot clears its lease comfortably.
+  const top = Math.max(...m.robots.map((r) => r.fin?.coverage ?? 0), 1);
+
+  const row = (r) => {
+    const c = r.fin?.coverage ?? null;
+    const w = c === null ? 0 : Math.max(2, Math.min(100, (c / top) * 100));
+    return `
+    <div class="fl">
+      <div class="who">
+        <div class="nm">${esc(r.name)}${r.fin && !r.configured ? ' <span class="tag def">benchmark default</span>' : ""}${!r.fin ? ' <span class="tag">no rate set</span>' : ""}</div>
+        <div class="mk">${esc([r.brand, r.model].filter(Boolean).join(" ")) || "—"}</div>
+      </div>
+      <div class="bar">${c === null ? "" : `<i class="${c < 1 ? "short" : ""}" style="width:${w.toFixed(1)}%"></i>`}</div>
+      <div class="cv ${covClass(c)}">${c === null ? "no rate" : esc(ratio(c))}</div>
+    </div>`;
+  };
+
+  const under = underLeaseCount(m);
+  const siteBlock = (s) => `<h2>${esc(s.name)} · ${esc(ratio(s.totals.coverage))} coverage</h2>
+<div class="panel">${s.robots.length === 0 ? '<div class="empty">no robots</div>' : s.robots.map(row).join("")}</div>`;
+
+  return shell(
+    "Botlien · fleet",
+    `<div class="ph"><h1>Fleet${m.demo ? '<span class="badge">DEMO — simulated fleet</span>' : ""}</h1>
+<div class="per">${esc(periodPill(m))}</div></div>
+<div class="sub">${
+      m.robots.length === 0
+        ? "no robots yet"
+        : `${m.robots.length} robot${m.robots.length > 1 ? "s" : ""} · ${
+            under === 0 ? "every priced robot is covering its lease" : `${under} running under its lease`
+          }`
+    }</div>
+<div class="nav"><a href="/owner">Dashboard</a><a href="/owner/setup">Set your numbers</a></div>
+
+${m.sites.length === 0 ? '<h2>Robots</h2><div class="panel"><div class="empty">no robots yet</div></div>' : m.sites.map(siteBlock).join("")}
+
+${
+  m.unpricedCount > 0
+    ? `<div class="note">${m.unpricedCount} robot${m.unpricedCount > 1 ? "s have" : " has"} no rate set, so ${m.unpricedCount > 1 ? "they are" : "it is"} left out of every figure rather than counted as zero. <a href="/owner/setup">Set your numbers</a>.</div>`
+    : ""
+}
+
+<div class="honest">${esc(HONESTY_NOTE.trim())}</div>`,
+    { nav: { active: "fleet", fleetBadge: under } }
   );
 }
 
@@ -838,12 +1075,12 @@ export function renderSetupHTML(m, { saved = false } = {}) {
 
   return shell(
     "Botlien · set your numbers",
-    `<h1>BOTLIEN</h1>
+    `<div class="ph"><h1>Numbers</h1></div>
 <div class="sub">five numbers per robot, then every figure on your board is yours instead of a benchmark</div>
-<div class="nav"><a href="/owner">Back to the board</a></div>
 ${saved ? '<div class="note">Saved.</div>' : ""}
 ${m.robots.length === 0 ? '<div class="panel"><div class="empty">no robots yet, start the engine first</div></div>' : `<form method="POST" action="/owner/setup">${m.robots.map(row).join("")}<button type="submit">Save and see my numbers</button></form>`}
-<div class="honest">${esc(HONESTY_NOTE.trim())}</div>`
+<div class="honest">${esc(HONESTY_NOTE.trim())}</div>`,
+    { nav: { active: "numbers", fleetBadge: underLeaseCount(m) } }
   );
 }
 

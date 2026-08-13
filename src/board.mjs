@@ -472,6 +472,20 @@ export function startBoard(port, {
           res.end(JSON.stringify(await getOwnerState()));
           return;
         }
+        if (req.method === "GET" && path === "/owner/fleet") {
+          const model = await getOwnerState();
+          // Same first-run guard as /owner. A fleet list before anything is
+          // imported is an empty page reachable from the rail, so send the
+          // owner to the step that actually moves them forward instead.
+          if (onboarding && model.step !== "done" && !(req.url ?? "").includes("demo=1")) {
+            res.writeHead(303, { Location: `/owner/${model.step}` });
+            res.end();
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderFleetHTML(model));
+          return;
+        }
         if (req.method === "GET" && path === "/owner/setup") {
           const saved = (req.url ?? "").includes("saved=1");
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
