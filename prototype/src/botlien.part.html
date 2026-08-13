@@ -337,6 +337,27 @@ const PEOPLE = [
   { name:'Priya Shah', email:'priya@bayledger.com', role:'Accountant', scope:'All 3 sites, view only', can:'Reads and exports closed statements' }
 ];
 
+// Demo mode already swaps its own sidebar account/business labels for
+// generic ones (see appSidebar). This does the same for the three named
+// people this data models, wherever their name, first name, or email
+// shows up (People, Rate history's "set by," Alerts' "goes to"), one
+// small text transform instead of a parallel demo dataset to keep in
+// sync with PEOPLE/RATE_HISTORY/ALERT_RULES by hand. Full names first,
+// so "Sam Ortega" doesn't get double-replaced by the bare "Sam" rule.
+function demoify(text){
+  if (!S.demoMode) return text;
+  return text
+    .replace(/Sam Ortega/g, 'Demo Owner')
+    .replace(/Dana Reyes/g, 'Demo Manager')
+    .replace(/Priya Shah/g, 'Demo Accountant')
+    .replace(/\bSam\b/g, 'Owner')
+    .replace(/\bDana\b/g, 'Manager')
+    .replace(/\bPriya\b/g, 'Accountant')
+    .replace(/sam@harborgrill\.com/g, 'owner@demo.botlien.com')
+    .replace(/dana@harborgrill\.com/g, 'manager@demo.botlien.com')
+    .replace(/priya@bayledger\.com/g, 'accountant@demo.botlien.com');
+}
+
 // Per-robot coverage change vs the prior period, shown on the robots page.
 const ROBOT_DELTA = {
   'Servi 1 (front)':'+0.10', 'Servi 2 (patio)':'−0.19', 'P3 runner':'+0.31',
@@ -2113,7 +2134,7 @@ function viewSetup(){
             + '<div style="font-size:13.5px;font-weight:600;color:'+(r.current?'var(--fg1)':'var(--fg2)')+'">'+r.work+'</div>'
             + '<div style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
             + '<div style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.span+'</div>'
-            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+r.by+'</div>'
+            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+demoify(r.by)+'</div>'
             + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:3px">'+r.basis+'</div></div></div>').join('')
           + '</div></div>'
         : '')
@@ -2393,7 +2414,7 @@ function viewAlerts(){
       + ALERT_RULES.map(a => '<div style="display:grid;grid-template-columns:1.2fr 1.5fr .7fr .9fr 1.1fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:start">'
         + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1)">'+a.name+'</div>'
         + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">'+a.trigger+'</div>'
-        + '<div style="font-size:13px;color:var(--fg2)">'+a.to+'</div>'
+        + '<div style="font-size:13px;color:var(--fg2)">'+demoify(a.to)+'</div>'
         + '<div style="font-size:13px;color:var(--fg2)">'+a.when+'</div>'
         + '<div style="font-size:12.5px;color:var(--fg3);font-variant-numeric:tabular-nums">'+a.last+'</div></div>').join('')
     + '</div></div></div>'
@@ -2454,8 +2475,8 @@ function viewSettings(){
     + '<div style="overflow-x:auto;min-width:0"><div style="min-width:680px">'
       + '<div style="display:grid;grid-template-columns:1.1fr .8fr 1fr 1.4fr;gap:20px;padding:0 4px 12px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Person</div><div>Role</div><div>Sees</div><div>Can do</div></div>'
       + PEOPLE.map(p => '<div style="display:grid;grid-template-columns:1.1fr .8fr 1fr 1.4fr;gap:20px;padding:16px 4px;border-top:1px solid var(--hair);align-items:baseline">'
-        + '<div><div style="font-size:13.5px;font-weight:600;color:var(--fg1)">'+p.name+'</div>'
-        + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+p.email+'</div></div>'
+        + '<div><div style="font-size:13.5px;font-weight:600;color:var(--fg1)">'+demoify(p.name)+'</div>'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:3px">'+demoify(p.email)+'</div></div>'
         + '<div><span style="font-size:13px;font-weight:700;color:var(--fg1)">'+p.role+'</span></div>'
         + '<div style="font-size:12.5px;color:var(--fg2)">'+p.scope+'</div>'
         + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.6">'+p.can+'</div></div>').join('')
@@ -3212,6 +3233,17 @@ function bootScreen(){
     S.stage = 'app';
     S.view = 'dashv2';
     S.demoMode = true;
+    // The sidebar already swapped its own account/business labels for
+    // demo-safe ones (see appSidebar's bizName/demoMode checks), but
+    // Settings and Numbers read S.ownerName/accountEmail/siteName
+    // directly, no gating of their own, so they were still showing the
+    // real underlying default ("Sam Ortega", "sam@harborgrill.com",
+    // "Harbor Grill, Pier 4") whenever a demo visitor opened them.
+    // Overriding the state itself here, once, fixes every reader instead
+    // of gating each one separately.
+    S.ownerName = 'Demo Account';
+    S.accountEmail = 'demo@botlien.com';
+    S.siteName = 'Demo Business, Pier 4';
     return;
   }
 
