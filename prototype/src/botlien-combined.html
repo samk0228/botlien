@@ -314,19 +314,19 @@ const SITES = [
 /* Consumable life lives on the robot itself, in ROBOTS[].parts, so the inline
    block and the Condition page cannot drift apart. */
 
-const BENCHMARK = { median:'1.84x', n:214, percentile:'78th', cohort:'full service, 4 to 6 robots, US' };
+const BENCHMARK = { median:'1.84x', n:214, percentile:'78th', cohort:'fulfillment, 4 to 6 robots, US' };
 
 const RATE_HISTORY = [
-  { work:'Tray delivery', rate:'$0.73 per run', span:'In effect since Jul 1, 2026', basis:'$22.00 / hr ÷ 30 runs per hour', by:'Sam Ortega, Jun 28, 2026', current:true },
-  { work:'Tray delivery', rate:'$0.68 per run', span:'Jan 1 – Jun 30, 2026', basis:'$20.50 / hr ÷ 30 runs per hour', by:'Sam Ortega, Jan 2, 2026', current:false },
+  { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'$24.00 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jun 28, 2026', current:true },
+  { work:'Order picking', rate:'$0.36 per pick', span:'Jan 1 – Jun 30, 2026', basis:'$21.50 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jan 2, 2026', current:false },
   { work:'Floor cleaning', rate:'$25.00 per hour', span:'In effect since Jan 1, 2026', basis:'Botlien benchmark wage, never edited', by:'Not set by you', current:true }
 ];
 
 const ALERT_RULES = [
-  { name:'A robot falls under its lease', trigger:'Coverage below 1.00x for a full period', to:'Sam', when:'When the period closes', last:'Sent Sep 4 · Servi 2 (patio)' },
+  { name:'A robot falls under its lease', trigger:'Coverage below 1.00x for a full period', to:'Sam', when:'When the period closes', last:'Sent Sep 4 · Picker 2 (Zone B)' },
   { name:'A consumable runs out', trigger:'Life remaining at or under 15% on any reported part', to:'Sam, Dana', when:'Daily at most', last:'Sent Aug 30 · Scrubber 75, all 4 parts' },
   { name:'Maintenance is being deferred', trigger:'A part past its rating while the robot keeps running', to:'Sam', when:'Weekly', last:'Sent Sep 1 · Scrubber 75, side brush' },
-  { name:'Duty time collapses', trigger:'Below 20% of declared hours for 7 days running', to:'Sam', when:'Weekly', last:'Sent Aug 19 · Servi 2 (patio)' },
+  { name:'Duty time collapses', trigger:'Below 20% of declared hours for 7 days running', to:'Sam', when:'Weekly', last:'Sent Aug 19 · Picker 2 (Zone B)' },
   { name:'Statement ready', trigger:'A period closes and figures are frozen', to:'Sam, Priya', when:'On the 1st', last:'Sent Aug 4' },
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
@@ -360,10 +360,10 @@ function demoify(text){
 
 // Per-robot coverage change vs the prior period, shown on the robots page.
 const ROBOT_DELTA = {
-  'Servi 1 (front)':'+0.10', 'Servi 2 (patio)':'−0.19', 'P3 runner':'+0.31',
-  'Servi 3 (banquet)':'+0.74', 'Scrubber 50':'+0.08', 'Scrubber 75 (nights)':'+0.61',
-  'Servi 1 (Marina)':'+0.22', 'Servi 2 (Marina)':'−0.05', 'Scrubber (Marina)':'+0.14',
-  'Servi 1 (Airport)':'+0.09', 'Servi 2 (Airport)':'+0.33', 'Servi 3 (Airport)':'−0.02', 'Scrubber (Airport)':'+0.19'
+  'Picker 1 (Zone A)':'+0.10', 'Picker 2 (Zone B)':'−0.19', 'Freight runner':'+0.31',
+  'Picker 3 (Zone C)':'+0.74', 'Scrubber 50':'+0.08', 'Scrubber 75 (nights)':'+0.61',
+  'Picker 1 (Marina)':'+0.22', 'Picker 2 (Marina)':'−0.05', 'Scrubber (Marina)':'+0.14',
+  'Picker 1 (Airport)':'+0.09', 'Picker 2 (Airport)':'+0.33', 'Picker 3 (Airport)':'−0.02', 'Scrubber (Airport)':'+0.19'
 };
 
 // Coverage, "under its lease," "benchmark rate," and the equation string
@@ -378,12 +378,12 @@ const ROBOT_DELTA = {
 // Gausium wear feed is only actually wired to Pier 4's two scrubbers (see
 // SOURCES, "gausium-openapi · live sync · 2 scrubbers, wear included"),
 // so Marina and Airport's scrubbers report no condition yet, honestly,
-// same as Bear/Pudu never doing so at any site.
+// same as Locus/Fetch never doing so at any site.
 const ROBOTS = [
-  { name:'Servi 1 (front)', model:'Bear Servi', site:0, duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h' },
-  { name:'Servi 2 (patio)', model:'Bear Servi', site:0, duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h' },
-  { name:'P3 runner', model:'Pudu P3', site:0, duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h' },
-  { name:'Servi 3 (banquet)', model:'Bear Servi', site:0, duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h' },
+  { name:'Picker 1 (Zone A)', model:'Locus LocusBot', site:0, duty:'duty 43%', dutyPct:'43%', hours:'155h of 360h' },
+  { name:'Picker 2 (Zone B)', model:'Locus LocusBot', site:0, duty:'duty 11%', dutyPct:'11%', hours:'40h of 360h' },
+  { name:'Freight runner', model:'Fetch Freight', site:0, duty:'duty 46%', dutyPct:'46%', hours:'166h of 360h' },
+  { name:'Picker 3 (Zone C)', model:'Locus LocusBot', site:0, duty:'duty 40%', dutyPct:'40%', hours:'142h of 360h' },
   { name:'Scrubber 50', model:'Gausium S50 · priced by the hour', site:0, duty:'duty 50%', dutyPct:'50%', hours:'120h of 240h',
     parts:[
       { name:'squeegee', left:71, used:'73h of 250h' },
@@ -400,17 +400,17 @@ const ROBOTS = [
       { name:'side brush', left:-3, used:'515h of 500h' }
     ],
     hand:'34%', temp:'28°C' },
-  { name:'Servi 1 (Marina)', model:'Bear Servi', site:1, duty:'duty 35%', dutyPct:'35%', hours:'126h of 360h' },
-  { name:'Servi 2 (Marina)', model:'Bear Servi', site:1, duty:'duty 28%', dutyPct:'28%', hours:'101h of 360h' },
+  { name:'Picker 1 (Marina)', model:'Locus LocusBot', site:1, duty:'duty 35%', dutyPct:'35%', hours:'126h of 360h' },
+  { name:'Picker 2 (Marina)', model:'Locus LocusBot', site:1, duty:'duty 28%', dutyPct:'28%', hours:'101h of 360h' },
   { name:'Scrubber (Marina)', model:'Gausium · priced by the hour', site:1, duty:'duty 31%', dutyPct:'31%', hours:'75.0h of 240h' },
-  { name:'Servi 1 (Airport)', model:'Bear Servi', site:2, duty:'duty 44%', dutyPct:'44%', hours:'158h of 360h' },
-  { name:'Servi 2 (Airport)', model:'Bear Servi', site:2, duty:'duty 41%', dutyPct:'41%', hours:'148h of 360h' },
-  { name:'Servi 3 (Airport)', model:'Bear Servi', site:2, duty:'duty 37%', dutyPct:'37%', hours:'133h of 360h' },
+  { name:'Picker 1 (Airport)', model:'Locus LocusBot', site:2, duty:'duty 44%', dutyPct:'44%', hours:'158h of 360h' },
+  { name:'Picker 2 (Airport)', model:'Locus LocusBot', site:2, duty:'duty 41%', dutyPct:'41%', hours:'148h of 360h' },
+  { name:'Picker 3 (Airport)', model:'Locus LocusBot', site:2, duty:'duty 37%', dutyPct:'37%', hours:'133h of 360h' },
   { name:'Scrubber (Airport)', model:'Gausium · priced by the hour', site:2, duty:'duty 38%', dutyPct:'38%', hours:'90.0h of 240h' }
 ];
 
 const RATES = [
-  { work:'Tray delivery', wage:'$22.00 / hr', does:'30 runs / hr', rate:'$0.73 per run', source:'your wage' },
+  { work:'Order picking', wage:'$24.00 / hr', does:'60 picks / hr', rate:'$0.40 per pick', source:'your wage' },
   { work:'Floor cleaning', wage:'$25.00 / hr', does:'1 hour / hr', rate:'$25.00 per hour', source:'benchmark' }
 ];
 
@@ -423,24 +423,24 @@ const RATES = [
 // look a row up by the same global index Fleet and Dashboard already use
 // for it, instead of guessing by position.
 const SETUP = [
-  { name:'Servi 1 (front)', model:'Bear Servi', hours:'12.0 h' },
-  { name:'Servi 2 (patio)', model:'Bear Servi', hours:'12.0 h' },
-  { name:'P3 runner', model:'Pudu P3', hours:'12.0 h' },
-  { name:'Servi 3 (banquet)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Picker 1 (Zone A)', model:'Locus LocusBot', hours:'12.0 h' },
+  { name:'Picker 2 (Zone B)', model:'Locus LocusBot', hours:'12.0 h' },
+  { name:'Freight runner', model:'Fetch Freight', hours:'12.0 h' },
+  { name:'Picker 3 (Zone C)', model:'Locus LocusBot', hours:'12.0 h' },
   { name:'Scrubber 50', model:'Gausium S50', hours:'8.0 h' },
   { name:'Scrubber 75 (nights)', model:'Gausium S75', hours:'8.0 h' },
-  { name:'Servi 1 (Marina)', model:'Bear Servi', hours:'12.0 h' },
-  { name:'Servi 2 (Marina)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Picker 1 (Marina)', model:'Locus LocusBot', hours:'12.0 h' },
+  { name:'Picker 2 (Marina)', model:'Locus LocusBot', hours:'12.0 h' },
   { name:'Scrubber (Marina)', model:'Gausium', hours:'8.0 h' },
-  { name:'Servi 1 (Airport)', model:'Bear Servi', hours:'12.0 h' },
-  { name:'Servi 2 (Airport)', model:'Bear Servi', hours:'12.0 h' },
-  { name:'Servi 3 (Airport)', model:'Bear Servi', hours:'12.0 h' },
+  { name:'Picker 1 (Airport)', model:'Locus LocusBot', hours:'12.0 h' },
+  { name:'Picker 2 (Airport)', model:'Locus LocusBot', hours:'12.0 h' },
+  { name:'Picker 3 (Airport)', model:'Locus LocusBot', hours:'12.0 h' },
   { name:'Scrubber (Airport)', model:'Gausium', hours:'8.0 h' }
 ];
 
 const WORK_CATEGORIES = [
-  'Tray delivery', 'Bussing and dish return', 'Floor cleaning',
-  'Order picking', 'Putaway and replenishment',
+  'Order picking', 'Putaway and replenishment', 'Floor cleaning',
+  'Tray delivery', 'Bussing and dish return',
   'Room and guest delivery', 'Laundry handling'
 ];
 
@@ -455,19 +455,24 @@ const WORK_CATEGORIES = [
 // the filter for "all 3 sites," instead of Pier 4 being the only site with
 // real robots behind it and every other scope degrading to a single
 // pre-typed total.
+// Picking units are the old tray-delivery unit counts scaled by
+// (0.73/0.40) x (1500/999): same rate-to-invoice ratio under Order
+// picking's real BENCH numbers as tray delivery had, so every coverage
+// ratio, the flagged under-lease robot, and the fleet total all read the
+// same as before, just relabeled. Scrubbers (Floor cleaning) are untouched.
 const CONFIRM = [
-  { name:'Servi 1 (front)', units:3780, seen:'3,780 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
-  { name:'Servi 2 (patio)', units:900, seen:'900 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
-  { name:'P3 runner', units:3900, seen:'3,900 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
-  { name:'Servi 3 (banquet)', units:3480, seen:'3,480 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:0 },
+  { name:'Picker 1 (Zone A)', units:10360, seen:'10,360 picks started · Aug 4 – Sep 3', work:'Order picking', site:0 },
+  { name:'Picker 2 (Zone B)', units:2470, seen:'2,470 picks started · Aug 4 – Sep 3', work:'Order picking', site:0 },
+  { name:'Freight runner', units:10690, seen:'10,690 picks started · Aug 4 – Sep 3', work:'Order picking', site:0 },
+  { name:'Picker 3 (Zone C)', units:9540, seen:'9,540 picks started · Aug 4 – Sep 3', work:'Order picking', site:0 },
   { name:'Scrubber 50', units:120.0, seen:'120.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:0 },
   { name:'Scrubber 75 (nights)', units:61.2, seen:'61.2 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:0 },
-  { name:'Servi 1 (Marina)', units:2600, seen:'2,600 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:1 },
-  { name:'Servi 2 (Marina)', units:2100, seen:'2,100 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:1 },
+  { name:'Picker 1 (Marina)', units:7120, seen:'7,120 picks started · Aug 4 – Sep 3', work:'Order picking', site:1 },
+  { name:'Picker 2 (Marina)', units:5750, seen:'5,750 picks started · Aug 4 – Sep 3', work:'Order picking', site:1 },
   { name:'Scrubber (Marina)', units:75.0, seen:'75.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:1 },
-  { name:'Servi 1 (Airport)', units:3700, seen:'3,700 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
-  { name:'Servi 2 (Airport)', units:3550, seen:'3,550 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
-  { name:'Servi 3 (Airport)', units:3200, seen:'3,200 runs started · Aug 4 – Sep 3', work:'Tray delivery', site:2 },
+  { name:'Picker 1 (Airport)', units:10140, seen:'10,140 picks started · Aug 4 – Sep 3', work:'Order picking', site:2 },
+  { name:'Picker 2 (Airport)', units:9730, seen:'9,730 picks started · Aug 4 – Sep 3', work:'Order picking', site:2 },
+  { name:'Picker 3 (Airport)', units:8770, seen:'8,770 picks started · Aug 4 – Sep 3', work:'Order picking', site:2 },
   { name:'Scrubber (Airport)', units:90.0, seen:'90.0 active hours · Aug 4 – Sep 3', work:'Floor cleaning', site:2 }
 ];
 
@@ -667,25 +672,25 @@ function computeTaxShield(){
 }
 
 const BUSINESSES = [
-  ['Restaurant or cafe','Tray delivery, bussing runs, floor cleaning'],
   ['Warehouse or e-commerce','Order picking, putaway and replenishment, floor cleaning'],
+  ['Restaurant or cafe','Tray delivery, bussing runs, floor cleaning'],
   ['Hotel','Room deliveries, laundry loads, floor cleaning'],
   ['Cleaning operation','Floor cleaning by the hour, area-based cycles'],
   ['Something else','You name the work and what a person gets through in an hour']
 ];
 
 const PROMISE = [
-  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','$0.73 per run = $22.00/hr ÷ 30 runs per hour'],
   ['We will offer order picking, putaway and replenishment, floor cleaning, starting at $0.40 per pick over 16 hours a day','$0.40 per pick = $24.00/hr ÷ 60 picks per hour'],
+  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','$0.73 per run = $22.00/hr ÷ 30 runs per hour'],
   ['We will offer room deliveries, laundry loads and floor cleaning, starting at $1.10 per delivery over 18 hours a day','$1.10 per delivery = $22.00/hr ÷ 20 deliveries per hour'],
   ['We will offer floor cleaning by the hour, starting at $25.00 per active hour over 10 hours a day','$25.00 per hour = $25.00/hr ÷ 1 hour per hour'],
   ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','rate = loaded wage ÷ units a person does per hour']
 ];
 
 const SOURCES = [
-  { line:'bear-universe-export.csv · Aug 4 · 41,200 rows, 4 robots', status:'read' },
+  { line:'locus-fleet-export.csv · Aug 4 · 41,200 rows, 4 robots', status:'read' },
   { line:'gausium-openapi · live sync · 2 scrubbers, wear included', status:'read' },
-  { line:'bear api · live sync', status:'credentials requested' }
+  { line:'locus api · live sync', status:'credentials requested' }
 ];
 
 const STATES = [
@@ -694,7 +699,7 @@ const STATES = [
     eq:'120.0 active hours x $25.00 benchmark = $3,000.00' },
   { name:'Under its lease',
     detail:'Coverage below 1.0x. The row holds the coverage figure on its own line, so it reads as a problem before the number is even parsed.',
-    eq:'900 runs started x $0.73 = $657.00 / invoice $999.00 = 0.66x' },
+    eq:'2,470 picks started x $0.40 = $988.00 / invoice $1,500.00 = 0.66x' },
   { name:'Barely used',
     detail:'Duty time far below the operating hours you declared. The bar is drawn against declared capacity, so the empty part of the track is the finding.',
     eq:'40h duty / 360h declared = 11% of capacity' },
@@ -703,10 +708,10 @@ const STATES = [
     eq:'408h duty / 360h declared = 113% of capacity' },
   { name:'Unpriced robot',
     detail:'Its kind of work has no rate yet, so it is excluded from every total and shown as unconfigured. It is never rendered as $0.00, which would read as work that was worth nothing.',
-    eq:'1,140 runs started x no rate set = excluded from totals' },
+    eq:'1,140 picks started x no rate set = excluded from totals' },
   { name:'No invoice entered',
     detail:'Work serviced still computes; coverage cannot. It shows as unknown rather than zero, because a missing denominator is not a result.',
-    eq:'$2,759.40 / invoice not entered = unknown' }
+    eq:'$4,144.00 / invoice not entered = unknown' }
 ];
 
 const BUTTON_STATES = [
@@ -754,7 +759,7 @@ const S = {
   // benchmark," present means "this robot's own number," read by
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
-  robotWage: { 0:22, 1:22, 2:22, 3:22 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
+  robotWage: { 0:24, 1:24, 2:24, 3:24 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
   timezone: 'America/Los_Angeles', siteHours: '12.0',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -870,7 +875,7 @@ function authStage(){
       + '<button type="button" data-act="googleStart" class="hv-ghost" style="width:100%;padding:14px 22px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:10px">'+ic('globe',17)+(isNew?'Sign up with Google':'Continue with Google')+'</button>'
       + '<div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--hair)">'
         + '<span data-act="sampleData" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">See a real statement first, no account</span>'
-        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:8px;line-height:1.6">A five robot restaurant, one full month, every figure live. It is the fastest way to decide whether this is worth your export.</div></div>'
+        + '<div style="font-size:12.5px;color:var(--fg3);margin-top:8px;line-height:1.6">A 13-robot fulfillment fleet, one full month, every figure live. It is the fastest way to decide whether this is worth your export.</div></div>'
       + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:28px 0 0">'+(isNew
           ? 'Already have an account? <span data-act="authScreen" data-key="signin" style="color:var(--fg1);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px">Sign in instead</span>, the same link either way.'
           : 'Owners open Botlien monthly. A password used twelve times a year is a reset twelve times a year, so there isn&#39;t one. An email we don&#39;t recognize creates an account, unless your company already has one.')+'</p>';
@@ -988,15 +993,15 @@ function authStage(){
   }
 
   if (sc === 'first-run-4'){
-    body += '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">Compare yourself to similar venues?</h1>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 24px">Your coverage on its own tells you whether the robots cover their lease. Set against venues of your size it also tells you whether your lease is a good one.</p>'
+    body += '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">Compare yourself to similar operators?</h1>'
+      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 24px">Your coverage on its own tells you whether the robots cover their lease. Set against operators of your size it also tells you whether your lease is a good one.</p>'
       + '<div data-act="toggleBenchmark" class="hv-ghost" style="display:flex;align-items:flex-start;gap:14px;padding:20px;border:1px solid '+(S.benchmarkOptIn?'var(--fg1)':'var(--hair)')+';border-radius:4px;cursor:pointer;background:'+(S.benchmarkOptIn?'var(--ghost2)':'transparent')+';margin-bottom:20px">'
       + '<span style="width:12px;height:12px;border:1px solid var(--hair2);background:'+(S.benchmarkOptIn?'var(--fg1)':'transparent')+';flex:none;margin-top:4px"></span>'
       + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1);margin-bottom:6px">Include my site in the benchmark</div>'
       + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">Shared: robot model, kind of work, runs per robot, coverage. Never shared: your name, your address, your invoices, your wage, anything a person could trace back to you. You get the comparison only while you contribute to it.</div></div></div>'
       + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
         + '<div style="font-size:12px;font-weight:700;color:var(--fg3);margin-bottom:8px">What it looks like on your statement</div>'
-        + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' venues<br>cohort: '+BENCHMARK.cohort+'</div></div>'
+        + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators<br>cohort: '+BENCHMARK.cohort+'</div></div>'
       + '<button type="button" data-act="finishFirstRun" class="hv-dim" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:pointer">'+(S.benchmarkOptIn?'Finish and import my usage':'Finish without the benchmark')+'</button>'
       + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'
       + (S.invitesSent ? S.invitesSent + (S.invitesSent === 1 ? ' invite goes out' : ' invites go out') + ' when you finish. ' : '')
@@ -1120,7 +1125,7 @@ function appRail(){
     + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:18px;height:22px;object-fit:contain;filter:brightness(0)">'
     + '<span class="bl-brand-chev" style="align-items:center;justify-content:center;color:var(--sb-fg)">'+ic('panel-left',15)+'</span>'
   + '</div>';
-  const bizName = S.demoMode ? 'Demo Business' : 'Harbor Grill Group';
+  const bizName = S.demoMode ? 'Anchorpoint Fulfillment' : 'Harbor Grill Group';
   const brand = collapsed
     ? '<div title="'+bizName+'" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px">'
       + brandIcon
@@ -1641,7 +1646,7 @@ const DASH_BLOCKS = {
   work:      { label: 'Where the work is',    render: workSplitCard },
   taxshield: { label: 'Tax shield & depreciation', render: taxShieldCard },
   sens:      { label: 'Rate assumption',      render: sensitivityCard },
-  venuebench:{ label: 'Benchmark vs other venues', render: benchmarkVenueCard },
+  venuebench:{ label: 'Benchmark vs other operators', render: benchmarkVenueCard },
 };
 const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'];
 const DASH_HIDDEN_DEFAULT = [];
@@ -1791,18 +1796,18 @@ function costCard(){
 }
 
 // The percentile, median, and cohort size are inherently about OTHER
-// venues' anonymized data, not derivable from this owner's own onboarding
+// operators' anonymized data, not derivable from this owner's own onboarding
 // answers, so those stay illustrative of the feature. "You" is not: that
 // half is always the real computed number, never the frozen 2.38x.
 function benchmarkVenueCard(){
   const s = computeStatement();
   const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against venues like yours</div>'
+      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against operators like yours</div>'
       + '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">'
         + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+BENCHMARK.percentile+'</span>'
         + '<span style="font-size:12.5px;color:var(--fg2)">percentile</span></div>'
-      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-top:10px;font-variant-numeric:tabular-nums">You '+covLabel+' · median '+BENCHMARK.median+' · '+BENCHMARK.n+' venues, '+BENCHMARK.cohort+'</div>'
+      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-top:10px;font-variant-numeric:tabular-nums">You '+covLabel+' · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators, '+BENCHMARK.cohort+'</div>'
       + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">Illustrative: the median and cohort size shown are a sample, not computed from your fleet, opting in is what would make this real. A lease at your price is normal for this cohort either way.</div>'
     + '</div>';
 }
@@ -1814,7 +1819,7 @@ function fig(label, value, note, wrap, noteStyle){
     + '<div style="font-size:12.5px;color:var(--fg2);margin-top:8px;line-height:1.5;'+noteStyle+'">'+note+'</div></div>';
 }
 
-// Consumable condition. Reported by Gausium; Bear and Pudu send nothing of the
+// Consumable condition. Reported by Gausium; Locus and Fetch send nothing of the
 // kind, so their robots say so plainly rather than showing an empty meter — a
 // missing input is stated as missing, never rendered as a zero.
 function conditionBlock(r){
@@ -1954,7 +1959,7 @@ function viewRobots(){
   // "Pier 4, Marina & Airport combined, 13 robots" on one page and this
   // page's own count of rows never say two different things.
   const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s';
-  const silentNote = !silent.length ? '' : silent.length+' of these robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Bear and Pudu do not expose it at all'
+  const silentNote = !silent.length ? '' : silent.length+' of these robots report nothing about condition: '+silent.map(r => r.name).join(', ')+'. Locus and Fetch do not expose it at all'
     + (silentOtherGausium.length ? ', and Gausium scrubbers outside Pier 4 are not wired to it yet' : '') + ', so those rows carry no bars rather than an estimate guessed from hours run.';
 
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
@@ -2140,7 +2145,7 @@ function viewSetup(){
         : '')
     + '</div>'
     + '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until the input above is corrected.</div>'
-    + '<div style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$22.00 / hr ÷ 30 runs per hour = $0.73 per run<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div>'
+    + '<div style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$24.00 / hr ÷ 60 picks per hour = $0.40 per pick<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div>'
   + '</div>'
 
   + '<div style="padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
@@ -2150,20 +2155,20 @@ function viewSetup(){
 }
 
 const HOW_TO = {
-  bear: { name:'Bear Universe', steps:[
-    'Sign in at admin.bearrobotics.ai with the account your installer set up.',
+  locus: { name:'Locus Portal', steps:[
+    'Sign in at portal.locusrobotics.com with the account your installer set up.',
     'Open Analytics, then Reports, in the left menu.',
     'Set the range to a whole month. Partial months still work, they just read short.',
     'Choose Export, then CSV. Leave the column names exactly as they come.',
-    'The file lands in your downloads as bear-universe-export.csv.'
-  ], note:'Read-only. Nothing you do in Botlien changes anything in Bear Universe.' },
-  pudu: { name:'Pudu Cloud', steps:[
-    'Sign in at cloud.pudutech.com.',
+    'The file lands in your downloads as locus-fleet-export.csv.'
+  ], note:'Read-only. Nothing you do in Botlien changes anything in Locus Portal.' },
+  fetch: { name:'Fetch Portal', steps:[
+    'Sign in at portal.fetchrobotics.com.',
     'Open Data, then Task records.',
-    'Pick your store, then set the date range to a whole month.',
+    'Pick your facility, then set the date range to a whole month.',
     'Choose Export. Pick CSV rather than Excel, so the column names survive.',
     'The file lands in your downloads as a dated task record export.'
-  ], note:'If your account only shows one robot, ask your installer to add the rest to your store.' }
+  ], note:'If your account only shows one robot, ask your installer to add the rest to your facility.' }
 };
 
 function howToBlock(){
@@ -2173,7 +2178,7 @@ function howToBlock(){
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:'+(k?'20px':'0')+'">'
       + '<div style="flex:1;min-width:260px"><div style="font-size:15.5px;font-weight:700;color:var(--fg1);margin-bottom:5px">Not sure where the file is?</div>'
       + '<div style="font-size:13.5px;color:var(--fg2);line-height:1.6">It takes about a minute in the dashboard your installer already gave you.</div></div>'
-      + tab('bear','Bear Universe') + tab('pudu','Pudu Cloud')
+      + tab('locus','Locus Portal') + tab('fetch','Fetch Portal')
     + '</div>'
     + (k
       ? '<div style="border-top:1px solid var(--hair);padding-top:20px">'
@@ -2237,7 +2242,7 @@ function viewStart(){
     box = '<div style="border:1px dashed var(--hair3);border-radius:4px;padding:64px 40px;text-align:center;margin-bottom:32px">'
       + ic('upload-cloud',34,'color:var(--fg2);display:inline-block')
       + '<h2 style="font-size:24px;font-weight:700;letter-spacing:-0.025em;margin:18px 0 10px;color:var(--fg1)">Drop your usage export here</h2>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 auto 26px;max-width:56ch">A Bear Universe or Pudu Cloud CSV is enough. Your coverage statement fills in within minutes, history included, no credentials to chase.</p>'
+      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 auto 26px;max-width:56ch">A Locus Portal or Fetch Portal CSV is enough. Your coverage statement fills in within minutes, history included, no credentials to chase.</p>'
       + '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">'
         + '<button type="button" data-act="uploadGood" class="hv-dim press" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Choose a file</button>'
         + '<button type="button" data-act="sampleData" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">Look around with sample data</button>'
@@ -2249,18 +2254,18 @@ function viewStart(){
   if (S.upload === 'loading'){
     box = '<div style="border:1px solid var(--hair2);border-radius:4px;padding:44px 40px;margin-bottom:32px">'
       + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px"><i style="width:14px;height:14px;border:2px solid var(--fg1);border-top-color:transparent;border-radius:50%;animation:bl-spin .7s linear infinite;display:inline-block"></i>'
-      + '<span style="font-size:15.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">bear-universe-export.csv · '+S.upPct+'%</span></div>'
+      + '<span style="font-size:15.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">locus-fleet-export.csv · '+S.upPct+'%</span></div>'
       + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+S.upPct+'%;background:var(--ink)"></div></div>'
       + '<p style="font-size:13.5px;color:var(--fg2);margin:16px 0 0">Reading rows. You can leave this screen; the import keeps going.</p></div>';
   }
   if (S.upload === 'read'){
     box = '<div style="border:1px solid var(--hair2);border-radius:4px;padding:36px 34px;margin-bottom:32px">'
-      + '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">Read 52,900 rows across 6 robots · Aug 4 – Sep 3</h2>'
-      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 8px;font-variant-numeric:tabular-nums">bear-universe-export.csv · 12.4 MB</p>'
+      + '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">Read 52,900 rows across 13 robots · Aug 4 – Sep 3</h2>'
+      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 8px;font-variant-numeric:tabular-nums">locus-fleet-export.csv · 12.4 MB</p>'
       + '<p style="font-size:13.5px;color:var(--fg2);line-height:1.65;margin:0 0 16px">318 rows skipped: no robot id in the row. Nothing was guessed, and the skipped rows are kept so you can look at them.</p>'
       + '<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--hair2);border-radius:4px;margin-bottom:26px">'
         + ic('check',16,'color:var(--fg1);margin-top:2px')
-        + '<div style="font-size:13px;line-height:1.65;color:var(--fg2)"><b style="color:var(--fg1);font-weight:600">Aug 4 to Aug 20 is already on record</b> from the export you dropped on Aug 21. Those 17 days will be replaced by this file, not added to it, so no run is counted twice. The other 13 days are new.</div></div>'
+        + '<div style="font-size:13px;line-height:1.65;color:var(--fg2)"><b style="color:var(--fg1);font-weight:600">Aug 4 to Aug 20 is already on record</b> from the export you dropped on Aug 21. Those 17 days will be replaced by this file, not added to it, so no pick is counted twice. The other 13 days are new.</div></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:12px">'
         + '<button type="button" data-act="go" data-view="confirm" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Confirm your fleet</button>'
         + '<button type="button" data-act="resetUpload" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:600">Use a different file</button></div></div>';
@@ -2268,11 +2273,11 @@ function viewStart(){
   if (S.upload === 'bad'){
     box = '<div style="border:1px solid var(--hair3);border-radius:4px;padding:36px 34px;margin-bottom:32px">'
       + '<h2 style="font-size:22px;font-weight:700;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">We couldn&#39;t read that file</h2>'
-      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 22px">It has no column we recognize as a robot id or a mission start. Export again from Bear Universe or Pudu Cloud without renaming the columns.</p>'
+      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 22px">It has no column we recognize as a robot id or a mission start. Export again from Locus Portal or Fetch Portal without renaming the columns.</p>'
       + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">Columns we accept</div>'
       + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.9;margin-bottom:22px;overflow-x:auto;white-space:nowrap">robot_id | robot_name | mission_start_at | mission_type | duration_s | battery_pct</div>'
       + '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px">What we found instead</div>'
-      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:26px;overflow-x:auto;white-space:nowrap">Device,Date,Trips,Notes<br>"Servi patio",08/12/2026,41,"lunch"</div>'
+      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:26px;overflow-x:auto;white-space:nowrap">Device,Date,Trips,Notes<br>"Picker Zone B",08/12/2026,41,"pick"</div>'
       + '<button type="button" data-act="resetUpload" class="hv-dim" style="padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700">Try another file</button></div>';
   }
 
@@ -2362,7 +2367,7 @@ function viewBusiness(){
 }
 
 function viewCreds(){
-  return '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:78ch">Bear and Pudu issue API credentials manually, one account at a time, and it can take weeks. We&#39;ll send your vendor the request and the exact scopes we need, and you&#39;ll hear from them directly. Meanwhile the file drop works today and gives you the same statement, history included.</p>'
+  return '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:78ch">Locus and Fetch issue API credentials manually, one account at a time, and it can take weeks. We&#39;ll send your vendor the request and the exact scopes we need, and you&#39;ll hear from them directly. Meanwhile the file drop works today and gives you the same statement, history included.</p>'
     + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:28px;overflow-x:auto;white-space:nowrap">scopes requested: robot.list · robot.status.read · mission.history.read</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
       + '<button type="button" data-act="sendCreds" class="hv-dim" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:14px;font-weight:700;opacity:'+(S.credSending?0.8:1)+'">'
@@ -2545,7 +2550,7 @@ function appStage(){
       + appHeader()
       + appBody()
       + '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-top:36px;padding-top:28px;border-top:1px solid var(--hair)">'
-        + '<div style="font-size:12.5px;color:var(--fg3)">Counts are mission starts reported by the robot, so they read as runs started. Work is valued at replacement rates, never at what an order was worth.</div>'
+        + '<div style="font-size:12.5px;color:var(--fg3)">Counts are mission starts reported by the robot, so they read as picks started. Work is valued at replacement rates, never at what an order was worth.</div>'
         + '<div style="display:flex;gap:20px;align-items:center">'
           + '<a href="mailto:info@botlien.com" style="font-size:13px;font-weight:600;text-decoration:none">info@botlien.com</a>'
           + '<span style="font-size:12.5px;color:var(--fg3)">© 2026 Botlien</span></div>'
@@ -2789,7 +2794,7 @@ function runUpload(){
 // still open three pages, or one login, later. One shared object so the
 // two reset sites can't quietly drift apart.
 // openSetup here is -1 (nothing open), not the 0 that S starts on. S's own
-// initial 0 is the nice first-ever-visit touch, Servi 1 (front) pre-
+// initial 0 is the nice first-ever-visit touch, Picker 1 (Zone A) pre-
 // expanded so Numbers doesn't look empty the very first time. Reusing
 // that same 0 here meant leaving and coming back always re-opened that
 // exact row, which reads as "it never closed" since it's the same name
@@ -3243,7 +3248,7 @@ function bootScreen(){
     // of gating each one separately.
     S.ownerName = 'Demo Account';
     S.accountEmail = 'demo@botlien.com';
-    S.siteName = 'Demo Business, Pier 4';
+    S.siteName = 'Anchorpoint Fulfillment, Pier 4';
     return;
   }
 
