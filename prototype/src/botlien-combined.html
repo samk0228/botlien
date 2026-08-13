@@ -837,6 +837,9 @@ const S = {
   // the name they typed. Categories we publish benchmarks for are not in
   // here, they come from BENCH.
   customWork: {},
+  // Which rows have "+ Type my own…" open, so the text field survives the
+  // re-render that opening it causes. Keyed by robot index, transient.
+  workEntry: {},
   timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
@@ -2071,31 +2074,37 @@ function viewRobots(){
 // answers back, so editing a field doesn't leave you wondering whether it
 // took. Resets to "Save" the moment this row is touched again, see the
 // setupSaved reset in the input/change handlers below.
-/** "What it does", as a free text field with our seven as suggestions
- * rather than a closed dropdown. Every fleet is different and a robot doing
- * tote consolidation or cart retrieval was previously forced into whichever
- * of our categories was least wrong, which then priced it with that
- * category's wage and throughput. Typing a new name is allowed; what a unit
- * of it is called and what it is worth are set on the rates table below.
- *
- * A datalist keeps the seven one keystroke away without closing the field,
- * and needs no JavaScript of its own. */
-function workInput(id, i, value){
-  return '<input id="'+id+'" data-i="'+i+'" list="workCategoryList" type="text" autocomplete="off"'
-    + ' value="'+esc(value)+'" placeholder="What this robot does"'
-    + ' style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">';
-}
-
-/** One shared datalist for every "What it does" field on the page. */
-function workCategoryDatalist(){
+/** Every category on offer: the seven we publish numbers for, plus any the
+ * owner has already named, so a second robot doing the same custom work is
+ * picked from the list rather than retyped. */
+function workOptions(){
   const known = new Set(WORK_CATEGORIES);
-  // Anything the owner has already named counts as a suggestion too, so a
-  // second robot doing the same custom work is one keystroke, not retyping.
   Object.keys(S.customWork).forEach(w => known.add(w));
   CONFIRM.forEach((c,i) => { const w = S.confirmWork[i] ?? c.work; if (w) known.add(w); });
-  return '<datalist id="workCategoryList">'
-    + [...known].map(w => '<option value="'+esc(w)+'"></option>').join('')
-  + '</datalist>';
+  return [...known];
+}
+
+const WORK_CUSTOM_SENTINEL = '__type_my_own__';
+
+/** "What it does": a real dropdown, plus a way out of it.
+ *
+ * This was briefly a text input with a datalist, which failed the obvious
+ * test: a datalist filters its suggestions against what is already in the
+ * field, and the field always arrives pre-filled, so opening it showed one
+ * option or none and the seven categories were effectively invisible.
+ *
+ * A select shows every option on click, and the last one swaps in a text
+ * field, so naming your own work is discoverable instead of a thing you had
+ * to already know you could do. */
+function workInput(id, i, value){
+  const typing = !!S.workEntry[i];
+  return '<select id="'+id+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+      + workOptions().map(w => '<option value="'+esc(w)+'"'+(!typing && w === value ? ' selected' : '')+'>'+esc(w)+'</option>').join('')
+      + '<option value="'+WORK_CUSTOM_SENTINEL+'"'+(typing ? ' selected' : '')+'>+ Type my own…</option>'
+    + '</select>'
+    + (!typing ? '' :
+        '<input id="workNew-'+i+'" data-work-new="'+i+'" type="text" autocomplete="off" value="" placeholder="Name the work, then press Enter"'
+        + ' style="width:100%;margin-top:8px;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--fg1);outline:none;font-family:inherit">');
 }
 
 /** The division spelled out, one line per work category in use. Same
@@ -2229,8 +2238,7 @@ function viewSetup(){
   // showed a floor-cleaning rate nothing on the page used.
   const usedWorks = [...new Set(stmt.rows.map(r => r.work))];
 
-  return workCategoryDatalist()
-  + '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
   + '<div style="padding:0;margin-bottom:48px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Five inputs per robot</h2>'
@@ -2474,13 +2482,12 @@ function viewConfirm(){
       + '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px">'
         + '<div style="min-width:200px">'
           + '<label for="confirmWork-'+i+'" style="display:block;font-size:10.5px;font-weight:700;color:var(--fg3);margin-bottom:4px">Kind of work'+(!excl && !seen ? ' <span style="color:var(--fg1)">· look at this</span>' : '')+'</label>'
-          + '<input id="confirmWork-'+i+'" data-i="'+i+'" list="workCategoryList" type="text" autocomplete="off" value="'+esc(work)+'" placeholder="What this robot does" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid '+(!excl && !seen ? 'var(--fg1)' : 'var(--hair2)')+';outline:none;font-family:inherit"></div>'
+          + workInput('confirmWork-'+i, i, work) + '</div>'
         + '<button type="button" data-act="toggleExclude" data-i="'+i+'" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:'+(excl?'var(--ink)':'transparent')+';color:'+(excl?'var(--ink-fg)':'var(--fg1)')+';cursor:pointer;font-size:12.5px;font-weight:600">'+(excl?'Excluded':'Exclude')+'</button>'
       + '</div></div>';
   };
 
-  return workCategoryDatalist()
-    + '<div style="padding:0;margin-bottom:40px">'
+  return '<div style="padding:0;margin-bottom:40px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">'+CONFIRM.length+' robots found in that export</h2>'
       + '<span style="font-size:13px;color:var(--fg3)">Rename anything you call something else. Exclude what you don&#39;t lease.</span></div>'
@@ -2775,6 +2782,15 @@ function render(){
   } else if (S.stage === 'auth' && ['signin','signin-new','signin-failed','signedout'].includes(S.screen)){
     const el = document.getElementById('authEmail');
     if (el) { try { el.focus(); } catch(e){} }
+  }
+
+  // Choosing "+ Type my own…" re-renders, and the field it reveals did not
+  // exist when focus was captured above, so focus would stay on the select
+  // and the new box would look inert. Put the caret in it.
+  const openEntry = Object.keys(S.workEntry).find(k => S.workEntry[k]);
+  if (openEntry !== undefined){
+    const el = document.getElementById('workNew-'+openEntry);
+    if (el && document.activeElement !== el) { try { el.focus(); } catch(e){} }
   }
 }
 
@@ -3337,23 +3353,43 @@ document.addEventListener('change', (e) => {
     set({});
     return;
   }
+  // The name typed into "+ Type my own…".
+  const newIdx = e.target.getAttribute && e.target.getAttribute('data-work-new');
+  if (newIdx !== null && newIdx !== undefined && newIdx !== ''){
+    commitWorkName(Number(newIdx), e.target.value);
+    return;
+  }
   if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
   const i = Number(e.target.id.slice(12));
-  const typed = e.target.value.trim();
-  // Blank falls back to whatever the import guessed rather than creating a
-  // nameless category that every downstream figure would key off "".
-  S.confirmWork[i] = typed || CONFIRM[i].work;
-  // A name we do not publish numbers for needs a shape before anything can
-  // price it. Seeding it here means the rates table has a row to render the
-  // moment the name is committed.
-  if (isCustomWork(S.confirmWork[i]) && !S.customWork[S.confirmWork[i]]) {
-    setCustomWork(S.confirmWork[i], {});
+  const picked = e.target.value;
+  if (picked === WORK_CUSTOM_SENTINEL){
+    // Open the text field and leave the category alone until something is
+    // actually typed, so cancelling out does not blank the robot's work.
+    S.workEntry = Object.assign({}, S.workEntry, { [i]: true });
+    set({});
+    return;
   }
+  S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
+  S.confirmWork[i] = picked || CONFIRM[i].work;
   // A category change can add or remove a whole row from the rates table,
-  // so this one re-renders rather than patching in place. Focus has already
-  // left the field by the time change fires.
+  // so this re-renders rather than patching in place.
   set({});
 });
+
+/** Commit a name typed into "+ Type my own…". Blank closes the field and
+ * leaves the robot on whatever it had, rather than creating a nameless
+ * category every downstream figure would key off "". */
+function commitWorkName(i, raw){
+  const name = String(raw ?? '').trim();
+  S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
+  if (name){
+    S.confirmWork[i] = name;
+    // A name we publish no numbers for needs a shape before anything can
+    // price it, so the rates table has a row to render immediately.
+    if (isCustomWork(name) && !S.customWork[name]) setCustomWork(name, {});
+  }
+  set({});
+}
 
 /** Merge into one owner-named category's shape. */
 function setCustomWork(work, patch){
@@ -3374,6 +3410,12 @@ document.addEventListener('toggle', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target && e.target.id === 'authEmail') submitEmail();
+  // Enter commits a typed work name. Without this the only way to apply it
+  // is to click away, which reads as the field having ignored you.
+  if (e.target && e.target.getAttribute && e.target.getAttribute('data-work-new') !== null){
+    if (e.key === 'Enter'){ e.preventDefault(); commitWorkName(Number(e.target.getAttribute('data-work-new')), e.target.value); }
+    if (e.key === 'Escape'){ e.preventDefault(); commitWorkName(Number(e.target.getAttribute('data-work-new')), ''); }
+  }
 });
 
 /* Dashboard block reordering, iOS-homescreen style: neighbors slide out of
