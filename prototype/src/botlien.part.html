@@ -1515,12 +1515,18 @@ function appHeader(){
       + '</div></div>'
     + (COPY[view][1] ? '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>' : '')
     + (!showPeriod ? '' :
-      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · '+p.days+' day'+(p.days===1?'':'s')+' of telemetry on record. Lease invoices prorated to the same period.</p>'
+      // "Telemetry on record" and "as telemetry lands" were both vocabulary
+      // an owner has to learn before the sentence means anything. Same two
+      // facts, said the way someone would say them: how much of the period
+      // is measured, and whether the numbers can still move.
+      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · '+p.days+' day'+(p.days===1?'':'s')+' of robot activity counted. Lease invoices are charged for the same days.</p>'
       + '<div style="display:inline-flex;align-items:center;gap:9px;margin:0 0 32px;font-size:12px;font-weight:600;color:var(--fg2)">'
         + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
         + (p.status==='open'
-          ? (p.isCustom ? 'Open period. Figures move as telemetry lands, and settle once this range fully closes.' : 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.')
-          : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>');
+          ? (p.isCustom
+              ? 'This range is still running. Numbers keep moving until it ends.'
+              : 'This period runs to '+PERIODS[0].label.split(' – ')[1]+'. Numbers keep moving until then, and lock when it closes.')
+          : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</div>');
 }
 
 // Badge, shadcn's small status-pill pattern: a filled variant for the state
