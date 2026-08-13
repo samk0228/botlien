@@ -1,28 +1,32 @@
 // The public surface: the front door and every sign-in screen.
 //
-// Palette, type scale and copy are lifted from the approved prototype so the
-// shipped pages and the design agree. Server-rendered like the rest of the
-// product, with no client JavaScript: these pages are a form and a link, and
-// an owner on a restaurant's wifi should not wait on a bundle to sign in.
+// Palette and type scale match botlien.com (the marketing site), not the
+// prototype: this is the first real page a signed-up owner lands on, and it
+// should look like it belongs to the same company as the site they signed up
+// from, not a different, illustrative one. Server-rendered like the rest of
+// the product, with no client JavaScript: these pages are a form and a link,
+// and an owner on a restaurant's wifi should not wait on a bundle to sign in.
 const CSS = `
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 :root{
-  --page-bg:#F1F2FC;
-  --page:linear-gradient(160deg,#EDEFFC 0%,#F4F1FB 45%,#F2F6FD 100%);
-  --fg1:#16204A; --fg2:#6B7392; --fg3:#9AA1BC;
+  --page-bg:#FFFFFF;
+  --fg1:#0A0A0A; --fg2:#58585F; --fg3:#8B8B93;
   --ink:#0A0A0A; --ink-fg:#FFFFFF;
-  --hair:rgba(10,10,10,.10); --hair2:rgba(10,10,10,.16); --hair3:rgba(10,10,10,.28);
-  --ghost:rgba(10,10,10,.04);
+  --hair:#E4E4E8; --hair2:#D8D8DE; --hair3:#8B8B93;
+  --ghost:#F7F7F8;
 }
-body{margin:0;background:var(--page-bg);background-image:var(--page);color:var(--fg1);
+body{margin:0;background:var(--page-bg);color:var(--fg1);
   font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
   -webkit-font-smoothing:antialiased;min-height:100vh}
 a{color:var(--fg1)}
 a:hover{color:var(--fg2)}
 .wrap{max-width:1040px;margin:0 auto;padding:0 28px}
 .auth{max-width:420px;margin:0 auto;padding:96px 28px 64px}
-.mark{font-size:13px;font-weight:700;letter-spacing:-0.02em;margin-bottom:28px;display:block}
+.mark{display:block;margin-bottom:36px;line-height:0}
+.mark img{display:block;height:24px;width:auto}
+.mark .icon-only{display:none}
+@media(max-width:600px){.mark .full-lockup{display:none}.mark .icon-only{display:block;height:26px}}
 h1{font-size:clamp(26px,4.6vw,34px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px}
 .lede{font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 36px}
 label{display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:8px}
@@ -76,7 +80,14 @@ function page(title, body) {
 <body>${body}</body></html>`;
 }
 
-const MARK = `<span class="mark">BOTLIEN</span>`;
+// Same two assets and the same full-lockup/icon-only swap the marketing
+// site's own nav uses (see website/public/index.html), loaded from
+// botlien.com directly rather than duplicated into this app's own static
+// assets, so one logo file update covers both.
+const MARK = `<a href="https://botlien.com" class="mark">
+  <img class="full-lockup" src="https://botlien.com/logo-lockup.png" alt="Botlien">
+  <img class="icon-only" src="https://botlien.com/logo-mark.png" alt="Botlien">
+</a>`;
 
 /** S0. No pricing, no logo wall, no testimonial, no outcome claim: we have no
  * customers yet, and the product's position is that it does not make the
