@@ -1966,10 +1966,16 @@ function sensitivityTrace(base, c, t){
  * longer exists, a robot outside the current site scope) falls back to the
  * biggest category rather than rendering an empty card. */
 function costScope(s){
+  // Named so it is visible that this card sits inside the site filter:
+  // s.included is already scoped to it, so "all 3 robots" means all 3 at
+  // the site you are looking at, not all 13 you own.
+  const where = S.dashScope === 'all' ? 'across all 3 sites' : 'at '+esc(SITES[S.dashScope].name);
   const fallback = () => {
     const top = s.byCategory[0];
-    return { key: 'work:'+top.work, work: top.work, label: esc(top.work)+' · all '+s.included.filter(r => r.work === top.work).length+' robots',
-             rows: s.included.filter(r => r.work === top.work) };
+    const rows = s.included.filter(r => r.work === top.work);
+    return { key: 'work:'+top.work, work: top.work,
+             label: esc(top.work)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' '+where,
+             rows };
   };
   const raw = String(S.costScope || '');
   if (raw.startsWith('robot:')){
@@ -1982,7 +1988,7 @@ function costScope(s){
     const w = raw.slice(5);
     const rows = s.included.filter(r => r.work === w);
     if (!rows.length) return fallback();
-    return { key: raw, work: w, label: esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s'), rows };
+    return { key: raw, work: w, label: esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' '+where, rows };
   }
   return fallback();
 }
@@ -1991,11 +1997,12 @@ function costScope(s){
  * as different questions rather than one flat list. */
 function costScopePicker(s, scope){
   const works = [...new Set(s.included.map(r => r.work))];
+  const where = S.dashScope === 'all' ? 'all 3 sites' : SITES[S.dashScope].name;
   return '<select data-cost-scope style="width:100%;font-size:12.5px;color:var(--fg1);background:transparent;padding:7px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
-    + '<optgroup label="By kind of work">'
+    + '<optgroup label="By kind of work · '+esc(where)+'">'
       + works.map(w => '<option value="work:'+esc(w)+'"'+(scope.key === 'work:'+w ? ' selected' : '')+'>'+esc(w)+'</option>').join('')
     + '</optgroup>'
-    + '<optgroup label="By robot">'
+    + '<optgroup label="By robot · '+esc(where)+'">'
       + s.included.map(r => '<option value="robot:'+r.i+'"'+(scope.key === 'robot:'+r.i ? ' selected' : '')+'>'+esc(r.name)+'</option>').join('')
     + '</optgroup>'
   + '</select>';
@@ -3481,7 +3488,16 @@ const ACTIONS = {
     }, 700);
   },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
-  setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
+  // Changing site clears the cost card's own selection. Left alone, a robot
+  // picked at Pier 4 stays stored while you look at Marina (where it is
+  // silently ignored), then reappears the moment you switch back, which
+  // reads as the card choosing for you. Cleared, it re-defaults to the
+  // biggest kind of work at whichever site you are now looking at.
+  setDashScope: (el) => set({
+    dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope),
+    dashScopeMenu: false,
+    costScope: '',
+  }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, dashScopeMenu:false }),
   pickPeriod: (el) => {
     const i = Number(el.dataset.i);
