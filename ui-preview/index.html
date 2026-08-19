@@ -1003,23 +1003,17 @@ const SOURCES = [
 
 const STATES = [
   { name:'Benchmark default',
-    detail:'The figure used our published rate, not yours. It stays marked wherever it appears and links straight to Setup, so nobody mistakes a default for a measurement.',
-    eq:'120.0 active hours x $25.00 benchmark = $3,000.00' },
+    detail:'The figure used our published rate, not yours. It stays marked wherever it appears and links straight to Setup, so nobody mistakes a default for a measurement.' },
   { name:'Under its lease',
-    detail:'Coverage below 1.0x. The row holds the coverage figure on its own line, so it reads as a problem before the number is even parsed.',
-    eq:'2,470 picks started x $0.40 = $988.00 / invoice $1,500.00 = 0.66x' },
+    detail:'Coverage below 1.0x. The row holds the coverage figure on its own line, so it reads as a problem before the number is even parsed.' },
   { name:'Barely used',
-    detail:'Duty time far below the operating hours you declared. The bar is drawn against declared capacity, so the empty part of the track is the finding.',
-    eq:'40h duty / 360h declared = 11% of capacity' },
+    detail:'Duty time far below the operating hours you declared. The bar is drawn against declared capacity, so the empty part of the track is the finding.' },
   { name:'Over capacity',
-    detail:'Above 100% means the declared operating hours are wrong, not that the robot did the impossible. Reported as-is and never clamped to a tidy 100%.',
-    eq:'408h duty / 360h declared = 113% of capacity' },
+    detail:'Above 100% means the declared operating hours are wrong, not that the robot did the impossible. Reported as-is and never clamped to a tidy 100%.' },
   { name:'Unpriced robot',
-    detail:'Its kind of work has no rate yet, so it is excluded from every total and shown as unconfigured. It is never rendered as $0.00, which would read as work that was worth nothing.',
-    eq:'1,140 picks started x no rate set = excluded from totals' },
+    detail:'Its kind of work has no rate yet, so it is excluded from every total and shown as unconfigured. It is never rendered as $0.00, which would read as work that was worth nothing.' },
   { name:'No invoice entered',
-    detail:'Work serviced still computes; coverage cannot. It shows as unknown rather than zero, because a missing denominator is not a result.',
-    eq:'$4,144.00 / invoice not entered = unknown' }
+    detail:'Work serviced still computes; coverage cannot. It shows as unknown rather than zero, because a missing denominator is not a result.' }
 ];
 
 const BUTTON_STATES = [
@@ -3095,8 +3089,7 @@ function viewStates(){
       + '<span style="font-size:13px;color:var(--fg3)">A missing input is stated as missing, never rendered as a zero.</span></div>'
     + STATES.map(s => '<div data-split style="border-top:1px solid var(--hair);padding:24px 4px;display:grid;grid-template-columns:minmax(200px,260px) minmax(0,1fr);gap:28px;align-items:start">'
       + '<div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+s.name+'</div>'
-      + '<div><div style="font-size:14px;color:var(--fg2);line-height:1.7">'+s.detail+'</div>'
-      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);margin-top:12px;overflow-x:auto;min-width:0;white-space:nowrap">'+s.eq+'</div></div></div>').join('')
+      + '<div><div style="font-size:14px;color:var(--fg2);line-height:1.7">'+s.detail+'</div></div></div>').join('')
   + '</div>'
   + '<div style="padding:0">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
@@ -3203,11 +3196,6 @@ function viewSettings(){
       + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.6;min-width:0;overflow-x:auto;white-space:nowrap">'+d.line+'</div>'
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
-    + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
 
   + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
     + '<h2 style="font-size:15px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg2)">Delete account</h2>'
