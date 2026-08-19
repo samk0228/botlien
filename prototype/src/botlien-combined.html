@@ -515,8 +515,8 @@ const SITES = [
    block and the Condition page cannot drift apart. */
 
 const RATE_HISTORY = [
-  { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'$24.00 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jun 28, 2026', current:true },
-  { work:'Order picking', rate:'$0.36 per pick', span:'Jan 1 – Jun 30, 2026', basis:'$21.50 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jan 2, 2026', current:false },
+  { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'Set by the owner', by:'Sam Ortega, Jun 28, 2026', current:true },
+  { work:'Order picking', rate:'$0.36 per pick', span:'Jan 1 – Jun 30, 2026', basis:'Set by the owner', by:'Sam Ortega, Jan 2, 2026', current:false },
   { work:'Floor cleaning', rate:'$25.00 per hour', span:'In effect since Jan 1, 2026', basis:'Botlien benchmark wage, never edited', by:'Not set by you', current:true }
 ];
 
@@ -986,11 +986,11 @@ const BUSINESSES = [
 ];
 
 const PROMISE = [
-  ['We will offer order picking, putaway and replenishment, floor cleaning, starting at $0.40 per pick over 16 hours a day','$0.40 per pick = $24.00/hr ÷ 60 picks per hour'],
-  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','$0.73 per run = $22.00/hr ÷ 30 runs per hour'],
-  ['We will offer room deliveries, laundry loads and floor cleaning, starting at $1.10 per delivery over 18 hours a day','$1.10 per delivery = $22.00/hr ÷ 20 deliveries per hour'],
-  ['We will offer floor cleaning by the hour, starting at $25.00 per active hour over 10 hours a day','$25.00 per hour = $25.00/hr ÷ 1 hour per hour'],
-  ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','rate = loaded wage ÷ units a person does per hour']
+  ['We will offer order picking, putaway and replenishment, floor cleaning, starting at $0.40 per pick over 16 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer room deliveries, laundry loads and floor cleaning, starting at $1.10 per delivery over 18 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer floor cleaning by the hour, starting at $25.00 per active hour over 10 hours a day','Based on your team&#39;s loaded hourly wage'],
+  ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','Based on what you tell us']
 ];
 
 const SOURCES = [
@@ -1961,16 +1961,7 @@ function taxShieldCard(){
       + '<div style="display:flex;gap:8px">' + depBtn('bonus','Bonus / Sec. 179') + depBtn('macrs5','5-yr MACRS') + '</div>'
     + '</div>'
     + (catRows ? '<div style="margin-top:2px">'+catRows+'</div>' : '<div style="margin-top:6px;font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
-    + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Assumed equipment cost by work type, a simplified first-year interest estimate (no amortization schedule), and the standard first-year depreciation factors. Not tax advice, actual eligibility and schedules depend on your fleet and situation.</div>'
-  + '</div>';
-}
-function taxShieldTrace(t){
-  const m = (cents) => money(cents / 100);
-  const depLabel = S.taxDepMethod === 'macrs5' ? '20% (5-yr MACRS)' : '100% (bonus / Sec. 179)';
-  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
-    + m(t.totalCostCents)+' equipment cost &times; '+depLabel+' depreciation = '+m(t.depreciationCents)+'<br>'
-    + m(t.totalCostCents)+' financed &times; '+S.taxInterestRate+'% rate = '+m(t.interestCents)+' interest<br>'
-    + '('+m(t.depreciationCents)+' + '+m(t.interestCents)+') &times; '+S.taxRate+'% tax rate = '+m(t.shieldCents)+' shield'
+    + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Illustrative only, not tax advice. Actual eligibility and schedules depend on your fleet and situation.</div>'
   + '</div>';
 }
 
@@ -2109,19 +2100,6 @@ function sensitivityCard(){
     + '</div>'
     + '<div style="margin-top:2px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
   + '</div>';
-}
-// Pulled out of sensitivityCard so Settings' "How the numbers read" can
-// show the same trace, computed fresh from whatever the slider is
-// currently set to, not a frozen snapshot. IDs kept identical, so if
-// Settings happens to be open while the Dashboard slider moves (both
-// visible at once isn't possible in this single-view app, but nothing
-// stops that changing later), applySensitivity's existing put() calls
-// keep working here too, no separate update path to maintain.
-function sensitivityTrace(base, c, t){
-  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
-    + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
-    + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
-    + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>';
 }
 
 /** Which robots the cost comparison is about. S.costScope is either
@@ -2269,7 +2247,7 @@ function costCard(){
           + '</div>'
         : '')
       + '<div style="font-size:11px;color:var(--fg3);line-height:1.6">'
-        + money(human)+' &divide; '+money(robot)+' = '+ratio.toFixed(2)+'x, '
+        + ratio.toFixed(2)+'x, '
         + (one ? 'this robot&#39;s' : 'this slice&#39;s')+' coverage.'
       + '</div>'
     + '</div>';
@@ -2291,13 +2269,13 @@ function costCard(){
     + line('A person', money2(human),
         scope.perUnit
           ? (human === null ? 'Set how many '+esc(b.unitPlural)+' a person does in an hour, on Numbers.'
-             : money(wageFor(scope.work))+' / hr &divide; '+throughputFor(scope.work)+' '+esc(b.unitPlural)+' per hour')
+             : 'What you set for this kind of work')
           : 'What people would have been paid for the same work',
         human, 'var(--hatch2)')
     + line(one ? 'This robot' : 'Your robots', money2(robot),
         scope.perUnit
           ? (robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
-             : money(invoiceSum)+' invoiced &divide; '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
+             : 'Invoiced across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
           : 'Invoiced across '+rows.length+' robot'+(rows.length===1?'':'s'),
         robot, 'var(--ink)')
     + verdict
@@ -2434,8 +2412,8 @@ function viewRobots(){
     + '</div>';
     const eq = step('Work the robot did', unitsPhrase, 'Counted by the robot itself, from your usage import', 'telemetry')
       + step('What a person costs for one', s.rate === null ? '—' : money(s.rate),
-          money(s.wage)+' / hr &divide; '+throughputFor(s.work)+' '+esc(workDef(s.work).unitPlural)+' per hour', 'set')
-      + step('So the work is worth', s.rate === null ? '—' : money(s.value), unitsPhrase+' &times; '+(s.rate === null ? '—' : money(s.rate)), 'derived')
+          'What you set for this kind of work', 'set')
+      + step('So the work is worth', s.rate === null ? '—' : money(s.value), 'Based on what the robot did and your rate', 'derived')
       + step('You paid to lease it', money(s.invoice), 'Your invoice, charged for the same days', 'set')
       + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0 0;margin-top:4px;border-top:2px solid var(--fg1)">'
         + '<span style="font-size:12.5px;font-weight:600;color:var(--fg1)">Every $1 of lease bought</span>'
@@ -2633,9 +2611,8 @@ function rosterBlock(work, b, perLabel, people){
     + '</div>';
 }
 
-/** The division spelled out, one line per work category in use. Same
- * arithmetic the table above performs, written the way an owner would check
- * it by hand. */
+/** One line per work category in use, stating the derived rate without
+ * spelling out the arithmetic behind it. */
 function rateDerivationLines(works){
   return works.map(work => {
     const b = workDef(work);
@@ -2643,7 +2620,7 @@ function rateDerivationLines(works){
     const rc = rateCentsFor(work);
     const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
     if (rc === null) return esc(work)+': set how many '+esc(perLabel)+' a person does in an hour to derive a rate.';
-    return money(wageFor(work))+' / hr &divide; '+per+' '+esc(perLabel)+' per hour = '+money(rc/100)+' per '+esc(b.unit);
+    return esc(work)+': '+money(rc/100)+' per '+esc(b.unit);
   }).join('<br>');
 }
 
@@ -2659,9 +2636,8 @@ function robotUnitCostLabel(s, b){
 }
 function robotUnitCostDerivation(s, b){
   const c = robotUnitCost(s);
-  if (c === null) return 'No '+b.unitPlural+' recorded, so there is nothing to divide by.';
-  const n = s.basis === 'active_hour' ? s.units.toFixed(1) : s.units.toLocaleString('en-US');
-  return money(s.invoice)+' ÷ '+n+' '+b.unitPlural;
+  if (c === null) return 'No '+b.unitPlural+' recorded yet.';
+  return 'Its invoice, spread across what it actually did.';
 }
 
 function setupSaveButton(i){
@@ -2759,7 +2735,7 @@ function viewSetup(){
         // costs, which is the thing being replaced.
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">A person costs</div>'
           + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+(s.rate === null ? '—' : money(s.rate)+' / '+b.unit)+'</div>'
-          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour</div>'
+          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">What you set for this kind of work</div>'
           + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Set below, from the people who do this work.</div></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">This robot costs</div>'
           + '<div id="setupRobotRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+robotUnitCostLabel(s, b)+'</div>'
@@ -2861,8 +2837,7 @@ function viewSetup(){
             + '<div style="font-size:13.5px;font-weight:600;color:'+(r.current?'var(--fg1)':'var(--fg2)')+'">'+r.work+'</div>'
             + '<div style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
             + '<div style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.span+'</div>'
-            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+demoify(r.by)+'</div>'
-            + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:3px">'+r.basis+'</div></div></div>').join('')
+            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+demoify(r.by)+'</div></div></div>').join('')
           + '</div></div>'
         : '')
     + '</div>'
@@ -3228,22 +3203,6 @@ function viewSettings(){
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How the numbers read</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">The exact arithmetic behind two figures on the Dashboard, computed the same way right now, in case you want to check it by hand.</p>'
-    + '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Tax shield &amp; depreciation</div>'
-    + taxShieldTrace(computeTaxShield())
-    + (() => {
-        const sBase = sensBase();
-        if (!sBase) return '';
-        const min = Math.max(1, Math.round(sBase.benchUnitsPerHour * 0.5));
-        const max = Math.max(min + 1, Math.round(sBase.benchUnitsPerHour * 2));
-        const t = Math.min(max, Math.max(min, S.throughput));
-        const c = calc(t, sBase);
-        return '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin:20px 0 8px">Coverage sensitivity</div>' + sensitivityTrace(sBase, c, t);
-      })()
-  + '</div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
     + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
@@ -3413,8 +3372,6 @@ function applyTaxShield(){
   const m = (cents) => money(cents / 100);
   put('taxShieldValue', m(t.shieldCents));
   put('taxNetCostValue', m(t.netCostCents));
-  const trace = document.getElementById('taxShieldTrace');
-  if (trace) trace.innerHTML = taxShieldTrace(t);
 }
 
 /* The slider patches the statement in place. A full re-render on every input
@@ -3451,7 +3408,7 @@ function applySetupRow(i){
   if (!s) return;
   const b = workDef(s.work);
   put('setupRate-'+i, money(s.rate)+' / '+b.unit);
-  put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+throughputFor(s.work)+' '+b.unitPlural+' per hour');
+  put('setupDerive-'+i, 'What you set for this kind of work');
   const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
   put('setupSummary-'+i, s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day');
   // An edit after Save undoes the reassurance: back to "Save" until they
