@@ -92,16 +92,19 @@ test("service window and demand curve shape the day", async () => {
   const atHour = (h) => servi.filter((e) => new Date(e.at).getHours() === h);
   const activeShare = (list) => list.filter((e) => e.status.missionState === "active").length / (list.length || 1);
 
-  // Shut at 4am: nothing running, ever.
-  assert.equal(activeShare(atHour(4)), 0, "robots must not invent runs while the venue is closed");
-  // Dinner peak beats the dead middle of the afternoon.
-  assert.ok(activeShare(atHour(19)) > activeShare(atHour(15)) + 0.15, "dinner peak should outwork the 3pm lull");
+  // Dark at 4am: nothing running, ever.
+  assert.equal(activeShare(atHour(4)), 0, "robots must not invent picks while the floor is dark");
+  // The morning wave beats the shift change, the warehouse equivalent of the
+  // dead middle of the afternoon.
+  assert.ok(activeShare(atHour(9)) > activeShare(atHour(14)) + 0.15, "the 9am wave should outwork the 2pm shift change");
 
-  // A healthy Servi should land near a believable day's work, not the ~400
-  // runs the uncalibrated simulator used to produce.
+  // A healthy mobile picker should land near a believable day of work. The band
+  // is wide because pace is a scenario knob, but it excludes both the ~400 runs
+  // the uncalibrated simulator produced for a tray robot and the four-figure
+  // counts an unthrottled picker would report.
   const day = servi.filter((e) => e.at >= START + DAY && e.at < START + 2 * DAY);
   const runs = new Set(day.map((e) => e.status.missionId).filter(Boolean)).size;
-  assert.ok(runs > 60 && runs < 260, `a day's runs should be plausible for one Servi, got ${runs}`);
+  assert.ok(runs > 150 && runs < 600, `a day's picks should be plausible for one picker, got ${runs}`);
 });
 
 test("demo cleaners keep enough duty for the wear rules to fire", async () => {
@@ -146,7 +149,7 @@ test("pose is reported, and stalls concentrate on one spot", async () => {
   await c.init();
   const first = await c.tick(START);
   const rest = await c.tick(START + 2 * DAY);
-  const scrubber = [...first.events, ...rest.events].filter((e) => e.externalId === "sim-004");
+  const scrubber = [...first.events, ...rest.events].filter((e) => e.externalId === "sim-006");
   assert.ok(scrubber.every((e) => e.status.pose !== null), "a scenario with a floor reports pose on every status");
 
   const stalls = scrubber.filter((e) => e.status.stuck);
@@ -191,7 +194,7 @@ test("stuck_loop profile emits stuck episodes; recurring_faults emits errors inc
   const first = await c.tick(START); // anchors the sim clock
   const rest = await c.tick(START + DAY);
   const events = [...first.events, ...rest.events];
-  const stuckCount = events.filter((e) => e.externalId === "sim-004" && e.status.stuck).length;
+  const stuckCount = events.filter((e) => e.externalId === "sim-006" && e.status.stuck).length;
   assert.ok(stuckCount > 10, `stuck steps: ${stuckCount}`);
   const errs = events.filter((e) => e.externalId === "sim-003").flatMap((e) => e.status.errors);
   assert.ok(errs.length > 20, `errors: ${errs.length}`);
