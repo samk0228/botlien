@@ -117,58 +117,6 @@ async function handleLead(request, env, ctx) {
   return Response.json({ ok: true });
 }
 
-// Isolated preview of the polished-UI prototype, a separate static Fly app
-// with no server logic or account data of its own. Proxied here (rather
-// than a DNS-level redirect) so it reads as botlien.com/software instead of
-// bouncing the visitor to a .fly.dev URL.
-async function handleSoftwarePreview(request) {
-  const url = new URL(request.url);
-  const upstream = new URL(url.pathname.replace(/^\/software/, "") || "/", "https://botlien-ui-preview.fly.dev");
-  upstream.search = url.search;
-  const response = await fetch(upstream.toString(), { headers: request.headers });
-  const headers = new Headers(response.headers);
-  headers.delete("content-security-policy");
-  // Same content as /demo, so it gets the same beacon: the beacon treats both
-  // paths as a demo session, and an uninstrumented one would silently drop
-  // every visit that came in through this route.
-  const contentType = headers.get("content-type") || "";
-  if (!contentType.includes("text/html")) {
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-  }
-  const html = await response.text();
-  const injected = html.includes("<head>") ? html.replace("<head>", "<head>" + BEACON) : BEACON + html;
-  headers.delete("content-length");
-  return new Response(injected, { status: response.status, statusText: response.statusText, headers });
-}
-
-// Public, no-account demo: same isolated Fly app as /software above, same
-// mock data. Boots straight into a populated Dashboard with Settings
-// blocked (see S.demoMode in the prototype). That flag is normally read
-// from '?demo=1' in the page's own URL, but this is a server-side proxy:
-// appending demo=1 to the upstream fetch only affects what THIS WORKER
-// requests from Fly, it never touches the visitor's own address bar, so
-// the prototype's client-side `location.search` check would always see a
-// plain, empty '/demo' and never find it. Injecting a global flag into the
-// HTML itself is what actually crosses that gap, this is the one thing
-// that makes the route work, everything else about it is decorative.
-async function handleDemoPreview(request) {
-  const url = new URL(request.url);
-  const upstream = new URL(url.pathname.replace(/^\/demo/, "") || "/", "https://botlien-ui-preview.fly.dev");
-  upstream.search = url.search;
-  const response = await fetch(upstream.toString(), { headers: request.headers });
-  const headers = new Headers(response.headers);
-  headers.delete("content-security-policy");
-  const contentType = headers.get("content-type") || "";
-  if (!contentType.includes("text/html")) {
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
-  }
-  const html = await response.text();
-  const tags = "<script>window.__botlienDemo=true;</script>" + BEACON;
-  const injected = html.includes("<head>") ? html.replace("<head>", "<head>" + tags) : tags + html;
-  headers.delete("content-length");
-  return new Response(injected, { status: response.status, statusText: response.statusText, headers });
-}
-
 function applySecurityHeaders(headers) {
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   headers.set("X-Content-Type-Options", "nosniff");
@@ -200,12 +148,14 @@ export default {
       return handleStats(request, env);
     }
 
-    if (url.pathname === "/software" || url.pathname.startsWith("/software/")) {
-      return handleSoftwarePreview(request);
-    }
-
-    if (url.pathname === "/demo" || url.pathname.startsWith("/demo/")) {
-      return handleDemoPreview(request);
+    // The prototype is no longer served to the open internet. It is shown on a
+    // live call, or reached through a signed-in account. Old links land on the
+    // sign-in page rather than dead-ending on a 404.
+    if (
+      url.pathname === "/software" || url.pathname.startsWith("/software/") ||
+      url.pathname === "/demo" || url.pathname.startsWith("/demo/")
+    ) {
+      return Response.redirect("https://app.botlien.com/signin", 302);
     }
 
     const response = await env.ASSETS.fetch(request);
