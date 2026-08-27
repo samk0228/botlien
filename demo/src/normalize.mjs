@@ -19,6 +19,12 @@ export function toEpochMs(ts) {
   if (ts === null || ts === undefined) return null;
   if (typeof ts === "number") return ts > 1e12 ? Math.round(ts) : Math.round(ts * 1000);
   if (typeof ts === "string") {
+    // A bare run of digits is an epoch, not a date string. Date.parse returns
+    // NaN for "1712046236", so without this every timestamp from a vendor that
+    // sends epochs as strings silently became null, and a status fell back to
+    // the time we asked rather than the time the robot spoke. OrionStar sends
+    // every timestamp this way, including the lease expiry.
+    if (/^-?\d+$/.test(ts.trim())) return toEpochMs(Number(ts.trim()));
     const parsed = Date.parse(ts);
     return Number.isNaN(parsed) ? null : parsed;
   }
@@ -263,6 +269,133 @@ export function normalizeGausiumStatus(msg, { at: fallbackAt = null } = {}) {
     },
     wear: extractWear(msg.device),
   };
+}
+
+/* OrionStar reports the robot's current activity as a `task_key`, which is a
+ * base64 of the Chinese state name rather than an enum. The docs publish the
+ * table, so the keys are matched literally: decoding at runtime would be worse,
+ * because a key is an opaque identifier to us either way and the published list
+ * is the contract. Keys not in the table are deliberately left null rather than
+ * guessed, and the docs say as much: "the robot will occasionally report other
+ * strange states, which can be classified as others".
+ *
+ * Only the states that change what a period is worth are mapped. Welcome,
+ * dancing, taking photos and the rest of the hospitality repertoire are real
+ * states on a LuckiBot and mean nothing on a CarryBot in a warehouse. */
+const ORIONSTAR_TASK_KEYS = {
+  "6YCB6aSQ5Lit": "active",    // delivery in progress
+  "5Zue55uY5Lit": "active",    // returning
+  "5beh6Iiq": "active",        // cruising
+  "6aKG5L2N5Lit": "active",    // lead position in progress
+  "5o-95a6i": "active",        // picking up passengers
+  "5a-86Iiq": "active",        // navigation
+  "5YWF55S15Lit": "charging",  // charging
+  "5Y675YWF55S1": "charging",  // going to charge
+  "56m66Zey": "idle",          // idle
+  "5LyR55yg": "idle",          // sleep
+  "5qGM6Z2i": "idle",          // desktop
+  "562J5b6F6YCB6aSQ": "idle",  // waiting for delivery
+  "5Zue55uY562J5b6F": "idle",  // waiting for return
+  "562J5b6F6aKG5L2N": "idle",  // waiting for lead position
+  "5oCl5YGc": "failed",        // emergency stop
+  "5byC5bi4": "failed",        // abnormal
+};
+
+/** OrionStar Open Platform status, from GET /v1/robot/robot_info with
+ * is_report_status=1. Shape is documented at
+ * global-openapi.orionstar.com/opendocs/en/server_docs/robot_info.
+ *
+ * Two things differ from the other vendors and both matter:
+ *
+ * 1. Every numeric field arrives as a STRING, including battery_rate and the
+ *    0/1 flags. Passing "0" through a truthiness check would report a robot as
+ *    charging whenever it is not, so the flags go through boolFlag().
+ *
+ * 2. Timestamps are epoch SECONDS as strings. toEpochMs handles the unit, but
+ *    the per-object update_time is preferred over the request time so a stale
+ *    report is visibly stale rather than silently stamped as fresh. */
+export function normalizeOrionStarStatus(msg, { at: fallbackAt = null } = {}) {
+  const robot = msg.robot ?? {};
+  const report = msg.robot_report_status ?? {};
+  const battery = report.battery ?? {};
+  const task = report.task_info ?? {};
+  const loc = report.location ?? {};
+
+  const online = robot.online_status === undefined || robot.online_status === null
+    ? null
+    : String(robot.online_status) === "1";
+
+  // Prefer what the robot said over when we asked. Falling back through the
+  // three report objects covers a robot that reported battery but not location.
+  const reportedAt = toEpochMs(battery.update_time ?? task.update_time ?? loc.update_time);
+
+  return {
+    externalId: robot.robot_sn ?? msg.robot_sn ?? null,
+    at: reportedAt ?? fallbackAt,
+    seq: null,
+    connectionState: online === null ? null : online ? "online" : "offline",
+    batteryPct: numStr(battery.battery_rate),
+    charging: boolFlag(battery.is_charging),
+    eStop: boolFlag(loc.emergency),
+    missionState: mapOrionStarTaskKey(task.task_key),
+    // The platform exposes no id for the task a robot is currently running.
+    // Task ids exist, but only on the event callback and the 24-hour task list,
+    // so mission identity is reconstructed there rather than invented here.
+    missionId: null,
+    // "get_lost" is a localisation failure: the robot does not know where it
+    // is. That is the closest thing this payload has to stuck, and it is not
+    // the same claim, so it is only ever true, never false-by-absence.
+    stuck: loc.state === "get_lost" ? true : loc.state === "ready" ? false : null,
+    moving: null,
+    // No fault list in this payload. Faults surface as an abnormal task_key or
+    // an emergency flag, both captured above.
+    errors: null,
+    pose: null,
+
+    condition: {
+      robotModel: robot.robot_model ?? null,
+      robotVersion: robot.robot_version ?? null,
+      // Lease expiry, straight from the vendor. Documented as "valid only for
+      // leased robots", so an owned unit reports nothing here.
+      leaseExpiresAt: toEpochMs(robot.expires_time),
+      boundAt: toEpochMs(robot.bind_time),
+      positionName: loc.pos_name ?? null,
+      localizationState: loc.state ?? null,
+      taskKey: task.task_key ?? null,
+      lastTaskKey: task.last_task_key ?? null,
+      corpId: robot.ov_corpid ?? msg.corp?.ov_corpid ?? null,
+      vendorReportAt: reportedAt,
+    },
+    wear: null,
+  };
+}
+
+export function mapOrionStarTaskKey(key) {
+  if (!key) return null;
+  return ORIONSTAR_TASK_KEYS[String(key)] ?? null;
+}
+
+/** num() deliberately rejects anything that is not already a number, which is
+ * the right default: a vendor sending "85" where a number is documented is a
+ * signal worth surfacing, not silently absorbing. OrionStar sends every numeric
+ * field as a string by design, so this adapter opts in explicitly rather than
+ * loosening num() for everyone. */
+function numStr(v) {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  const n = Number(v.trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/** OrionStar sends 0/1 as strings. "0" is truthy in JS, so every flag in this
+ * payload has to be compared, never coerced. */
+function boolFlag(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v);
+  if (s === "1" || s === "true") return true;
+  if (s === "0" || s === "false") return false;
+  return null;
 }
 
 /** Returns [] when valid, else a list of human-readable problems. */
