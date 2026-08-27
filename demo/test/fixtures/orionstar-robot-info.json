@@ -1,0 +1,63 @@
+{
+  "_source": "global-openapi.orionstar.com/opendocs/en/server_docs/robot_info/robot_robot_info, Response Body Example, retrieved 2026-08-25. Transcribed verbatim: every value is a string in the original, including battery_rate and the 0/1 flags.",
+  "code": 0,
+  "msg": "",
+  "data": {
+    "corp": {
+      "ov_corpid": "orion.ovs.entprise.12345678",
+      "corp_name": "test_name",
+      "create_time": "1711966681",
+      "update_time": "1711966681"
+    },
+    "robot": {
+      "ov_corpid": "orion.ovs.entprise.12345678",
+      "robot_uuid": "test_uuid",
+      "robot_sn": "test_sn",
+      "robot_name": "test_name",
+      "robot_version": "V9.7.2024041200.1234US",
+      "robot_model": "OS-R-DR01S",
+      "bind_time": "1711966681",
+      "online_status": "1"
+    },
+    "robot_report_status": {
+      "battery": {
+        "battery_rate": "85",
+        "is_charging": "0",
+        "update_time": "1712046236"
+      },
+      "task_info": {
+        "task_key": "6YCB6aSQ5Lit",
+        "last_task_key": "562J5b6F6YCB6aSQ",
+        "update_time": "1712046236"
+      },
+      "location": {
+        "state": "ready",
+        "pos_name": "A01",
+        "pos_all_name": {
+          "en_CN": "A01",
+          "en_US": "A01"
+        },
+        "emergency": "0",
+        "update_time": "1712046236"
+      }
+    },
+    "robot_task_list": [
+      {
+        "task_id": "test_task_id",
+        "task_type": "meals_deliver_task-deliver",
+        "event_type": "te__end",
+        "task_time": "1712046163",
+        "start_time": "1712046163",
+        "update_time": "1712046237",
+        "task_data": {
+          "pos_name": "A01"
+        },
+        "event_list": [
+          { "event_type": "te__start", "first_time": "1712046163", "last_time": "1712046163" },
+          { "event_type": "te_arrived", "first_time": "1712046236", "last_time": "1712046236" },
+          { "event_type": "te__end", "first_time": "1712046237", "last_time": "1712046237" }
+        ]
+      }
+    ]
+  }
+}

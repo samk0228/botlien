@@ -73,6 +73,16 @@ async function main() {
   // instead of 48 real minutes from now. Skipped when the database already
   // holds telemetry, which keeps a restart from stacking a second copy of the
   // same three weeks on top of the first.
+  // A scenario can declare the kind of business it portrays. Without this the
+  // owner board falls back to DEFAULT_BUSINESS and a warehouse fleet is
+  // described in restaurant vocabulary: "runs" instead of "picks", a server's
+  // wage instead of a picker's. Set before backfill so the first render is
+  // already speaking the right language.
+  if (demo && scenario?.business) {
+    const { setBusinessType } = await import("./owner.mjs");
+    setBusinessType(store, scenario.business);
+  }
+
   if (demo && scenario?.backfillDays > 0 && store.rollupTimeRange() === null) {
     const { backfillScenario } = await import("./backfill.mjs");
     const t0 = Date.now();

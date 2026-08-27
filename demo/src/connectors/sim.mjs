@@ -219,9 +219,17 @@ function stepRobot(spec, state, rng, stepIndex, emitEveryMs, atMs, startMs, shap
   const stuck = demand > 0 && phase.stuckEveryMin ? simMinute % phase.stuckEveryMin < phase.stuckForMin : false;
 
   // How long one run holds the robot, and how often one begins at full demand.
-  const runMinutes = phase.runMinutes ?? 3;
+  //
+  // The profiles are shaped for a hospitality tray run: a couple of minutes,
+  // eighteen an hour. A warehouse pick is shorter and far more frequent, and a
+  // pallet move is longer and rarer, so a scenario can scale the pace and the
+  // length per robot rather than forcing every fleet through restaurant
+  // cadence. Both default to 1, which leaves existing scenarios and their PRNG
+  // streams byte-identical.
+  const pace = spec.pace ?? 1;
+  const runMinutes = (phase.runMinutes ?? 3) * (spec.runLength ?? 1);
   const runSteps = Math.max(1, Math.round(runMinutes / stepMin));
-  const runsPerHour = phase.runsPerHour ?? ((phase.dutyCycle ?? 0) * 60) / runMinutes;
+  const runsPerHour = (phase.runsPerHour ?? ((phase.dutyCycle ?? 0) * 60) / runMinutes) * pace;
   const startProb = runsPerHour * demand * (stepMin / 60);
 
   // Battery model: discharge while out, charge when low, cap fades per profile.

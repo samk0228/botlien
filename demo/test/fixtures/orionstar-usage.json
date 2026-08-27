@@ -1,0 +1,40 @@
+{
+  "_source": "global-openapi.orionstar.com/opendocs/en/server_docs/big_data/lucki_robot_usage_data, Response Body Examples, retrieved 2026-08-25.",
+  "_note": "Success here is code 200, not code 0 as on the /v1/* endpoints. The two families of endpoint genuinely disagree, and a parser that assumes one convention silently drops the other.",
+  "_carrybot_gap": "This endpoint is LuckiBot-only (zcb). Its metrics are hospitality: deliveries to table, guidance records, passing-by persons, ad plays. No equivalent historical usage endpoint is documented for CarryBot, the warehouse AMR. For CarryBot, history has to come from task callbacks plus status polling until OrionStar says otherwise.",
+
+  "daily": {
+    "code": 200,
+    "msg": "",
+    "data": {
+      "list": [
+        { "name": "Delivery To Table", "list": [20, 28, 17] }
+      ],
+      "weeklist": ["2024-02-01", "2024-02-02", "2024-02-03"]
+    }
+  },
+
+  "hourly": {
+    "code": 200,
+    "msg": "",
+    "data": {
+      "list": [
+        { "name": "Delivery To Table", "list": [0, 0, 0, 0, 0, 0, 0, 0, 5, 3, 7, 2, 6, 10, 4, 2, 8, 7, 12, 6, 3, 0, 0, 0] }
+      ],
+      "weeklist": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"]
+    }
+  },
+
+  "_classify_values": {
+    "b_delivery_nums": "Deliveries to Table. The work count.",
+    "active_hour": "Working hours of the robot, powered on and connected. The utilisation denominator.",
+    "run_mileage": "Distance travelled, metres",
+    "b_snack_seconds": "Cruising minutes",
+    "b_snack_rounds": "Cruising rounds",
+    "b_guide_nums": "Guidance task executions",
+    "adv_wakeup_num": "Passing-by persons",
+    "ad_show_nums": "Greeting ad plays",
+    "wakeup_num": "Interaction people",
+    "voice_query_num": "Voice conversations"
+  }
+}
