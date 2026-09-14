@@ -1,5 +1,10 @@
 <meta charset="utf-8">
-<title>Botlien · Sign-in to statement</title>
+<!-- Without this, a phone browser lays the page out at its default ~980px
+     canvas and then shrinks the result to fit the screen. Every mobile rule
+     below is written against the real viewport, so none of them would ever
+     match and the phone would get the desktop layout at 40% scale. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Botlien · Demo</title>
 <style>
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER_EXT__") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
@@ -30,15 +35,22 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 
 body{margin:0;background:var(--page-bg);color:var(--fg1);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 a{color:var(--fg1)}
-a:hover{color:var(--fg2)}
+@media (hover:hover){a:hover{color:var(--fg2)}}
 button{font-family:inherit}
 input{font-family:inherit}
 @keyframes bl-spin{to{transform:rotate(360deg)}}
 
-.hv-ghost:hover{background:var(--ghost)}
-.hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
-.hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
-.bl-rail:hover{background:var(--sb-border)}
+/* Every hover affordance below is gated on a pointer that can actually
+   hover. A touch screen cannot: tapping leaves the element stuck in :hover
+   until you tap something else, so a hover-only state reads as a permanent
+   one. That is what turned the brand badge into its collapse icon on a
+   phone and left it there. :active is fine and stays ungated. */
+@media (hover:hover){
+  .hv-ghost:hover{background:var(--ghost)}
+  .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
+  .hv-sb:hover{background:var(--sb-accent);color:var(--sb-accent-fg)}
+  .bl-rail:hover{background:var(--sb-border)}
+}
 /* While actually dragging the rail (not just clicking it), the grid
    column narrows live via direct style writes, not a re-render, so nav
    labels need real overflow clipping to keep up instead of wrapping mid-
@@ -59,12 +71,21 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
    always in the DOM, only one ever shown, hover flips which. */
 .bl-brand-toggle{cursor:pointer}
 .bl-brand-toggle .bl-brand-chev{display:none}
-.bl-brand-toggle:hover .bl-brand-logo{display:none}
-.bl-brand-toggle:hover .bl-brand-chev{display:flex}
-.hv-fg1:hover{color:var(--fg1)}
-.hv-dim:hover{opacity:.86}
-.hv-dim9:hover{opacity:.9}
-.hv-fade:hover{opacity:.7}
+/* The badge only offers to collapse the sidebar while there is a sidebar to
+   collapse. At 900px and below it is a topbar and toggleRail is already
+   inert, so swapping the logo for a collapse icon there advertises an
+   action that does nothing. The affordance appears with the sidebar and
+   disappears with it. */
+@media (hover:hover) and (min-width:901px){
+  .bl-brand-toggle:hover .bl-brand-logo{display:none}
+  .bl-brand-toggle:hover .bl-brand-chev{display:flex}
+}
+@media (hover:hover){
+  .hv-fg1:hover{color:var(--fg1)}
+  .hv-dim:hover{opacity:.86}
+  .hv-dim9:hover{opacity:.9}
+  .hv-fade:hover{opacity:.7}
+}
 .press:active{transform:scale(.98)}
 .press9:active{transform:scale(.99)}
 
@@ -73,11 +94,13 @@ details.bl-acc summary::-webkit-details-marker{display:none}
 details.bl-acc summary .chev{transition:transform .15s}
 
 .bl-bar-tip{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-6px);min-width:118px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:9px 11px;box-shadow:0 6px 20px rgba(10,10,10,.14);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,transform .12s ease;z-index:30;white-space:nowrap}
-.bl-bar-wrap:hover .bl-bar-tip{opacity:1;visibility:visible;transform:translate(-50%,-10px)}
 .bl-bar-wrap:first-child .bl-bar-tip{left:0;transform:translate(0,-6px)}
-.bl-bar-wrap:first-child:hover .bl-bar-tip{transform:translate(0,-10px)}
 .bl-bar-wrap:last-child .bl-bar-tip{left:auto;right:0;transform:translate(0,-6px)}
-.bl-bar-wrap:last-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+@media (hover:hover){
+  .bl-bar-wrap:hover .bl-bar-tip{opacity:1;visibility:visible;transform:translate(-50%,-10px)}
+  .bl-bar-wrap:first-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+  .bl-bar-wrap:last-child:hover .bl-bar-tip{transform:translate(0,-10px)}
+}
 details.bl-acc[open] summary .chev{transform:rotate(180deg)}
 
 /* Custom slider track: filled portion up to the thumb, plain past it. The
@@ -95,6 +118,10 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
    Now they are collapsed into one menu, closed by default, opened by the
    hamburger button that only exists at this width. */
 .bl-mobile-toggle{display:none}
+/* Menu backdrop exists only at phone widths, where menus become sheets. */
+[data-pop-back]{display:none}
+/* Coarse-pointer copy is off until a coarse pointer is actually likely. */
+[data-hint-coarse]{display:none}
 @media (max-width:900px){
   [data-grid]{grid-template-columns:minmax(0,1fr) !important}
   [data-side]{position:static !important;height:auto !important;min-width:0;padding:14px 16px 0 !important;border-right:none !important;border-bottom:1px solid var(--hair)}
@@ -118,7 +145,140 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
   [data-setup-row]{flex-wrap:wrap !important;row-gap:6px !important}
   [data-setup-name]{min-width:0 !important;flex:1 1 100% !important}
   [data-setup-row] > span{margin-left:0 !important}
+
+  /* Layout above stays width-driven: a genuinely narrow window needs to
+     reflow whoever is looking at it. What follows is different, it is the
+     touch treatment, and it is gated on a pointer that is actually a
+     finger. A laptop window dragged narrow keeps its desktop menus. */
+  /* The drag-to-collapse rail has nothing to collapse here: the sidebar is
+     a topbar. Leaving it would be a 4px invisible ew-resize strip down the
+     side of a touch screen. */
+  .bl-rail{display:none !important}
+  /* Same reasoning for the brand badge: nothing to collapse, so it should
+     not present itself as something you can click. */
+  .bl-brand-toggle{cursor:default !important}
+
+  /* "Where the rates come from" is a four-column table pinned to 720px, so
+     on a phone it survived only as a sideways-scrolling strip: you cannot
+     see the wage you are editing and the rate it produces at the same time,
+     which is the entire point of the table. Stacked into one column per
+     row instead, with each cell carrying the column heading it lost. */
+  [data-rate-scroll]{overflow-x:visible !important}
+  [data-rate-wide]{min-width:0 !important}
+  [data-rate-head]{display:none !important}
+  [data-rate-row]{grid-template-columns:minmax(0,1fr) !important;gap:14px !important;align-items:stretch !important}
+  [data-rate-row] > div{display:block !important}
+  [data-rate-row] > div:nth-child(n+2)::before{
+    display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+    color:var(--fg3);margin-bottom:5px;
+  }
+  [data-rate-row] > div:nth-child(2)::before{content:"LOADED WAGE"}
+  [data-rate-row] > div:nth-child(3)::before{content:"A PERSON DOES"}
+  [data-rate-row] > div:nth-child(4)::before{content:"SO ONE UNIT IS WORTH"}
+  /* That cell was a flex row with a gap; stacking it turned the two spans
+     inline and ran "benchmark" straight into the rate. */
+  [data-rate-row] [data-rate-src]{display:block;margin-top:5px}
+
 }
+
+/* Phone: narrow AND driven by a finger. A touchscreen laptop still reports
+   a fine primary pointer, so it never lands in here. */
+@media (max-width:900px) and (pointer:coarse){
+  /* ---- Menus, phone edition -------------------------------------------
+     On a desktop a menu is a small popover pinned to whatever opened it,
+     which works because a cursor is precise and the pointer is already
+     there. A thumb is neither. Below 900px every menu becomes the same
+     full-width sheet the marketing site's nav uses: full-bleed rows,
+     hairline separators, type at a size you can read at arm's length.
+     Anchored to the bottom because that is the half of a phone a thumb
+     actually reaches, and the trigger can sit anywhere on the page. */
+  [data-pop]{
+    position:fixed !important;
+    left:0 !important; right:0 !important; bottom:0 !important; top:auto !important;
+    width:auto !important; min-width:0 !important; max-width:none !important;
+    max-height:72vh !important; overflow-y:auto !important;
+    /* The sheet paints its own ground. Three of these menus carry a
+       background on the menu element itself, but the calendar's wrapper is
+       a bare positioning div whose card provided it, and that card's chrome
+       is stripped below, so without this the sheet is see-through. */
+    background:var(--menu) !important;
+    border:none !important; border-top:1px solid var(--hair2) !important;
+    border-radius:16px 16px 0 0 !important;
+    box-shadow:0 -10px 34px rgba(10,10,10,.20) !important;
+    padding:6px 20px calc(20px + env(safe-area-inset-bottom)) !important;
+    z-index:200 !important;
+    animation:bl-sheet-up .18s ease-out;
+  }
+  /* Only genuinely tappable rows get the big treatment. Headers, dividers
+     and the calendar widget are left alone so they don't get stretched. */
+  [data-pop] > [data-act]{
+    padding:17px 0 !important;
+    font-size:16px !important;
+    border-radius:0 !important;
+    border-bottom:none !important;
+    border-top:1px solid var(--hair) !important;
+    min-height:56px;
+    box-sizing:border-box;
+  }
+  [data-pop] > [data-act]:first-child{border-top:none !important}
+  /* The calendar is a widget, not a list, so it keeps its own layout, but
+     it stops being a 320px card floating inside the sheet: the sheet is
+     the card now, so the inner chrome comes off and the grid spans the
+     full width like every other row-based sheet here. */
+  [data-pop-panel]{padding:8px 20px calc(20px + env(safe-area-inset-bottom)) !important}
+  [data-pop] [data-cal-root]{
+    width:100% !important;background:transparent !important;
+    border:none !important;border-radius:0 !important;padding:0 !important;
+  }
+  /* 12.5px numbers in a 30px box is a mouse target. This is a thumb one. */
+  [data-pop] [data-cal-day]{padding:15px 0 !important;font-size:16px !important;border-radius:9px !important}
+  [data-pop] [data-cal-grid]{gap:3px !important;margin-bottom:16px !important}
+  [data-pop] [data-cal-root] > div:first-child{margin-bottom:14px !important}
+  [data-pop] [data-cal-root] > div:first-child > div{font-size:17px !important}
+  [data-pop] [data-cal-root] > div:nth-child(2) > div{font-size:12px !important;padding:6px 0 !important}
+  [data-pop] [data-act="calPrevMonth"],[data-pop] [data-act="calNextMonth"]{
+    width:44px;height:44px;align-items:center;justify-content:center;border-radius:8px;
+  }
+  [data-pop] [data-cal-root] > div:last-child{font-size:14px !important;padding-top:16px !important}
+  [data-pop] [data-act="calClear"]{padding:10px 0;display:inline-block}
+  [data-pop-back]{
+    display:block;position:fixed;inset:0;
+    background:rgba(10,10,10,.38);z-index:199;
+    animation:bl-fade-in .18s ease-out;
+  }
+
+  /* Same row language for the nav behind the hamburger. */
+  [data-side].bl-mobile-open [data-nav] > div,
+  [data-side].bl-mobile-open [data-side-foot] > div{
+    padding:15px 2px !important;font-size:16px !important;min-height:52px;box-sizing:border-box;
+  }
+
+  /* iOS zooms the whole page in when you focus a control whose text is
+     under 16px, and never zooms back out. Every input is bumped to 16px
+     here purely to stop that. */
+  input,select,textarea{font-size:16px !important}
+
+  /* Fingertip-sized hit areas for the controls that were built for a mouse. */
+  [data-act="toggleDashScope"],[data-act="toggleDashEdit"],[data-act="togglePeriod"],
+  [data-act="setTaxDep"],[data-act="toggleMobileNav"]{
+    min-height:44px;box-sizing:border-box;align-items:center;
+  }
+  [data-act="go"]{min-height:36px;display:inline-flex;align-items:center}
+
+  /* Tell the reader the gesture that actually works on their device. */
+  [data-hint-fine]{display:none}
+  [data-hint-coarse]{display:inline}
+
+}
+@media (pointer:coarse){
+  /* Customize mode: swap the drag affordance for step buttons, and give the
+     remove control a fingertip-sized box instead of its 24px desktop one. */
+  [data-dash-draghint]{display:none !important}
+  [data-dash-move]{display:inline-flex !important}
+  [data-act="dashHide"]{width:40px !important;height:40px !important;font-size:18px !important}
+}
+@keyframes bl-sheet-up{from{transform:translateY(14px);opacity:.6}to{transform:translateY(0);opacity:1}}
+@keyframes bl-fade-in{from{opacity:0}to{opacity:1}}
 @media (max-width:560px){
   [data-main]{padding:12px 12px 28px !important}
   [data-card]{padding:18px 14px 22px !important}
@@ -149,8 +309,7 @@ const AUTH_JOURNEY = [
   ['landed-info','Tell us about you'],
   ['landed-new','What kind of business'],
   ['first-run-2','Where they work'],
-  ['first-run-3','Who else needs it'],
-  ['first-run-4','Benchmark opt-in']
+  ['first-run-3','Who else needs it']
 ];
 
 /* Everything the flow can also do: forks, failures and the screens reached from
@@ -199,14 +358,16 @@ function money(n){ return '$' + n.toLocaleString('en-US',{ minimumFractionDigits
 // fleet (cleaning, laundry) has no such assumption to test.
 function sensBase(){
   const s = computeStatement();
-  const missionCats = s.byCategory.filter(k => (BENCH[k.work]||{}).basis === 'mission');
+  const missionCats = s.byCategory.filter(k => workDef(k.work).basis === 'mission');
   if (!missionCats.length) return null;
   const dom = missionCats[0];
   const domRows = s.included.filter(r => r.work === dom.work);
-  const bench = BENCH[dom.work];
+  const bench = workDef(dom.work);
   return {
     work: dom.work, unit: bench.unit, unitPlural: bench.unitPlural,
-    wageCentsHour: bench.wageCentsHour, benchUnitsPerHour: bench.humanUnitsPerHour,
+    // The owner's own numbers, so the "what if a person did more per hour"
+    // slider starts from what they told us a person does, not our default.
+    wageCentsHour: Math.round(wageFor(dom.work) * 100), benchUnitsPerHour: throughputFor(dom.work),
     domUnits: domRows.reduce((a,r) => a+r.units, 0),
     domCount: domRows.length,
     fixedWork: Math.round((s.totalValue - dom.value) * 100) / 100,
@@ -241,14 +402,53 @@ const PERIODS = [
 // each site's current robot count, the same weighting computeStatement()
 // itself uses to blend sites for "all 3 sites."
 function covForPeriod(p, scope){
+  // Same rule as utilization: the open period is computed from the fleet as
+  // configured right now, so any input that moves the headline moves this
+  // chart's last point with it. Closed periods keep what they were
+  // computed with, so a statement already sent is never rewritten.
+  if (p.status === 'open'){
+    const live = computeStatement(true, scope === 'all' ? null : Number(scope));
+    if (live.coverage !== null) return live.coverage;
+  }
   if (scope !== 'all') return p.siteCov[scope];
   const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
   return p.siteCov.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
 }
 function utilForPeriod(p, scope){
+  // The open period is computed from the robots as they are configured
+  // right now, so cutting a robot's declared operating hours in half on
+  // Numbers moves this chart immediately. Closed periods keep the figure
+  // they were computed with, the same rule rates already follow: a
+  // statement already sent to an accountant does not change after the fact.
+  if (p.status === 'open'){
+    const live = liveUtilization(scope);
+    if (live !== null) return live;
+  }
   if (scope !== 'all') return p.siteUtil[scope];
   const total = SITE_ROBOT_COUNTS.reduce((a,b) => a+b, 0);
   return p.siteUtil.reduce((sum,c,i) => sum + c*SITE_ROBOT_COUNTS[i], 0) / total;
+}
+
+/** Duty hours actually recorded against declared capacity, for the robots
+ * in scope. Capacity is operating hours a day (the editable per-robot field
+ * on Numbers) times the days in the period, which is what makes this move
+ * when that field does.
+ *
+ * Over 100% is returned as-is rather than clamped: it means the declared
+ * hours are wrong, which the owner should see, not a number to tidy up. */
+function liveUtilization(scope){
+  const days = daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end);
+  let duty = 0, capacity = 0;
+  ROBOTS.forEach((r,i) => {
+    if (S.excluded[i]) return;
+    if (scope !== 'all' && r.site !== Number(scope)) return;
+    const d = parseFloat(r.hours);
+    const perDay = S.robotHours[i] ?? parseFloat((SETUP[i] || {}).hours || '0');
+    if (!(perDay > 0)) return;
+    if (Number.isFinite(d)) duty += d;
+    capacity += perDay * days;
+  });
+  return capacity > 0 ? (duty / capacity) * 100 : null;
 }
 
 // Real calendar boundaries for the 6 fixed periods, parsed once here rather
@@ -314,11 +514,9 @@ const SITES = [
 /* Consumable life lives on the robot itself, in ROBOTS[].parts, so the inline
    block and the Condition page cannot drift apart. */
 
-const BENCHMARK = { median:'1.84x', n:214, percentile:'78th', cohort:'fulfillment, 4 to 6 robots, US' };
-
 const RATE_HISTORY = [
-  { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'$24.00 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jun 28, 2026', current:true },
-  { work:'Order picking', rate:'$0.36 per pick', span:'Jan 1 – Jun 30, 2026', basis:'$21.50 / hr ÷ 60 picks per hour', by:'Sam Ortega, Jan 2, 2026', current:false },
+  { work:'Order picking', rate:'$0.40 per pick', span:'In effect since Jul 1, 2026', basis:'Set by the owner', by:'Sam Ortega, Jun 28, 2026', current:true },
+  { work:'Order picking', rate:'$0.36 per pick', span:'Jan 1 – Jun 30, 2026', basis:'Set by the owner', by:'Sam Ortega, Jan 2, 2026', current:false },
   { work:'Floor cleaning', rate:'$25.00 per hour', span:'In effect since Jan 1, 2026', basis:'Botlien benchmark wage, never edited', by:'Not set by you', current:true }
 ];
 
@@ -409,10 +607,11 @@ const ROBOTS = [
   { name:'Scrubber (Airport)', model:'Gausium · priced by the hour', site:2, duty:'duty 38%', dutyPct:'38%', hours:'90.0h of 240h' }
 ];
 
-const RATES = [
-  { work:'Order picking', wage:'$24.00 / hr', does:'60 picks / hr', rate:'$0.40 per pick', source:'your wage' },
-  { work:'Floor cleaning', wage:'$25.00 / hr', does:'1 hour / hr', rate:'$25.00 per hour', source:'benchmark' }
-];
+// RATES used to be typed here: two rows of pre-formatted strings that the
+// "Where the rates come from" table rendered verbatim. It looked derived and
+// was not, so an owner could change a wage and watch that table not move.
+// The table reads wageFor/throughputFor/rateCentsFor live now, per work
+// category actually in the fleet, and both inputs are editable there.
 
 // Work, invoice, rate, and wage used to be typed here as static strings,
 // duplicate copies of numbers computeStatement() already knows from
@@ -517,6 +716,95 @@ const BENCH = {
   'Laundry handling':       { wageCentsHour:1900, humanUnitsPerHour:1,  invoiceCentsMonth:90000, unit:'active hour', unitPlural:'active hours', basis:'active_hour' },
 };
 
+// Both halves of the rate are the owner's to set, and neither has a right
+// answer we could know. A loaded wage depends on the state they operate in
+// (minimum wage alone varies by more than 2x across the US) and on what they
+// actually load onto it; how many picks a person gets through in an hour
+// depends on their aisles, their pick faces, their shift. BENCH above is a
+// starting point so a first statement is not blank, never an answer.
+//
+// Resolution order is the same for both: the owner's value if they set one,
+// the published benchmark otherwise, and the UI marks which of the two it
+// used everywhere the figure appears.
+// What a kind of work IS: its unit, whether it is counted per task or per
+// hour, and the fallback economics. BENCH covers the seven we publish
+// numbers for; anything else is the owner's own words, and every field they
+// have not told us yet falls back to something neutral rather than to
+// another category's assumptions.
+//
+// Every read of a category's shape goes through here, so a robot doing
+// "tote consolidation" is not a special case anywhere downstream.
+const CUSTOM_WORK_DEFAULT = {
+  wageCentsHour: 2400, humanUnitsPerHour: 1, invoiceCentsMonth: 150000,
+  unit: 'task', unitPlural: 'tasks', basis: 'mission',
+};
+function workDef(work) {
+  if (BENCH[work]) return BENCH[work];
+  return Object.assign({}, CUSTOM_WORK_DEFAULT, S.customWork[work] || {});
+}
+/** True for a category the owner typed rather than one we publish. */
+function isCustomWork(work) {
+  return !BENCH[work];
+}
+
+/** The people doing one kind of work. Both halves of that work's rate come
+ * from them when any are listed. */
+function employeesFor(work) {
+  return S.employees.filter(e => e.work === work);
+}
+
+/** Hours-weighted mean, so somebody on 40 hours moves the blended figure
+ * more than somebody on 4. A blank or zero hours still counts as one
+ * person's worth rather than vanishing from the average entirely, since a
+ * missing schedule is not a claim that they never work. */
+function weightedMean(list, pick) {
+  let num = 0, den = 0;
+  list.forEach(e => {
+    const v = Number(pick(e));
+    if (!(v > 0)) return;
+    const w = Number(e.hoursWeek) > 0 ? Number(e.hoursWeek) : 1;
+    num += v * w; den += w;
+  });
+  return den > 0 ? num / den : null;
+}
+
+function wageFor(work) {
+  // A roster is a stronger statement than a typed number, so when one
+  // exists it IS the wage, and the field above it goes read-only rather
+  // than letting the page hold two disagreeing answers at once.
+  const fromPeople = weightedMean(employeesFor(work), e => e.wage);
+  if (fromPeople !== null) return Math.round(fromPeople * 100) / 100;
+  if (S.workWage[work] !== undefined) return S.workWage[work];
+  return workDef(work).wageCentsHour / 100;
+}
+function wageIsOwnSet(work) {
+  if (weightedMean(employeesFor(work), e => e.wage) !== null) return true;
+  return S.workWage[work] !== undefined;
+}
+/** Units a PERSON gets through in an hour, the denominator of the rate. */
+function throughputFor(work) {
+  const fromPeople = weightedMean(employeesFor(work), e => e.unitsPerHour);
+  if (fromPeople !== null) return Math.round(fromPeople * 10) / 10;
+  if (S.workThroughput[work] !== undefined) return S.workThroughput[work];
+  return workDef(work).humanUnitsPerHour;
+}
+function throughputIsOwnSet(work) {
+  if (weightedMean(employeesFor(work), e => e.unitsPerHour) !== null) return true;
+  return S.workThroughput[work] !== undefined;
+}
+/** True when a roster is driving the figure, which is what makes the inputs
+ * above it read-only. */
+function wageFromPeople(work) { return weightedMean(employeesFor(work), e => e.wage) !== null; }
+function throughputFromPeople(work) { return weightedMean(employeesFor(work), e => e.unitsPerHour) !== null; }
+/** Rounded to the cent BEFORE it multiplies anything, so the rate an owner
+ * checks on a napkin is the rate that gets used. Guarded against a zero or
+ * blank throughput while someone is mid-keystroke, which would divide by 0. */
+function rateCentsFor(work) {
+  const per = throughputFor(work);
+  if (!(per > 0)) return null;
+  return Math.round((wageFor(work) * 100) / per);
+}
+
 // Purchase-equivalent cost per work category, roughly what a mission-basis
 // service robot or an active-hour scrubber actually costs to buy, not what
 // it leases for. Separate from BENCH's wageCentsHour/invoiceCentsMonth on
@@ -593,18 +881,26 @@ function computeStatement(full, scope){
   const rangeDays = range ? daysBetweenInclusive(range.start, range.end) : periodDays;
   const rows = entries.map(({c,i}) => {
     const work = S.confirmWork[i] ?? c.work;
-    const b = BENCH[work] ?? BENCH['Tray delivery'];
+    const b = workDef(work);
     // Wage and invoice come from Setup's per-robot overrides when one
     // exists, the category benchmark otherwise, this is what makes an edit
     // on Setup actually move the number here instead of just saving text
     // nobody reads back.
-    const wage = S.robotWage[i] ?? (b.wageCentsHour / 100);
-    const benchmarkWage = S.robotWage[i] === undefined;
-    // Rounded to the cent BEFORE multiplying by units, matching the real
-    // backend's derivedRateCents: the rate is what an owner checks on a
-    // napkin ("$22.00 ÷ 30 = $0.73"), so it has to be the same $0.73 that
-    // gets multiplied, not an unrounded 73.33 that quietly drifts the total.
-    const rateCents = Math.round((wage * 100) / b.humanUnitsPerHour);
+    const wage = wageFor(work);
+    const benchmarkWage = !wageIsOwnSet(work);
+    // Both halves are the owner's inputs now (see wageFor/throughputFor).
+    // A blank or zero throughput mid-edit yields a null rate rather than a
+    // division by zero, and every figure downstream reads as unpriced.
+    const rateCents = rateCentsFor(work);
+    if (rateCents === null) {
+      return {
+        i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:b.basis,
+        units: range ? unitsInRange(i, range.start, range.end) : c.units,
+        unit: b.unitPlural, rate: null, value: 0,
+        invoice: Math.round((S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100)) * (rangeDays / periodDays) * 100) / 100,
+        excluded: !!S.excluded[i], wage, benchmarkWage, cov: null,
+      };
+    }
     const units = range ? unitsInRange(i, range.start, range.end) : c.units;
     const value = Math.round(units * rateCents) / 100;
     const invoiceFull = S.robotInvoice[i] ?? (b.invoiceCentsMonth / 100);
@@ -649,10 +945,20 @@ function computeStatement(full, scope){
 // assumed tax rate; net cost is equipment cost minus that shield.
 function computeTaxShield(){
   const siteFilter = scopeFilter();
-  const rows = siteFilter === null ? CONFIRM : CONFIRM.filter(c => c.site === siteFilter);
+  // Excluded robots are dropped here too. They were not before, so a fleet
+  // with one robot excluded showed a statement built on 12 robots and a tax
+  // shield built on 13, on the same screen. Whatever "exclude" means, it
+  // cannot mean excluded from the money and included in the tax position.
+  // The work a robot does can also be reassigned (see S.confirmWork), and
+  // equipment cost is keyed off that, so this reads the live value rather
+  // than the imported one.
+  const rows = CONFIRM
+    .map((c,i) => ({ c, i, work: S.confirmWork[i] ?? c.work }))
+    .filter(({c,i}) => !S.excluded[i] && (siteFilter === null || c.site === siteFilter));
   const byCategory = {};
   let totalCostCents = 0;
-  rows.forEach(c => {
+  rows.forEach(({work}) => {
+    const c = { work };
     const costCents = EQUIP_COST[c.work] || 0;
     totalCostCents += costCents;
     const cat = byCategory[c.work] || (byCategory[c.work] = { work:c.work, count:0, costCents:0 });
@@ -680,11 +986,11 @@ const BUSINESSES = [
 ];
 
 const PROMISE = [
-  ['We will offer order picking, putaway and replenishment, floor cleaning, starting at $0.40 per pick over 16 hours a day','$0.40 per pick = $24.00/hr ÷ 60 picks per hour'],
-  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','$0.73 per run = $22.00/hr ÷ 30 runs per hour'],
-  ['We will offer room deliveries, laundry loads and floor cleaning, starting at $1.10 per delivery over 18 hours a day','$1.10 per delivery = $22.00/hr ÷ 20 deliveries per hour'],
-  ['We will offer floor cleaning by the hour, starting at $25.00 per active hour over 10 hours a day','$25.00 per hour = $25.00/hr ÷ 1 hour per hour'],
-  ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','rate = loaded wage ÷ units a person does per hour']
+  ['We will offer order picking, putaway and replenishment, floor cleaning, starting at $0.40 per pick over 16 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer tray delivery, bussing runs and floor cleaning, starting at $0.73 per run over 12 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer room deliveries, laundry loads and floor cleaning, starting at $1.10 per delivery over 18 hours a day','Based on your team&#39;s loaded wage and pace'],
+  ['We will offer floor cleaning by the hour, starting at $25.00 per active hour over 10 hours a day','Based on your team&#39;s loaded hourly wage'],
+  ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','Based on what you tell us']
 ];
 
 const SOURCES = [
@@ -695,23 +1001,17 @@ const SOURCES = [
 
 const STATES = [
   { name:'Benchmark default',
-    detail:'The figure used our published rate, not yours. It stays marked wherever it appears and links straight to Setup, so nobody mistakes a default for a measurement.',
-    eq:'120.0 active hours x $25.00 benchmark = $3,000.00' },
+    detail:'The figure used our published rate, not yours. It stays marked wherever it appears and links straight to Setup, so nobody mistakes a default for a measurement.' },
   { name:'Under its lease',
-    detail:'Coverage below 1.0x. The row holds the coverage figure on its own line, so it reads as a problem before the number is even parsed.',
-    eq:'2,470 picks started x $0.40 = $988.00 / invoice $1,500.00 = 0.66x' },
+    detail:'Coverage below 1.0x. The row holds the coverage figure on its own line, so it reads as a problem before the number is even parsed.' },
   { name:'Barely used',
-    detail:'Duty time far below the operating hours you declared. The bar is drawn against declared capacity, so the empty part of the track is the finding.',
-    eq:'40h duty / 360h declared = 11% of capacity' },
+    detail:'Duty time far below the operating hours you declared. The bar is drawn against declared capacity, so the empty part of the track is the finding.' },
   { name:'Over capacity',
-    detail:'Above 100% means the declared operating hours are wrong, not that the robot did the impossible. Reported as-is and never clamped to a tidy 100%.',
-    eq:'408h duty / 360h declared = 113% of capacity' },
+    detail:'Above 100% means the declared operating hours are wrong, not that the robot did the impossible. Reported as-is and never clamped to a tidy 100%.' },
   { name:'Unpriced robot',
-    detail:'Its kind of work has no rate yet, so it is excluded from every total and shown as unconfigured. It is never rendered as $0.00, which would read as work that was worth nothing.',
-    eq:'1,140 picks started x no rate set = excluded from totals' },
+    detail:'Its kind of work has no rate yet, so it is excluded from every total and shown as unconfigured. It is never rendered as $0.00, which would read as work that was worth nothing.' },
   { name:'No invoice entered',
-    detail:'Work serviced still computes; coverage cannot. It shows as unknown rather than zero, because a missing denominator is not a result.',
-    eq:'$4,144.00 / invoice not entered = unknown' }
+    detail:'Work serviced still computes; coverage cannot. It shows as unknown rather than zero, because a missing denominator is not a result.' }
 ];
 
 const BUTTON_STATES = [
@@ -753,14 +1053,46 @@ const S = {
   ownerName: '', businessName: '', infoTouched: false,
   manualMode: false, manualStage: 'form', manualCount: '', manualCost: '', manualRevenue: '', manualTouched: false, manualApplied: false,
   confirmWork: {}, confirmName: {}, confirmSeen: {}, confirmTriedSubmit: false,
-  siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0, benchmarkOptIn: true,
+  siteName: 'Harbor Grill, Pier 4', siteCount: '1', invites: {}, inviteEmail: {}, invitesSent: 0,
   // Per-robot overrides for Setup's editable inputs, same overlay pattern as
   // confirmWork/confirmName above: undefined means "still the category
   // benchmark," present means "this robot's own number," read by
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
-  robotWage: { 0:24, 1:24, 2:24, 3:24 }, robotInvoice: {}, robotHours: {}, setupSaved: {},
-  timezone: 'America/Los_Angeles', siteHours: '12.0',
+  robotInvoice: {}, robotHours: {}, setupSaved: {},
+  // Per work category, not per robot: what a person is paid and how much of
+  // that work they get through in an hour. Undefined means "still on our
+  // published benchmark", which is what the benchmark badge reads.
+  workWage: {}, workThroughput: {},
+  // Shape of a work category the owner named themselves: what one unit of
+  // it is called and whether it is counted per task or per hour. Keyed by
+  // the name they typed. Categories we publish benchmarks for are not in
+  // here, they come from BENCH.
+  customWork: {},
+  // Which rows have "+ Type my own…" open, so the text field survives the
+  // re-render that opening it causes. Keyed by robot index, transient.
+  workEntry: {},
+  // Which slice the cost-per-unit comparison is showing: "work:<category>"
+  // or "robot:<index>". Empty falls back to the biggest category.
+  costScope: '',
+  // The people whose pay and output define each kind of work's rate.
+  // { id, role, work, wage, unitsPerHour, hoursWeek }. Roles, not names:
+  // the rate needs what the job pays and produces, and putting named staff
+  // in here would make this personal data for no arithmetic gain.
+  employees: [
+    { id:1, role:'Picker, day shift',   work:'Order picking', wage:24, unitsPerHour:62, hoursWeek:40 },
+    { id:2, role:'Picker, night shift', work:'Order picking', wage:26, unitsPerHour:55, hoursWeek:30 },
+  ],
+  nextEmployeeId: 3,
+  // Which rate rows have their roster expanded.
+  rateOpen: {},
+  // Which robot's "what it does" menu is open, and the last category a
+  // delete was refused for (because robots still do that work).
+  workMenu: null, workDeleteBlocked: '',
+  // Categories removed from the picker. Ours are only hidden, never gone,
+  // and anything a robot still does is shown regardless (see workOptions).
+  hiddenWork: [],
+  timezone: 'America/Los_Angeles',
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: false, mobileNavOpen: false,
   // ?demo=1 (see bootScreen) sets this once, at load, and nothing in-app
@@ -768,7 +1100,7 @@ const S = {
   // a real account. Dashboard/Fleet/Numbers all still work normally on
   // real mock data, this only gates Settings and the sidebar identity.
   demoMode: false,
-  dashLayout: ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'], dashHidden: [], dashEdit: false,
+  dashLayout: ['kpi','cost','recap','util','attn','work','taxshield','sens'], dashHidden: [], dashEdit: false,
   upload: 'idle', upPct: 0, saving: false,
   picked: -1, credSending: false, credSent: false, excluded: {},
 
@@ -909,7 +1241,7 @@ function authStage(){
   // first-run-2/3/4 stay addressable via ?screen= for reference, they are
   // just not chained into anymore.
   const ONBOARD_STEPS = 2;
-  const STEP_OF = { 'landed-info':1, 'landed-new':2, 'first-run-2':3, 'first-run-3':4, 'first-run-4':5 };
+  const STEP_OF = { 'landed-info':1, 'landed-new':2, 'first-run-2':3, 'first-run-3':4 };
   if (STEP_OF[sc]){
     const n = Math.min(STEP_OF[sc], ONBOARD_STEPS);
     body += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:18px">'
@@ -992,21 +1324,11 @@ function authStage(){
       + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'+inviteNote()+'</p>';
   }
 
-  if (sc === 'first-run-4'){
-    body += '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px">Compare yourself to similar operators?</h1>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 24px">Your coverage on its own tells you whether the robots cover their lease. Set against operators of your size it also tells you whether your lease is a good one.</p>'
-      + '<div data-act="toggleBenchmark" class="hv-ghost" style="display:flex;align-items:flex-start;gap:14px;padding:20px;border:1px solid '+(S.benchmarkOptIn?'var(--fg1)':'var(--hair)')+';border-radius:4px;cursor:pointer;background:'+(S.benchmarkOptIn?'var(--ghost2)':'transparent')+';margin-bottom:20px">'
-      + '<span style="width:12px;height:12px;border:1px solid var(--hair2);background:'+(S.benchmarkOptIn?'var(--fg1)':'transparent')+';flex:none;margin-top:4px"></span>'
-      + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1);margin-bottom:6px">Include my site in the benchmark</div>'
-      + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">Shared: robot model, kind of work, runs per robot, coverage. Never shared: your name, your address, your invoices, your wage, anything a person could trace back to you. You get the comparison only while you contribute to it.</div></div></div>'
-      + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:20px;margin-bottom:24px">'
-        + '<div style="font-size:12px;font-weight:700;color:var(--fg3);margin-bottom:8px">What it looks like on your statement</div>'
-        + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.8">you 2.38x · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators<br>cohort: '+BENCHMARK.cohort+'</div></div>'
-      + '<button type="button" data-act="finishFirstRun" class="hv-dim" style="padding:15px 22px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);font-size:14px;font-weight:700;cursor:pointer">'+(S.benchmarkOptIn?'Finish and import my usage':'Finish without the benchmark')+'</button>'
-      + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:20px 0 0">'
-      + (S.invitesSent ? S.invitesSent + (S.invitesSent === 1 ? ' invite goes out' : ' invites go out') + ' when you finish. ' : '')
-      + 'Next is your usage export. Nothing has been read yet, so the statement opens on Import.</p>';
-  }
+  // A "compare yourself to similar operators" opt-in stood here, the last
+  // onboarding step. It asked permission to contribute to a benchmark that
+  // fed one dashboard card, and that card is gone until the cohort is real,
+  // so this was collecting consent for something the product does not do.
+  // Inviting people is the last step now.
 
   if (sc === 'landed-returning'){
     body += '<div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:14px">Signed in</div>'
@@ -1082,7 +1404,12 @@ function authStage(){
 // size-4 icons; group-data-[collapsible=icon]:size-8 when collapsed),
 // pulled from `shadcn view sidebar`, not eyeballed off a screenshot.
 function appRail(){
-  const collapsed = S.railCollapsed;
+  // A collapsed icon rail is a desktop idea: it trades labels for width on
+  // a screen that has width to trade. Below 900px the sidebar is not a rail
+  // at all, it is a topbar behind a hamburger, so a collapsed flag carried
+  // over from a desktop session would strip every label and leave a row of
+  // unlabelled icons stretched across the full width. Ignored here.
+  const collapsed = S.railCollapsed && !isPhoneLayout();
   const nav = (k) => ({
     bg: S.view === k ? 'var(--sb-accent)' : 'transparent',
     fg: S.view === k ? 'var(--sb-accent-fg)' : 'var(--sb-fg)',
@@ -1207,7 +1534,7 @@ function appRail(){
         + (collapsed ? '' : ic('chevron-down',14,'color:inherit;flex:none'))
       + '</div>'
       + (S.profileOpen
-        ? '<div style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
+        ? '<div data-pop-back></div><div data-pop style="position:absolute;bottom:calc(100% + 8px);'+(collapsed?'left:0':'left:0;right:0')+';width:240px;background:var(--menu);border:1px solid var(--hair2);border-radius:8px;z-index:50;box-shadow:0 8px 24px rgba(10,10,10,.14);padding:4px;box-sizing:border-box">'
           + '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px 10px">'
             + avatarBadge(32)
             + '<div style="display:flex;flex-direction:column;line-height:1.25;min-width:0;overflow:hidden"><span style="font-size:13.5px;font-weight:600;color:var(--fg1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(S.demoMode?'Demo Account':'Sam Ortega')+'</span><span style="font-size:11.5px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(S.demoMode?'demo@botlien.com':S.accountEmail)+'</span></div>'
@@ -1296,7 +1623,7 @@ function renderCalendar(){
     cells += '<div'+(isFuture?'':' data-cal-day="'+key+'"')+' style="text-align:center;padding:7px 0;font-size:12.5px;font-variant-numeric:tabular-nums;border-radius:4px;background:'+bg+';color:'+fg+';user-select:none;'+(isFuture?'opacity:0.3;':'cursor:pointer;')+'">'+d+'</div>';
   }
 
-  const rangeLabel = active ? (active.start === active.end ? fmtDateShort(active.start) : fmtDateShort(active.start)+' – '+fmtDateShort(active.end)) : 'Drag across days to pick a range';
+  const rangeLabel = active ? (active.start === active.end ? fmtDateShort(active.start) : fmtDateShort(active.start)+' – '+fmtDateShort(active.end)) : '<span data-hint-fine>Drag across days to pick a range</span><span data-hint-coarse>Tap the first day, then the last</span>';
 
   return '<div style="width:320px;background:var(--menu);border:1px solid var(--hair2);border-radius:6px;padding:16px" data-cal-root>'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
@@ -1330,7 +1657,7 @@ function appHeader(){
   const showPeriodPicker = view === 'dashv2';
   const periodPicker = !showPeriodPicker ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
-      + (S.periodMenu ? '<div style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
+      + (S.periodMenu ? '<div data-pop-back></div><div data-pop data-pop-panel style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
     + '</div>';
   // The collapse control used to also live here as a permanent bordered
   // button. It's the brand badge's job now (hover it, see the chevron,
@@ -1342,12 +1669,18 @@ function appHeader(){
       + '</div></div>'
     + (COPY[view][1] ? '<p style="font-size:15px;line-height:1.65;color:var(--fg2);max-width:78ch;margin:0 0 12px">'+COPY[view][1]+'</p>' : '')
     + (!showPeriod ? '' :
-      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · '+p.days+' day'+(p.days===1?'':'s')+' of telemetry on record. Lease invoices prorated to the same period.</p>'
+      // "Telemetry on record" and "as telemetry lands" were both vocabulary
+      // an owner has to learn before the sentence means anything. Same two
+      // facts, said the way someone would say them: how much of the period
+      // is measured, and whether the numbers can still move.
+      '<p style="font-size:13.5px;line-height:1.6;color:var(--fg3);max-width:78ch;margin:0 0 14px;font-variant-numeric:tabular-nums">'+p.label+' · '+p.days+' day'+(p.days===1?'':'s')+' of robot activity counted. Lease invoices are charged for the same days.</p>'
       + '<div style="display:inline-flex;align-items:center;gap:9px;margin:0 0 32px;font-size:12px;font-weight:600;color:var(--fg2)">'
         + '<span style="width:7px;height:7px;border-radius:50%;background:'+(p.status==='open'?'var(--hair3)':'var(--ink)')+'"></span>'
         + (p.status==='open'
-          ? (p.isCustom ? 'Open period. Figures move as telemetry lands, and settle once this range fully closes.' : 'Open period. Figures move as telemetry lands, and settle when it closes on Sep 4.')
-          : p.closed+'. Figures are frozen and a later rate change will not restate them.')+'</div>');
+          ? (p.isCustom
+              ? 'This range is still running. Numbers keep moving until it ends.'
+              : 'This period runs to '+PERIODS[0].label.split(' – ')[1]+'. Numbers keep moving until then, and lock when it closes.')
+          : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</div>');
 }
 
 // Badge, shadcn's small status-pill pattern: a filled variant for the state
@@ -1507,26 +1840,27 @@ function coverageKpiCard(){
   const tag = s.mode === 'estimate'
     ? '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">estimate, not measured</span>'
     : '<span style="font-size:12.5px;font-weight:700;color:var(--fg3);background:var(--ghost);padding:3px 8px;border-radius:3px">open period, still moving</span>';
+  // Says what it is in the first line rather than behind a disclosure.
+  // "How this number is calculated" was a dropdown holding a paragraph of
+  // methodology, and an explainer that has to be opened reads as a warning
+  // that the thing is hard. The scope is the part people actually need:
+  // whose robots, how many, over what.
+  const scopeWord = S.dashScope === 'all' ? 'all 3 sites' : SITES[S.dashScope].name;
   const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
       : money(s.totalInvoice)+' of lease cost from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+'. Add what the work is worth per robot to see a coverage ratio.')
-    : money(s.totalValue)+' of work performed vs. '+money(s.totalInvoice)+' leased';
-  const detail = s.mode === 'estimate'
-    ? 'One number spread evenly across '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+', not what any one robot actually did. Import your export any time and this becomes a real, per-robot statement, priced at category benchmarks until you set your own numbers.'
-    : 'Replacement cost of the work performed, divided by the lease. Not revenue, not profit, not labor you stopped paying for, just what it would have cost to buy this work another way, priced at category benchmarks until you set your own numbers. Change a robot&#39;s kind of work or exclude one on the confirm screen and this recalculates from those '+s.included.length+' robots, nothing here is fixed.';
+    : 'Your whole fleet across '+scopeWord+', '+s.included.length+' robot'+(s.included.length===1?'':'s')+' averaged together.';
+  const under = s.mode === 'estimate' ? ''
+    : 'Every $1 of lease bought '+(s.coverage === null ? '—' : '$'+s.coverage.toFixed(2))+' of work a person would otherwise have been paid to do. '
+      + money(s.totalValue)+' of work against '+money(s.totalInvoice)+' leased.';
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px">'
+    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px">'
       + '<div style="font-size:clamp(28px,4.6vw,36px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+covLabel+'</div>'
       + tag
     + '</div>'
-    + '<div style="font-size:13px;color:var(--fg2);margin-bottom:14px">'+subhead+'</div>'
-    + '<details class="bl-acc">'
-      + '<summary style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--fg3)">'
-        + '<span class="chev" style="display:inline-flex">'+ic('chevron-down',13)+'</span>How this number is calculated'
-      + '</summary>'
-      + '<div style="margin-top:10px;font-size:13px;line-height:1.65;color:var(--fg2)">'+detail+'</div>'
-    + '</details>'
+    + '<div style="font-size:13px;font-weight:600;color:var(--fg1);margin-bottom:8px">'+subhead+'</div>'
+    + (under ? '<div style="font-size:12.5px;color:var(--fg2);line-height:1.65">'+under+'</div>' : '')
     + (s.mode === 'estimate' ? '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)"><button type="button" data-act="startRealImport" class="hv-dim" style="padding:11px 18px;border-radius:4px;border:none;background:var(--ink);color:var(--ink-fg);cursor:pointer;font-size:13px;font-weight:700">Import my export</button></div>' : '')
   + '</div>';
 }
@@ -1621,16 +1955,7 @@ function taxShieldCard(){
       + '<div style="display:flex;gap:8px">' + depBtn('bonus','Bonus / Sec. 179') + depBtn('macrs5','5-yr MACRS') + '</div>'
     + '</div>'
     + (catRows ? '<div style="margin-top:2px">'+catRows+'</div>' : '<div style="margin-top:6px;font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
-    + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Assumed equipment cost by work type, a simplified first-year interest estimate (no amortization schedule), and the standard first-year depreciation factors. Not tax advice, actual eligibility and schedules depend on your fleet and situation.</div>'
-  + '</div>';
-}
-function taxShieldTrace(t){
-  const m = (cents) => money(cents / 100);
-  const depLabel = S.taxDepMethod === 'macrs5' ? '20% (5-yr MACRS)' : '100% (bonus / Sec. 179)';
-  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
-    + m(t.totalCostCents)+' equipment cost &times; '+depLabel+' depreciation = '+m(t.depreciationCents)+'<br>'
-    + m(t.totalCostCents)+' financed &times; '+S.taxInterestRate+'% rate = '+m(t.interestCents)+' interest<br>'
-    + '('+m(t.depreciationCents)+' + '+m(t.interestCents)+') &times; '+S.taxRate+'% tax rate = '+m(t.shieldCents)+' shield'
+    + '<div style="margin-top:14px;font-size:11px;color:var(--fg3);line-height:1.6">Illustrative only, not tax advice. Actual eligibility and schedules depend on your fleet and situation.</div>'
   + '</div>';
 }
 
@@ -1646,9 +1971,8 @@ const DASH_BLOCKS = {
   work:      { label: 'Where the work is',    render: workSplitCard },
   taxshield: { label: 'Tax shield & depreciation', render: taxShieldCard },
   sens:      { label: 'Rate assumption',      render: sensitivityCard },
-  venuebench:{ label: 'Benchmark vs other operators', render: benchmarkVenueCard },
 };
-const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens','venuebench'];
+const DASH_ORDER_DEFAULT = ['kpi','cost','recap','util','attn','work','taxshield','sens'];
 const DASH_HIDDEN_DEFAULT = [];
 let dashDragId = null; // which block is mid-drag; ephemeral, does not need a render (see dragstart/dragover/dragend below)
 
@@ -1690,7 +2014,7 @@ function scopeToggle(){
       + ic('sliders-horizontal',13,'color:var(--fg3)') + current.label + ic('chevron-down',14,'color:var(--fg3)')
     + '</div>'
     + (S.dashScopeMenu
-      ? '<div style="position:absolute;top:42px;left:0;width:200px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
+      ? '<div data-pop-back></div><div data-pop style="position:absolute;top:42px;left:0;width:200px;background:var(--menu);border:1px solid var(--hair2);border-radius:4px;z-index:45">'
         + scopes.map((sc,i) => '<div data-act="setDashScope" data-scope="'+sc.k+'" class="hv-ghost" style="padding:11px 14px;cursor:pointer;font-size:13px;font-weight:'+(sc.k===String(S.dashScope)?700:500)+';color:var(--fg1);border-bottom:'+(i<scopes.length-1?'1px solid var(--hair)':'none')+'">'+sc.label+'</div>').join('')
       + '</div>'
       : '')
@@ -1723,7 +2047,11 @@ function dashBlockWrap(id){
   return '<div class="dash-block" data-dash-id="'+id+'" draggable="'+(edit?'true':'false')+'" style="box-sizing:border-box;'+(edit?'cursor:grab;':'')+'">'
     + (edit
       ? '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;margin-bottom:8px;background:var(--ghost);border:1px dashed var(--hair2);border-radius:6px">'
-        + '<span style="display:inline-flex;align-items:center;gap:7px;color:var(--fg3);font-size:11.5px;font-weight:600">'+ic('equal',14)+'Drag to reorder</span>'
+        + '<span data-dash-draghint style="display:inline-flex;align-items:center;gap:7px;color:var(--fg3);font-size:11.5px;font-weight:600">'+ic('equal',14)+'Drag to reorder</span>'
+        + '<span data-dash-move style="display:none;align-items:center;gap:6px">'
+          + '<button type="button" data-act="dashMove" data-id="'+id+'" data-dir="up" aria-label="Move up" style="flex:none;width:40px;height:40px;border-radius:6px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;color:var(--fg2);font-size:16px;line-height:1">&uarr;</button>'
+          + '<button type="button" data-act="dashMove" data-id="'+id+'" data-dir="down" aria-label="Move down" style="flex:none;width:40px;height:40px;border-radius:6px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;color:var(--fg2);font-size:16px;line-height:1">&darr;</button>'
+        + '</span>'
         + '<button type="button" data-act="dashHide" data-id="'+id+'" title="Remove from dashboard" style="flex:none;width:24px;height:24px;border-radius:5px;border:1px solid var(--hair2);background:var(--menu);cursor:pointer;font-size:14px;line-height:1;color:var(--fg2)">&times;</button>'
       + '</div>'
       : '')
@@ -1767,18 +2095,73 @@ function sensitivityCard(){
     + '<div style="margin-top:2px;font-size:12.5px;line-height:1.6;color:var(--fg2)">Coverage falls to 1.00x at <b style="color:var(--fg1);font-weight:700">'+be+' '+unitLabel+'</b>'+(secs>0&&secs<3600?', one every '+secs+'s for a whole shift':'')+'.</div>'
   + '</div>';
 }
-// Pulled out of sensitivityCard so Settings' "How the numbers read" can
-// show the same trace, computed fresh from whatever the slider is
-// currently set to, not a frozen snapshot. IDs kept identical, so if
-// Settings happens to be open while the Dashboard slider moves (both
-// visible at once isn't possible in this single-view app, but nothing
-// stops that changing later), applySensitivity's existing put() calls
-// keep working here too, no separate update path to maintain.
-function sensitivityTrace(base, c, t){
-  return '<div style="padding:12px 14px;border-radius:6px;background:var(--ghost);font-family:inherit;font-size:12px;color:var(--fg1);line-height:1.85;overflow-x:auto;white-space:nowrap">'
-    + money(base.wageCentsHour/100)+' / hr ÷ <span id="sensT2">'+t+'</span> '+esc(base.unitPlural)+' = <span id="sensRate">'+money(c.rate)+'</span> per '+esc(base.unit)+'<br>'
-    + base.domUnits.toLocaleString('en-US')+' '+esc(base.unitPlural)+' x <span id="sensRate2">'+money(c.rate)+'</span> + '+money(base.fixedWork)+' other work = <span id="sensWork">'+money(c.total)+'</span><br>'
-    + '<span id="sensWork2">'+money(c.total)+'</span> / '+money(base.totalInvoice)+' invoiced = <span id="sensCov">'+c.cov.toFixed(2)+'x</span></div>';
+
+/** Which robots the cost comparison is about. S.costScope is either
+ * "work:<category>" or "robot:<index>"; anything stale (a category that no
+ * longer exists, a robot outside the current site scope) falls back to the
+ * biggest category rather than rendering an empty card. */
+/** The whole fleet, one site, one kind of work, or one robot.
+ *
+ * Reads from every robot rather than from the site-filtered statement, so
+ * this card can go BROADER than the site filter as well as narrower. The
+ * site filter still drives it: changing site sets this to that site (see
+ * setDashScope), and from there you can drill down without the page moving.
+ *
+ * `perUnit` is false wherever the scope mixes units. Picks and active hours
+ * cannot be averaged into one cost per unit, so those levels compare total
+ * dollars instead, which is unit-free and says the same thing. */
+function costScope(){
+  const all = computeStatement(true, null);
+  const rowsOf = (pred) => all.rows.filter(r => !r.excluded && pred(r));
+  const unitsOf = (rows) => [...new Set(rows.map(r => r.work))];
+  const build = (key, label, rows) => {
+    const works = unitsOf(rows);
+    const perUnit = works.length === 1;
+    return { key, label, rows, perUnit, work: perUnit ? works[0] : null, workCount: works.length };
+  };
+  const whole = () => build('all', 'Your whole fleet · all 13 robots, every kind of work', rowsOf(() => true));
+
+  const raw = String(S.costScope || '');
+  if (raw === 'all') return whole();
+  if (raw.startsWith('site:')){
+    const n = Number(raw.slice(5));
+    const rows = rowsOf(r => CONFIRM[r.i].site === n);
+    if (!rows.length) return whole();
+    return build(raw, esc(SITES[n].name)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' at this site', rows);
+  }
+  if (raw.startsWith('robot:')){
+    const i = Number(raw.slice(6));
+    const row = all.rows.find(r => r.i === i && !r.excluded);
+    if (!row) return whole();
+    return build(raw, esc(row.name)+' · one robot, against a person doing '+esc(row.work.toLowerCase()), [row]);
+  }
+  if (raw.startsWith('work:')){
+    const w = raw.slice(5);
+    const rows = rowsOf(r => r.work === w);
+    if (!rows.length) return whole();
+    return build(raw, esc(w)+' · all '+rows.length+' robot'+(rows.length===1?'':'s')+' doing it', rows);
+  }
+  return whole();
+}
+
+/** Four levels, widest first, so the list reads as zooming in. */
+function costScopePicker(scope){
+  const all = computeStatement(true, null);
+  const live = all.rows.filter(r => !r.excluded);
+  const works = [...new Set(live.map(r => r.work))];
+  const opt = (val, text) => '<option value="'+esc(val)+'"'+(scope.key === val ? ' selected' : '')+'>'+esc(text)+'</option>';
+  return '<select data-cost-scope style="width:100%;font-size:12.5px;color:var(--fg1);background:transparent;padding:7px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+    + opt('all', 'Your whole fleet')
+    + '<optgroup label="One site">'
+      + SITES.map((st,i) => live.some(r => CONFIRM[r.i].site === i) ? opt('site:'+i, st.name) : '').join('')
+    + '</optgroup>'
+    + '<optgroup label="One kind of work">'
+      + works.map(w => opt('work:'+w, w)).join('')
+    + '</optgroup>'
+    + '<optgroup label="One robot">'
+      + live.map(r => opt('robot:'+r.i, r.name)).join('')
+    + '</optgroup>'
+  + '</select>';
 }
 
 function costCard(){
@@ -1787,30 +2170,116 @@ function costCard(){
   // The dashboard's biggest category by value, since "cost per task" only
   // means one thing when every included robot bills the same way. A mixed
   // fleet still gets a real number, just for the work that carries it.
-  const top = s.byCategory[0];
-  const b = BENCH[top.work];
-  const rate = money(b.wageCentsHour / b.humanUnitsPerHour / 100);
-  const label = 'Cost per '+b.unit;
-  const note = top.count+' '+(top.count===1?'robot':'robots')+' · '+b.unit+' = $'+(b.wageCentsHour/100).toFixed(2)+'/hr ÷ '+b.humanUnitsPerHour;
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+fig(label, rate, note, '', '')+'</div>';
+  // Whole fleet, one site, one kind of work, or one robot. Per-robot
+  // matters because an average hides the one unit that is not paying for
+  // itself, which is the finding an owner actually needs.
+  const scope = costScope();
+  const rows = scope.rows;
+  const b = scope.perUnit ? workDef(scope.work) : null;
+
+  // Totals work at every level. Per-unit only works where the scope has one
+  // unit: picks and active hours cannot be averaged into a single "cost per
+  // unit" without inventing a number.
+  const invoiceSum = Math.round(rows.reduce((a,r) => a + r.invoice, 0) * 100) / 100;
+  const valueSum = Math.round(rows.reduce((a,r) => a + r.value, 0) * 100) / 100;
+  const unitSum = Math.round(rows.reduce((a,r) => a + r.units, 0) * 10) / 10;
+
+  // Reads the owner's own wage and throughput (see wageFor/throughputFor),
+  // not the published benchmark, so this agrees with the rate the Numbers
+  // page derives rather than quoting our defaults back at them.
+  const rc = scope.perUnit ? rateCentsFor(scope.work) : null;
+  const human = scope.perUnit ? (rc === null ? null : rc / 100) : valueSum;
+  // Robot cost: what was invoiced over what was produced. Deliberately the
+  // lease invoice and not the purchase price, so both sides are "cost this
+  // period over output this period" and neither needs an assumed useful
+  // life on top of everything else.
+  const robot = scope.perUnit ? (unitSum > 0 ? invoiceSum / unitSum : null) : invoiceSum;
+  const money2 = (v) => v === null ? '—' : money(v);
+
+  // A bar per side, both scaled to whichever costs more, so the gap is seen
+  // before it is read. Two numbers in a column make you do the comparison
+  // yourself; two bars do it for you, which matters most for the reader who
+  // has no feel yet for whether $0.18 a pick is good.
+  const worst = Math.max(human || 0, robot || 0) || 1;
+  const line = (who, val, deriv, amount, fill) => {
+    const pct = amount === null ? 0 : Math.max(2, (amount / worst) * 100);
+    return '<div style="margin-bottom:14px">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:5px">'
+        + '<span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3)">'+who+'</span>'
+        + '<span style="font-size:18px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>'
+      + '<div style="height:7px;background:var(--ghost);border-radius:2px;overflow:hidden;margin-bottom:5px">'
+        + '<div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+fill+'"></div></div>'
+      + '<div style="font-size:11px;color:var(--fg3);line-height:1.5">'+deriv+'</div>'
+    + '</div>';
+  };
+
+  // "Your robots" is wrong when the scope is one robot, and the ratio is
+  // that robot's coverage, not the whole category's.
+  const one = rows.length === 1;
+  const subject = one ? 'This robot' : 'Your robots';
+
+  let verdict = '';
+  if (human !== null && robot !== null && robot > 0){
+    const ratio = human / robot;
+    const cheaper = ratio >= 1;
+    const gap = Math.round(Math.abs(human - robot) * 100) / 100;
+    // Per unit, the gap only means something once multiplied out by what
+    // was actually done. At totals it already is the period figure.
+    const periodGap = scope.perUnit ? Math.round(gap * unitSum * 100) / 100 : gap;
+    // Stated either way round. Robots costing more than people is the
+    // finding this product exists to surface, not something to bury by
+    // rendering only the flattering case.
+    const headline = scope.perUnit
+      ? subject+' cost'+(one?'s':'')+' '+money(gap)+' '+(cheaper?'less':'more')+' per '+esc(b.unit)
+      : subject+' cost'+(one?'s':'')+' '+money(gap)+' '+(cheaper?'less':'more')+' this period';
+    verdict = '<div style="border-top:1px solid var(--hair);padding-top:12px">'
+      + '<div style="font-size:13px;color:var(--fg1);font-weight:700;margin-bottom:5px">'+headline+'</div>'
+      + (scope.perUnit
+        ? '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-bottom:8px">'
+            + 'Across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural)+' this period, that is <b style="color:var(--fg1);font-weight:700">'+money(periodGap)+'</b> '
+            + (cheaper ? 'less than paying people to do it.' : 'more than paying people to do it.')
+          + '</div>'
+        : '')
+      + '<div style="font-size:11px;color:var(--fg3);line-height:1.6">'
+        + ratio.toFixed(2)+'x, '
+        + (one ? 'this robot&#39;s' : 'this slice&#39;s')+' coverage.'
+      + '</div>'
+    + '</div>';
+  }
+
+  const subtitle = scope.perUnit
+    ? 'What one '+esc(b.unit)+' costs each way'
+    : 'What this period cost each way, across '+scope.workCount+' kinds of work';
+
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:2px">A person vs your robots</div>'
+    + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+subtitle+'</div>'
+    // Labelled, and says its reach. Sitting near the site filter, an
+    // unlabelled dropdown invites the assumption that it scopes the page;
+    // this one only ever changes this card.
+    + '<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:5px">Compare</div>'
+    + costScopePicker(scope)
+    + '<div style="font-size:11px;color:var(--fg3);margin:6px 0 18px;line-height:1.5">'+scope.label+' · this card only</div>'
+    + line('A person', money2(human),
+        scope.perUnit
+          ? (human === null ? 'Set how many '+esc(b.unitPlural)+' a person does in an hour, on Numbers.'
+             : 'What you set for this kind of work')
+          : 'What people would have been paid for the same work',
+        human, 'var(--hatch2)')
+    + line(one ? 'This robot' : 'Your robots', money2(robot),
+        scope.perUnit
+          ? (robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
+             : 'Invoiced across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
+          : 'Invoiced across '+rows.length+' robot'+(rows.length===1?'':'s'),
+        robot, 'var(--ink)')
+    + verdict
+  + '</div>';
 }
 
-// The percentile, median, and cohort size are inherently about OTHER
-// operators' anonymized data, not derivable from this owner's own onboarding
-// answers, so those stay illustrative of the feature. "You" is not: that
-// half is always the real computed number, never the frozen 2.38x.
-function benchmarkVenueCard(){
-  const s = computeStatement();
-  const covLabel = s.coverage === null ? '—' : s.coverage.toFixed(2)+'x';
-  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-      + '<div style="font-size:13.5px;font-weight:700;color:var(--fg1);margin-bottom:14px">Against operators like yours</div>'
-      + '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">'
-        + '<span style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">'+BENCHMARK.percentile+'</span>'
-        + '<span style="font-size:12.5px;color:var(--fg2)">percentile</span></div>'
-      + '<div style="font-size:12px;color:var(--fg2);line-height:1.6;margin-top:10px;font-variant-numeric:tabular-nums">You '+covLabel+' · median '+BENCHMARK.median+' · '+BENCHMARK.n+' operators, '+BENCHMARK.cohort+'</div>'
-      + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:10px">Illustrative: the median and cohort size shown are a sample, not computed from your fleet, opting in is what would make this real. A lease at your price is normal for this cohort either way.</div>'
-    + '</div>';
-}
+// benchmarkVenueCard lived here: a percentile and a cohort median against
+// other operators. Removed. With no customers there is no cohort, so every
+// figure on it was a sample dressed as a comparison, and the card had to
+// admit that in its own footnote. It comes back when the benchmark is real.
 
 function fig(label, value, note, wrap, noteStyle){
   return '<div style="'+wrap+'">'
@@ -1909,8 +2378,41 @@ function viewRobots(){
     const covLabel = s.cov === null ? '—' : s.cov.toFixed(2)+'x';
     const unitsPhrase = s.basis === 'active_hour'
       ? s.units.toFixed(1)+' active hours'
-      : s.units.toLocaleString('en-US')+' '+s.unit+' started';
-    const eq = unitsPhrase+' x '+money(s.rate)+' = '+money(s.value)+' / invoice '+money(s.invoice)+' = '+covLabel;
+      : s.units.toLocaleString('en-US')+' '+s.unit;
+    // A stepped block rather than a label column with numbers stranded on
+    // the far right: each step is the number first, then where it came
+    // from underneath it, so the eye reads down one edge instead of
+    // ping-ponging across the card.
+    //
+    // Source is stated per step, because the difference between "the robot
+    // reported this" and "you typed this" is the difference between a
+    // measurement and an assumption, and nothing on screen said which.
+    const step = (label, val, src, srcKind) =>
+      '<div style="padding:9px 0;border-top:1px solid var(--hair)">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">'
+        + '<span style="font-size:12.5px;color:var(--fg2)">'+label+'</span>'
+        + '<span style="font-size:15px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+val+'</span></div>'
+      // Three states, not two: measured by the robot, entered by the owner,
+      // or worked out from the other two. Calling a derived figure
+      // "you set this" would be a lie about where it came from, which is
+      // exactly the confusion these badges exist to remove.
+      + '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">'
+        + '<span style="flex:none;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1.5px 5px;border-radius:3px;'
+          + (srcKind === 'telemetry' ? 'background:var(--ghost2);color:var(--fg2)'
+             : srcKind === 'derived' ? 'background:transparent;color:var(--fg3);border:1px dashed var(--hair2)'
+             : 'background:transparent;color:var(--fg3);border:1px solid var(--hair)')
+          + '">'+(srcKind === 'telemetry' ? 'from the robot' : srcKind === 'derived' ? 'worked out' : 'you set this')+'</span>'
+        + '<span style="font-size:11px;color:var(--fg3);min-width:0">'+src+'</span></div>'
+    + '</div>';
+    const eq = step('Work the robot did', unitsPhrase, 'Counted by the robot itself, from your usage import', 'telemetry')
+      + step('What a person costs for one', s.rate === null ? '—' : money(s.rate),
+          'What you set for this kind of work', 'set')
+      + step('So the work is worth', s.rate === null ? '—' : money(s.value), 'Based on what the robot did and your rate', 'derived')
+      + step('You paid to lease it', money(s.invoice), 'Your invoice, charged for the same days', 'set')
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:11px 0 0;margin-top:4px;border-top:2px solid var(--fg1)">'
+        + '<span style="font-size:12.5px;font-weight:600;color:var(--fg1)">Every $1 of lease bought</span>'
+        + '<span style="font-size:19px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+(s.cov === null ? '—' : '$'+s.cov.toFixed(2))+'</span></div>'
+      + '<div style="font-size:11px;color:var(--fg3);margin-top:3px">of work a person would have been paid for. That is '+covLabel+'.</div>';
     // Same wording the fully-reported condition block already uses for
     // an all-clear ("Every part is inside its rated life"), and the same
     // per-part count the row header used to show as its own chip, so
@@ -1935,10 +2437,19 @@ function viewRobots(){
     + '</div>';
 
     const detail = !open ? '' : '<div style="padding:0 4px 26px">'
-      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:4px">'
-        + '<div><div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>duty time</span><span style="font-variant-numeric:tabular-nums">'+r.duty+' · '+r.hours+'</span></div>'
-          + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div></div>'
-        + '<div style="font-family:inherit;font-size:13px;color:var(--fg1);line-height:1.6;overflow-x:auto;min-width:0;white-space:nowrap">'+eq+'</div>'
+      + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:start;margin-bottom:4px">'
+        + '<div>'
+          + '<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--fg2);margin-bottom:8px"><span>Time it actually ran</span><span style="font-variant-numeric:tabular-nums">'+r.duty+'</span></div>'
+          + '<div style="height:8px;border:1px solid var(--hair2);position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+r.dutyPct+';background:'+dutyFill+'"></div></div>'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-top:8px">'
+            + '<span style="flex:none;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1.5px 5px;border-radius:3px;background:var(--ghost2);color:var(--fg2)">from the robot</span>'
+            + '<span style="font-size:11px;color:var(--fg3)">'+esc(r.hours)+'</span></div>'
+          // The bar's full width is the schedule the owner declared on
+          // Numbers, not anything the robot said, and the two being
+          // different things is the whole point of the measure.
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Measured against the '+(S.robotHours[i] ?? parseFloat((SETUP[i]||{}).hours||'0'))+' h a day you scheduled it for. Raise the schedule and this reads lower, because the robot ran the same hours either way.</div>'
+        + '</div>'
+        + '<div style="min-width:0">'+eq+'</div>'
       + '</div>' + conditionBlock(r) + '</div>';
 
     return '<div style="border-top:1px solid var(--hair)">' + summary + detail + '</div>';
@@ -1990,6 +2501,139 @@ function viewRobots(){
 // answers back, so editing a field doesn't leave you wondering whether it
 // took. Resets to "Save" the moment this row is touched again, see the
 // setupSaved reset in the input/change handlers below.
+/** Every category on offer: the seven we publish numbers for, plus any the
+ * owner has already named, so a second robot doing the same custom work is
+ * picked from the list rather than retyped. */
+function workOptions(){
+  const known = new Set(WORK_CATEGORIES);
+  Object.keys(S.customWork).forEach(w => known.add(w));
+  // Whatever robots actually do stays on the list even if it was removed,
+  // so a category can never be in use and unpickable at the same time.
+  const inUse = new Set(CONFIRM.map((c,i) => S.confirmWork[i] ?? c.work));
+  inUse.forEach(w => { if (w) known.add(w); });
+  return [...known].filter(w => inUse.has(w) || !S.hiddenWork.includes(w));
+}
+
+/** "What it does": a real dropdown, plus a way out of it.
+ *
+ * This was briefly a text input with a datalist, which failed the obvious
+ * test: a datalist filters its suggestions against what is already in the
+ * field, and the field always arrives pre-filled, so opening it showed one
+ * option or none and the seven categories were effectively invisible.
+ *
+ * A select shows every option on click, and the last one swaps in a text
+ * field, so naming your own work is discoverable instead of a thing you had
+ * to already know you could do. */
+function workInput(id, i, value){
+  const typing = !!S.workEntry[i];
+  const open = S.workMenu === i;
+  // A custom menu rather than a <select>, because a native option cannot
+  // hold a control and a mistyped category otherwise sticks around in every
+  // dropdown forever. Same pattern the site filter already uses.
+  const row = (w) => '<div data-act="pickWork" data-i="'+i+'" data-work="'+esc(w)+'" class="hv-ghost" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;font-size:13px;font-weight:'+(w===value?700:500)+';color:var(--fg1)">'
+      + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(w)+'</span>'
+      // Every row, ours included: a warehouse has no use for "Laundry
+      // handling" cluttering the list it picks from every time. Removing
+      // one of ours only hides it (see S.hiddenWork), so it can come back;
+      // removing an owner's own name deletes it. Either way it is refused
+      // while a robot still does that work, or those robots would point at
+      // a category that no longer exists.
+      + '<span data-act="deleteWork" data-work="'+esc(w)+'" title="Remove &quot;'+esc(w)+'&quot; from this list" role="button" aria-label="Remove '+esc(w)+'" class="hv-ghost" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;color:var(--fg3)">'
+        + ic('trash-2',13) + '</span>'
+    + '</div>';
+
+  return '<div style="position:relative">'
+    + '<div id="'+id+'" data-act="toggleWorkMenu" data-i="'+i+'" class="hv-ghost" style="display:flex;align-items:center;gap:8px;padding:10px 2px;border-bottom:1px solid var(--hair2);cursor:pointer;font-size:13.5px;color:var(--fg1)">'
+      + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(value)+'</span>'
+      + ic('chevron-down',14,'color:var(--fg3);flex:none')
+    + '</div>'
+    + (!open ? '' :
+        '<div data-pop-back></div><div data-work-menu data-pop style="position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:220px;max-height:280px;overflow-y:auto;background:var(--menu);border:1px solid var(--hair2);border-radius:5px;z-index:60;box-shadow:0 8px 24px rgba(10,10,10,.14)">'
+        + workOptions().map(row).join('')
+        + '<div data-act="startWorkEntry" data-i="'+i+'" class="hv-ghost" style="padding:9px 12px;cursor:pointer;font-size:13px;font-weight:600;color:var(--fg1);border-top:1px solid var(--hair)">+ Type my own…</div>'
+      + '</div>')
+  + '</div>'
+    + (!typing ? '' :
+        '<input id="workNew-'+i+'" data-work-new="'+i+'" type="text" autocomplete="off" value="" placeholder="Name the work, then press Enter"'
+        + ' style="width:100%;margin-top:8px;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--fg1);outline:none;font-family:inherit">');
+}
+
+/** The people behind one kind of work's rate, collapsed under its row.
+ *
+ * Roles rather than names on purpose: the arithmetic needs what a job pays
+ * and what it produces, and naming staff would turn a rates table into
+ * personal data without making a single figure more accurate.
+ *
+ * Both halves of the rate come from here when anyone is listed, weighted by
+ * hours, so a 40-hour picker moves the blend more than a 4-hour one. */
+function rosterBlock(work, b, perLabel, people){
+  const open = !!S.rateOpen[work];
+  const head = '<div data-act="toggleRoster" data-work="'+esc(work)+'" class="hv-fade" style="display:flex;align-items:center;gap:9px;padding:8px 4px 14px;cursor:pointer">'
+    + '<span style="font-size:12px;color:var(--fg3);width:10px;text-align:center">'+(open?'–':'+')+'</span>'
+    + '<span style="font-size:12px;font-weight:600;color:var(--fg2)">'
+      + (people.length ? people.length+' role'+(people.length===1?'':'s')+' doing this work' : 'No people added, so this rate is still a benchmark')
+    + '</span></div>';
+  if (!open) return head;
+
+  const cell = (attr, id, value, w, step) =>
+    '<input data-emp-'+attr+'="'+id+'" type="'+(attr==='role'?'text':'number')+'"'+(attr==='role'?'':' min="0" step="'+step+'" inputmode="decimal"')
+    + ' value="'+esc(value)+'" style="width:'+w+';font-size:12.5px;color:var(--fg1);background:transparent;padding:6px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit'+(attr==='role'?'':';font-variant-numeric:tabular-nums')+'">';
+
+  const rows = people.map(e =>
+    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:9px 0;border-top:1px solid var(--hair)">'
+    + cell('role', e.id, e.role, '150px', '')
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">$'+cell('wage', e.id, e.wage, '62px', '0.25')+'<span style="font-size:11px;color:var(--fg3)">/ hr</span></span>'
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">'+cell('units', e.id, e.unitsPerHour, '54px', 'any')+'<span style="font-size:11px;color:var(--fg3)">'+esc(perLabel)+' / hr</span></span>'
+    + '<span style="display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg2)">'+cell('hours', e.id, e.hoursWeek, '46px', '1')+'<span style="font-size:11px;color:var(--fg3)">hrs / wk</span></span>'
+    + '<button type="button" data-act="removeEmployee" data-id="'+e.id+'" title="Remove this role" class="hv-ghost" style="margin-left:auto;padding:5px 9px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg2);cursor:pointer;font-size:11.5px;font-weight:600">Remove</button>'
+  + '</div>').join('');
+
+  return head
+    + '<div style="padding:0 4px 18px">'
+      + (people.length ? '<div style="display:flex;gap:14px;font-size:10.5px;font-weight:700;color:var(--fg3);padding-bottom:2px"><span style="width:150px">Role</span><span>Loaded wage</span><span>Output</span><span>Hours</span></div>' : '')
+      + rows
+      + '<button type="button" data-act="addEmployee" data-work="'+esc(work)+'" class="hv-ghost" style="margin-top:12px;padding:8px 14px;border-radius:4px;border:1px dashed var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:12px;font-weight:600">+ Add a role</button>'
+      + '<div style="font-size:11px;color:var(--fg3);margin-top:10px;line-height:1.6">'
+        + '<b style="color:var(--fg2);font-weight:600">Loaded wage</b> is pay plus taxes and benefits, what the hour really costs you. '
+        + '<b style="color:var(--fg2);font-weight:600">Output</b> is what one person gets through in an hour of this work. '
+        // Hours only ever acts as a weight, so with one role it genuinely
+        // does nothing and looks broken. Say so rather than leave someone
+        // typing into a field that appears dead.
+        + '<b style="color:var(--fg2);font-weight:600">Hours</b> decides how much each role counts toward the average: someone on 40 hours moves it more than someone on 4.'
+        + (people.length === 1 ? ' With only one role it changes nothing yet, since an average of one is just that one. Add a second and it starts to matter.' : '')
+      + '</div>'
+    + '</div>';
+}
+
+/** One line per work category in use, stating the derived rate without
+ * spelling out the arithmetic behind it. */
+function rateDerivationLines(works){
+  return works.map(work => {
+    const b = workDef(work);
+    const per = throughputFor(work);
+    const rc = rateCentsFor(work);
+    const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
+    if (rc === null) return esc(work)+': set how many '+esc(perLabel)+' a person does in an hour to derive a rate.';
+    return esc(work)+': '+money(rc/100)+' per '+esc(b.unit);
+  }).join('<br>');
+}
+
+/** What one robot costs per unit: its own invoice over its own output.
+ * The counterpart to the person figure beside it, and the number an owner
+ * assumes "replacement rate" means until told otherwise. */
+function robotUnitCost(s){
+  return s.units > 0 ? s.invoice / s.units : null;
+}
+function robotUnitCostLabel(s, b){
+  const c = robotUnitCost(s);
+  return c === null ? '—' : money(c)+' / '+b.unit;
+}
+function robotUnitCostDerivation(s, b){
+  const c = robotUnitCost(s);
+  if (c === null) return 'No '+b.unitPlural+' recorded yet.';
+  return 'Its invoice, spread across what it actually did.';
+}
+
 function setupSaveButton(i){
   const saved = !!S.setupSaved[i];
   return '<button type="button" data-act="saveSetupRow" data-i="'+i+'" id="setupSaveBtn-'+i+'" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:'+(saved?'var(--ghost2)':'var(--ink)')+';color:'+(saved?'var(--fg1)':'var(--ink-fg)')+'">'
@@ -2065,23 +2709,32 @@ function viewSetup(){
     const r = SETUP[s.i];
     const i = s.i;
     const open = S.openSetup === i;
-    const b = BENCH[s.work];
+    const b = workDef(s.work);
     const hoursVal = S.robotHours[i] ?? parseFloat(r.hours);
     const summary = s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day';
     let panel = '';
     if (open){
       panel = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px;padding:4px 4px 28px">'
         + '<div><label for="confirmWork-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">What it does</label>'
-          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
-            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===s.work?' selected':'')+'>'+esc(w)+'</option>').join('')
-          + '</select></div>'
+          + workInput('confirmWork-'+i, i, s.work)
+          + (S.workDeleteBlocked
+              ? '<div style="font-size:11px;color:var(--fg1);font-weight:600;margin-top:6px;line-height:1.5">&ldquo;'+esc(S.workDeleteBlocked)+'&rdquo; is still what some robots do. Move them to something else first, then delete it.</div>'
+              : '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">'+(isCustomWork(s.work) ? 'Your own category. Set what a unit of it is called, and its rate, below.' : 'Type your own if none of these fit.')+'</div>')
+          + '</div>'
         + '<div><label for="setupInvoice-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Monthly invoice</label>'
           + '<input id="setupInvoice-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.invoice.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
-        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Replacement rate</div>'
-          + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+money(s.rate)+' / '+b.unit+'</div>'
-          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour</div></div>'
-        + '<div><label for="setupWage-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Loaded wage</label>'
-          + '<input id="setupWage-'+i+'" data-i="'+i+'" type="number" min="0" inputmode="decimal" value="'+s.wage.toFixed(2)+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
+        // Both sides of the comparison, side by side and labelled by WHO,
+        // because "Replacement rate: $0.40 per pick" on a robot's own panel
+        // reads as what the robot costs. It is the opposite: what a person
+        // costs, which is the thing being replaced.
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">A person costs</div>'
+          + '<div id="setupRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+(s.rate === null ? '—' : money(s.rate)+' / '+b.unit)+'</div>'
+          + '<div id="setupDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">What you set for this kind of work</div>'
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Set below, from the people who do this work.</div></div>'
+        + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">This robot costs</div>'
+          + '<div id="setupRobotRate-'+i+'" style="font-size:13.5px;color:var(--fg1);padding:10px 2px;border-bottom:1px solid var(--hair2);font-variant-numeric:tabular-nums">'+robotUnitCostLabel(s, b)+'</div>'
+          + '<div id="setupRobotDerive-'+i+'" style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:6px">'+robotUnitCostDerivation(s, b)+'</div>'
+          + '<div style="font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.5">Its invoice over what it actually did.</div></div>'
         + '<div><label for="setupHours-'+i+'" style="display:block;font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">Operating hours / day</label>'
           + '<input id="setupHours-'+i+'" data-i="'+i+'" type="number" min="0" step="0.5" inputmode="decimal" value="'+hoursVal+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums"></div>'
         + '<div><div style="font-size:11.5px;font-weight:700;color:var(--fg3);margin-bottom:6px">&nbsp;</div>'
@@ -2103,6 +2756,10 @@ function viewSetup(){
   // S.dashScope, so all three never say a different count for "how many
   // robots" at the same scope.
   const scopeName = S.dashScope === 'all' ? 'Pier 4, Marina & Airport combined' : SITES[S.dashScope].name+'&#39;s';
+  // Only the categories this fleet actually does. The old table listed a
+  // fixed two regardless of scope, so a single site with no scrubbers still
+  // showed a floor-cleaning rate nothing on the page used.
+  const usedWorks = [...new Set(stmt.rows.map(r => r.work))];
 
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">'+scopeToggle()+'</div>'
   + '<div style="padding:0;margin-bottom:48px">'
@@ -2115,16 +2772,51 @@ function viewSetup(){
   + '<div style="padding:0;margin-bottom:56px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0;color:var(--fg1)">Where the rates come from</h2>'
-      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Change a robot&#39;s Loaded wage above to move its rate.</span></div>'
-    + '<div style="overflow-x:auto;min-width:0"><div style="min-width:720px">'
-      + '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
-      + RATES.map((v,i) => '<div style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:20px 4px;border-top:1px solid var(--hair);align-items:baseline">'
-        + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+v.work+'</div>'
-        + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+RATE_HISTORY[i===0?0:2].span+'</div></div>'
-        + '<div style="font-size:14px;color:var(--fg2);font-variant-numeric:tabular-nums">'+v.wage+'</div>'
-        + '<div style="font-size:14px;color:var(--fg2);font-variant-numeric:tabular-nums">'+v.does+'</div>'
-        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+v.rate+'</span>'
-        + '<span style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+v.source+'</span></div></div>').join('')
+      + '<span style="font-size:13px;color:var(--fg3)">Derived, never asserted. Both inputs are yours: correct either one and every figure built on it moves.</span></div>'
+    + '<div data-rate-scroll style="overflow-x:auto;min-width:0"><div data-rate-wide style="min-width:720px">'
+      + '<div data-rate-head style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:700;color:var(--fg3)"><div>Work</div><div>Loaded wage</div><div>A person does</div><div>So one unit is worth</div></div>'
+      + usedWorks.map(work => {
+          const b = workDef(work);
+          const rc = rateCentsFor(work);
+          const own = wageIsOwnSet(work) || throughputIsOwnSet(work);
+          const perLabel = b.basis === 'active_hour' ? 'hour' : b.unitPlural;
+          const people = employeesFor(work);
+          return '<div data-rate-row style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr 1.2fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:center">'
+          + '<div><div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+esc(work)+'</div>'
+            + '<div style="font-size:11.5px;color:var(--fg3);margin-top:4px">'+stmt.rows.filter(r => r.work === work).length+' robot'+(stmt.rows.filter(r => r.work === work).length===1?'':'s')+'</div>'
+            // A category we publish numbers for already knows what one of
+            // its units is called and how it is counted. One the owner named
+            // does not, and guessing would put "tasks" on a statement they
+            // have to hand a lender, so they name it here.
+            + (!isCustomWork(work) ? '' :
+                '<div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">'
+                + '<span style="font-size:11px;color:var(--fg3)">one is a</span>'
+                + '<input data-work-unit="'+esc(work)+'" type="text" value="'+esc(b.unit)+'" aria-label="Name for one unit of '+esc(work)+'" style="width:78px;font-size:12.5px;color:var(--fg1);background:transparent;padding:4px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">'
+                + '<select data-work-basis="'+esc(work)+'" aria-label="How '+esc(work)+' is counted" style="font-size:11.5px;color:var(--fg2);background:transparent;padding:4px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;cursor:pointer">'
+                  + '<option value="mission"'+(b.basis==='mission'?' selected':'')+'>counted per task</option>'
+                  + '<option value="active_hour"'+(b.basis==='active_hour'?' selected':'')+'>counted per hour</option>'
+                + '</select></div>')
+            + '</div>'
+          // Read-only while a roster defines it: two editable answers to the
+          // same question, disagreeing, is worse than one you have to open
+          // the roster to change.
+          + (wageFromPeople(work)
+            ? '<div style="font-size:14px;color:var(--fg1);font-variant-numeric:tabular-nums"><span data-rate-wage-out="'+esc(work)+'">'+money(wageFor(work))+'</span> <span style="color:var(--fg3);font-size:12.5px">/ hr</span>'
+              + '<div style="font-size:10.5px;color:var(--fg3);margin-top:3px">averaged from '+people.length+' role'+(people.length===1?'':'s')+'</div></div>'
+            : '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">$'
+              + '<input data-rate-wage="'+esc(work)+'" type="number" min="0" step="0.25" inputmode="decimal" value="'+wageFor(work).toFixed(2)+'" aria-label="Loaded wage for '+esc(work)+'" style="width:74px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+              + '<span style="color:var(--fg3);font-size:12.5px">/ hr</span></div>')
+          + (throughputFromPeople(work)
+            ? '<div style="font-size:14px;color:var(--fg1);font-variant-numeric:tabular-nums"><span data-rate-through-out="'+esc(work)+'">'+throughputFor(work)+'</span> <span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span>'
+              + '<div style="font-size:10.5px;color:var(--fg3);margin-top:3px">averaged from '+people.length+' role'+(people.length===1?'':'s')+'</div></div>'
+            : '<div style="display:flex;align-items:center;gap:5px;font-size:14px;color:var(--fg1)">'
+              + '<input data-rate-through="'+esc(work)+'" type="number" min="0" step="any" inputmode="decimal" value="'+throughputFor(work)+'" aria-label="Units a person does per hour for '+esc(work)+'" style="width:64px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums;font-family:inherit">'
+              + '<span style="color:var(--fg3);font-size:12.5px">'+esc(perLabel)+' / hr</span></div>')
+          + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            + '<span data-rate-out="'+esc(work)+'" style="font-size:14.5px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">'+(rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit)+'</span>'
+            + '<span data-rate-src="'+esc(work)+'" style="font-size:11.5px;font-weight:600;color:var(--fg2)">'+(own ? 'your numbers' : 'benchmark')+'</span></div></div>'
+          + rosterBlock(work, b, perLabel, people);
+        }).join('')
     + '</div></div>'
     + '<div style="margin-top:26px;padding:18px 20px;border:1px solid var(--hair2);border-radius:4px;font-size:13.5px;line-height:1.7;color:var(--fg2)">A rate change applies from the day you make it. The five closed periods keep the rate they were computed with, so a statement you already sent your accountant never changes after the fact.</div>'
     + '<div style="margin-top:20px">'
@@ -2139,13 +2831,18 @@ function viewSetup(){
             + '<div style="font-size:13.5px;font-weight:600;color:'+(r.current?'var(--fg1)':'var(--fg2)')+'">'+r.work+'</div>'
             + '<div style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
             + '<div style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.span+'</div>'
-            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+demoify(r.by)+'</div>'
-            + '<div style="font-family:inherit;font-size:11.5px;color:var(--fg3);margin-top:3px">'+r.basis+'</div></div></div>').join('')
+            + '<div><div style="font-size:12.5px;color:var(--fg2)">'+demoify(r.by)+'</div></div></div>').join('')
           + '</div></div>'
         : '')
     + '</div>'
-    + '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Floor cleaning still uses our published benchmark wage, not yours. Every figure it feeds is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until the input above is corrected.</div>'
-    + '<div style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">$24.00 / hr ÷ 60 picks per hour = $0.40 per pick<br>$25.00 / hr ÷ 1 hour per hour = $25.00 per hour</div>'
+    + (() => {
+        // Named live rather than hardcoded to one category: whichever ones
+        // are still on our published numbers are the ones to call out.
+        const onBench = usedWorks.filter(w => !wageIsOwnSet(w) && !throughputIsOwnSet(w));
+        if (!onBench.length) return '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">Every rate above is built from numbers you set. Nothing here is our benchmark any more.</div>';
+        return '<div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--hair);font-size:13.5px;color:var(--fg2)">'+onBench.map(esc).join(' and ')+' still use'+(onBench.length===1?'s':'')+' our published benchmark, not your numbers. Every figure '+(onBench.length===1?'it feeds':'they feed')+' is marked <b style="font-weight:700;color:var(--fg1)">benchmark</b> until both inputs above are corrected.</div>';
+      })()
+    + '<div data-rate-derivations style="margin-top:20px;font-family:inherit;font-size:13.5px;color:var(--fg1);line-height:2">'+rateDerivationLines(usedWorks)+'</div>'
   + '</div>'
 
   + '<div style="padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
@@ -2318,9 +3015,7 @@ function viewConfirm(){
       + '<div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px">'
         + '<div style="min-width:200px">'
           + '<label for="confirmWork-'+i+'" style="display:block;font-size:10.5px;font-weight:700;color:var(--fg3);margin-bottom:4px">Kind of work'+(!excl && !seen ? ' <span style="color:var(--fg1)">· look at this</span>' : '')+'</label>'
-          + '<select id="confirmWork-'+i+'" data-i="'+i+'" style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid '+(!excl && !seen ? 'var(--fg1)' : 'var(--hair2)')+';outline:none;font-family:inherit;cursor:pointer">'
-            + WORK_CATEGORIES.map(w => '<option value="'+esc(w)+'"'+(w===work?' selected':'')+'>'+esc(w)+'</option>').join('')
-          + '</select></div>'
+          + workInput('confirmWork-'+i, i, work) + '</div>'
         + '<button type="button" data-act="toggleExclude" data-i="'+i+'" style="margin-left:auto;padding:9px 14px;border-radius:3px;border:1px solid var(--hair2);background:'+(excl?'var(--ink)':'transparent')+';color:'+(excl?'var(--ink-fg)':'var(--fg1)')+';cursor:pointer;font-size:12.5px;font-weight:600">'+(excl?'Excluded':'Exclude')+'</button>'
       + '</div></div>';
   };
@@ -2392,8 +3087,7 @@ function viewStates(){
       + '<span style="font-size:13px;color:var(--fg3)">A missing input is stated as missing, never rendered as a zero.</span></div>'
     + STATES.map(s => '<div data-split style="border-top:1px solid var(--hair);padding:24px 4px;display:grid;grid-template-columns:minmax(200px,260px) minmax(0,1fr);gap:28px;align-items:start">'
       + '<div style="font-size:14.5px;font-weight:600;color:var(--fg1)">'+s.name+'</div>'
-      + '<div><div style="font-size:14px;color:var(--fg2);line-height:1.7">'+s.detail+'</div>'
-      + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);margin-top:12px;overflow-x:auto;min-width:0;white-space:nowrap">'+s.eq+'</div></div></div>').join('')
+      + '<div><div style="font-size:14px;color:var(--fg2);line-height:1.7">'+s.detail+'</div></div></div>').join('')
   + '</div>'
   + '<div style="padding:0">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
@@ -2442,9 +3136,14 @@ function viewSettings(){
 
   return '<div style="padding:0;margin-bottom:48px">'
     + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Site</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">These feed the math. Timezone decides which day a run counts toward; operating hours are what utilization is measured against.</p>'
+    // Operating hours per day used to sit here too, as a single site-wide
+    // figure. It was a duplicate of the per-robot hours on Numbers, which is
+    // the one utilization is actually measured against, and this copy fed
+    // nothing: a robot that runs nights and one that runs lunch do not share
+    // a number, so the per-robot field is the honest place for it.
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">Timezone decides which day a run counts toward. Operating hours are set per robot, on Numbers.</p>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">'
-      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone) + field('Operating hours / day','settingsSiteHours',S.siteHours,true)
+      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone)
     + '</div></div>'
 
   + '<div style="padding:0;margin-bottom:48px">'
@@ -2495,27 +3194,6 @@ function viewSettings(){
       + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.6;min-width:0;overflow-x:auto;white-space:nowrap">'+d.line+'</div>'
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How the numbers read</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">The exact arithmetic behind two figures on the Dashboard, computed the same way right now, in case you want to check it by hand.</p>'
-    + '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin-bottom:8px">Tax shield &amp; depreciation</div>'
-    + taxShieldTrace(computeTaxShield())
-    + (() => {
-        const sBase = sensBase();
-        if (!sBase) return '';
-        const min = Math.max(1, Math.round(sBase.benchUnitsPerHour * 0.5));
-        const max = Math.max(min + 1, Math.round(sBase.benchUnitsPerHour * 2));
-        const t = Math.min(max, Math.max(min, S.throughput));
-        const c = calc(t, sBase);
-        return '<div style="font-size:12.5px;font-weight:700;color:var(--fg1);margin:20px 0 8px">Coverage sensitivity</div>' + sensitivityTrace(sBase, c, t);
-      })()
-  + '</div>'
-
-  + '<div style="padding:0;margin-bottom:48px">'
-    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How figures read</h2>'
-    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:70ch">What a missing input or an in-progress action looks like on a real statement, and every state a figure or button can be in.</p>'
-    + '<button type="button" data-act="go" data-view="states" class="hv-ghost" style="padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Open How figures read</button></div>'
 
   + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
     + '<h2 style="font-size:15px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg2)">Delete account</h2>'
@@ -2595,6 +3273,14 @@ function render(){
     + '<div data-grid style="position:relative;display:grid;grid-template-columns:'+cols+';align-items:start;min-height:100vh">'
     + inner + '</div></div>';
 
+  // The tab title was one hardcoded string, "Sign-in to statement", left
+  // from when this file opened on a sign-in screen. A demo visitor lands on
+  // the dashboard and never sees a sign-in, so the tab described a screen
+  // that was not on it. Tracks the actual screen now.
+  document.title = S.demoMode ? 'Botlien · Demo'
+    : onAuth ? 'Botlien · Sign in'
+    : (COPY[S.view] ? 'Botlien · '+COPY[S.view][0] : 'Botlien');
+
   applySensitivity();
   layoutDashMasonry();
 
@@ -2616,6 +3302,50 @@ function render(){
     const el = document.getElementById('authEmail');
     if (el) { try { el.focus(); } catch(e){} }
   }
+
+  // Choosing "+ Type my own…" re-renders, and the field it reveals did not
+  // exist when focus was captured above, so focus would stay on the select
+  // and the new box would look inert. Put the caret in it.
+  const openEntry = Object.keys(S.workEntry).find(k => S.workEntry[k]);
+  if (openEntry !== undefined){
+    const el = document.getElementById('workNew-'+openEntry);
+    if (el && document.activeElement !== el) { try { el.focus(); } catch(e){} }
+  }
+}
+
+/** Patches the "Where the rates come from" row for one work category, and
+ * every Setup row priced by it, after a wage or throughput keystroke. Same
+ * live-patch reason as applySetupRow: re-rendering would drop focus out of
+ * the field being typed into. */
+function applyRateRow(work){
+  if (S.view !== 'setup') return;
+  const b = workDef(work);
+  const rc = rateCentsFor(work);
+  const out = document.querySelector('[data-rate-out="'+cssEsc(work)+'"]');
+  if (out) out.textContent = rc === null ? 'needs a number above' : money(rc/100)+' per '+b.unit;
+  const src = document.querySelector('[data-rate-src="'+cssEsc(work)+'"]');
+  if (src) src.textContent = (wageIsOwnSet(work) || throughputIsOwnSet(work)) ? 'your numbers' : 'benchmark';
+  // The averaged figures shown in place of the inputs when a roster drives
+  // them, or editing a role would move the rate and leave the average it
+  // supposedly came from unchanged.
+  const wOut = document.querySelector('[data-rate-wage-out="'+cssEsc(work)+'"]');
+  if (wOut) wOut.textContent = money(wageFor(work));
+  const tOut = document.querySelector('[data-rate-through-out="'+cssEsc(work)+'"]');
+  if (tOut) tOut.textContent = throughputFor(work);
+  // The derivation lines and every per-robot row that prices off this
+  // category move with it, or the page would show a new rate above and the
+  // old arithmetic below.
+  const stmt = computeStatement(true, scopeFilter());
+  const derivs = document.querySelector('[data-rate-derivations]');
+  if (derivs) derivs.innerHTML = rateDerivationLines([...new Set(stmt.rows.map(r => r.work))]);
+  stmt.rows.filter(r => r.work === work).forEach(r => applySetupRow(r.i));
+}
+
+/** Escapes a value for use inside a CSS attribute selector. Work categories
+ * are known strings today, but building a selector out of unescaped text is
+ * the kind of thing that breaks the day one contains a quote. */
+function cssEsc(s){
+  return String(s).replace(/["\\]/g, '\\$&');
 }
 
 // Same live-patch reason as applySensitivity below: a full re-render on
@@ -2630,8 +3360,6 @@ function applyTaxShield(){
   const m = (cents) => money(cents / 100);
   put('taxShieldValue', m(t.shieldCents));
   put('taxNetCostValue', m(t.netCostCents));
-  const trace = document.getElementById('taxShieldTrace');
-  if (trace) trace.innerHTML = taxShieldTrace(t);
 }
 
 /* The slider patches the statement in place. A full re-render on every input
@@ -2666,9 +3394,9 @@ function applySetupRow(i){
   // global index no longer lines up with rows' position in the array.
   const s = computeStatement(true, scopeFilter()).rows.find(row => row.i === i);
   if (!s) return;
-  const b = BENCH[s.work];
+  const b = workDef(s.work);
   put('setupRate-'+i, money(s.rate)+' / '+b.unit);
-  put('setupDerive-'+i, money(s.wage)+'/hr ÷ '+b.humanUnitsPerHour+' '+b.unitPlural+' per hour');
+  put('setupDerive-'+i, 'What you set for this kind of work');
   const hoursVal = S.robotHours[i] ?? parseFloat(SETUP[i].hours);
   put('setupSummary-'+i, s.work+' · '+money(s.invoice)+' / mo · '+money(s.rate)+' / '+b.unit+' · '+hoursVal+' h / day');
   // An edit after Save undoes the reassurance: back to "Save" until they
@@ -2743,6 +3471,16 @@ window.addEventListener('resize', () => {
   dashResizeTimer = setTimeout(layoutDashMasonry, 120);
 });
 
+/* The phone breakpoint, in one place, because two things now depend on it:
+   the sidebar renders differently below it, and the CSS switches menus to
+   sheets at the same width. Reading it from matchMedia rather than hard
+   coding a second 900 keeps those two from drifting apart. */
+const PHONE_MQ = window.matchMedia('(max-width:900px)');
+function isPhoneLayout(){ return PHONE_MQ.matches; }
+// Crossing the breakpoint changes markup, not just layout, so it needs a
+// real re-render. Rotating a phone is the case that actually hits this.
+PHONE_MQ.addEventListener('change', () => { if (S.stage === 'app') set({}); });
+
 /* ─────────────────────────  BEHAVIOUR  ───────────────────────── */
 
 function startResendClock(){
@@ -2812,10 +3550,30 @@ function goView(view, extra){
 }
 
 const ACTIONS = {
-  toggleRail: () => set({ railCollapsed: !S.railCollapsed }),
+  // Inert on a phone. The sidebar is a topbar there, so there is no rail to
+  // collapse, and a tap on the brand badge should do nothing rather than
+  // quietly flip a flag the renderer is going to ignore anyway.
+  toggleRail: () => { if (isPhoneLayout()) return; set({ railCollapsed: !S.railCollapsed }); },
   toggleMobileNav: () => set({ mobileNavOpen: !S.mobileNavOpen }),
   toggleDashEdit: () => set({ dashEdit: !S.dashEdit }),
   setTaxDep: (el) => set({ taxDepMethod: el.dataset.method }),
+  /* Reordering by up/down step rather than by drag. HTML5 drag-and-drop
+     does not exist on a touch screen, so on a phone the dragstart handler
+     below never fires and "Customize" would be able to remove blocks but
+     never move them. Steps against the visible run, not the raw layout,
+     so pressing up next to a hidden block moves you somewhere you can
+     actually see instead of looking like nothing happened. */
+  dashMove: (el) => {
+    const id = el.dataset.id;
+    const dir = el.dataset.dir === 'up' ? -1 : 1;
+    const order = S.dashLayout.slice();
+    const visible = order.filter(x => !S.dashHidden.includes(x));
+    const from = visible.indexOf(id), to = from + dir;
+    if (from < 0 || to < 0 || to >= visible.length) return;
+    const a = order.indexOf(id), b = order.indexOf(visible[to]);
+    order[a] = visible[to]; order[b] = id;
+    set({ dashLayout: order });
+  },
   dashHide: (el) => set({ dashHidden: S.dashHidden.concat(el.dataset.id) }),
   dashShow: (el) => set({ dashHidden: S.dashHidden.filter(id => id !== el.dataset.id) }),
   dashReset: () => set({ dashLayout: DASH_ORDER_DEFAULT.slice(), dashHidden: DASH_HIDDEN_DEFAULT.slice() }),
@@ -2859,9 +3617,10 @@ const ACTIONS = {
     inv[i] = !inv[i];
     set({ invites: inv });
   },
-  firstRun4: () => set({ screen:'first-run-4', invitesSent: invitesReady().length }),
-  skipInvites: () => set({ screen:'first-run-4', invites:{}, inviteEmail:{}, invitesSent:0 }),
-  toggleBenchmark: () => set({ benchmarkOptIn: !S.benchmarkOptIn }),
+  // Both used to land on a benchmark opt-in step. That step existed only
+  // to feed a card that no longer exists, so they finish onboarding now.
+  firstRun4: () => { S.invitesSent = invitesReady().length; goView('start', { upload:'idle', onboarding:true }); },
+  skipInvites: () => { S.invites = {}; S.inviteEmail = {}; S.invitesSent = 0; goView('start', { upload:'idle', onboarding:true }); },
   finishFirstRun: () => goView('start', { upload:'idle', onboarding:true }),
   requestAccess: () => set({ screen:'check', sentAgain:false }),
   // Reachable both pre-signin (already fine, onboarding was never true) and
@@ -2923,7 +3682,15 @@ const ACTIONS = {
     }, 700);
   },
   toggleDashScope: () => set({ dashScopeMenu: !S.dashScopeMenu, profileOpen:false, periodMenu:false }),
-  setDashScope: (el) => set({ dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope), dashScopeMenu: false }),
+  // The cost card follows the site filter to the matching level, rather
+  // than being cleared: pick Marina up top and the comparison is Marina,
+  // and you can drill from there into one kind of work or one robot
+  // without the rest of the page moving.
+  setDashScope: (el) => set({
+    dashScope: el.dataset.scope === 'all' ? 'all' : Number(el.dataset.scope),
+    dashScopeMenu: false,
+    costScope: el.dataset.scope === 'all' ? 'all' : 'site:'+el.dataset.scope,
+  }),
   togglePeriod: () => set({ periodMenu: !S.periodMenu, profileOpen:false, dashScopeMenu:false }),
   pickPeriod: (el) => {
     const i = Number(el.dataset.i);
@@ -2944,6 +3711,66 @@ const ACTIONS = {
   },
   calClear: () => set({ dashRange: null }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
+  toggleWorkMenu: (el) => {
+    const i = Number(el.dataset.i);
+    // Opening the menu is what proves a human looked at this robot's kind
+    // of work, which is the confirm screen's one required action. It used
+    // to be a focusin on the <select>; a div never fires that.
+    const seen = S.confirmSeen[i] ? S.confirmSeen : Object.assign({}, S.confirmSeen, { [i]: true });
+    set({ workMenu: S.workMenu === i ? null : i, confirmSeen: seen });
+  },
+  pickWork: (el) => {
+    const i = Number(el.dataset.i);
+    S.confirmWork[i] = el.dataset.work;
+    S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
+    set({ workMenu: null });
+  },
+  startWorkEntry: (el) => {
+    const i = Number(el.dataset.i);
+    S.workEntry = Object.assign({}, S.workEntry, { [i]: true });
+    set({ workMenu: null });
+  },
+  deleteWork: (el) => {
+    const work = el.dataset.work;
+    // Refused while anything still does this work, rather than silently
+    // leaving those robots pointing at a category that no longer exists.
+    // The owner moves them first, which is a decision only they can make.
+    const inUse = CONFIRM.map((c,i) => S.confirmWork[i] ?? c.work).filter(w => w === work).length;
+    if (inUse > 0){
+      set({ workDeleteBlocked: work, workMenu: null });
+      return;
+    }
+    const custom = Object.assign({}, S.customWork); delete custom[work];
+    const wage = Object.assign({}, S.workWage); delete wage[work];
+    const through = Object.assign({}, S.workThroughput); delete through[work];
+    S.employees = S.employees.filter(e => e.work !== work);
+    // One of ours is hidden rather than destroyed, since BENCH is the
+    // published table and an owner who removes "Laundry handling" today may
+    // want it back. One of theirs is gone with the delete of customWork
+    // above; hiding it too keeps workOptions from resurrecting it from a
+    // robot that still references it in CONFIRM.
+    const hidden = S.hiddenWork.includes(work) ? S.hiddenWork : S.hiddenWork.concat([work]);
+    set({ customWork: custom, workWage: wage, workThroughput: through, hiddenWork: hidden, workMenu: null, workDeleteBlocked: '' });
+  },
+  toggleRoster: (el) => {
+    const w = el.dataset.work;
+    set({ rateOpen: Object.assign({}, S.rateOpen, { [w]: !S.rateOpen[w] }) });
+  },
+  addEmployee: (el) => {
+    const work = el.dataset.work;
+    // Seeded from whatever the rate currently uses, so adding the first
+    // role does not lurch the numbers before anything has been typed.
+    S.employees = S.employees.concat([{
+      id: S.nextEmployeeId, role: '', work,
+      wage: wageFor(work), unitsPerHour: throughputFor(work), hoursWeek: 40,
+    }]);
+    set({ nextEmployeeId: S.nextEmployeeId + 1, rateOpen: Object.assign({}, S.rateOpen, { [work]: true }) });
+  },
+  removeEmployee: (el) => {
+    const id = Number(el.dataset.id);
+    S.employees = S.employees.filter(e => e.id !== id);
+    set({});
+  },
   howTo: (el) => set({ howTo: S.howTo === el.dataset.k ? '' : el.dataset.k }),
   toggleSetup: (el) => { const i = Number(el.dataset.i); set({ openSetup: S.openSetup === i ? -1 : i }); },
   saveSetupRow: (el) => { const i = Number(el.dataset.i); set({ setupSaved: Object.assign({}, S.setupSaved, { [i]: true }) }); },
@@ -2992,8 +3819,8 @@ document.addEventListener('click', (e) => {
     // through to here too. Without this guard that would read as "clicked
     // outside" and close the calendar mid-selection.
     const insideCal = e.target.closest && e.target.closest('[data-cal-root]');
-    if (!insideCal && S.stage === 'app' && (S.profileOpen || S.periodMenu || S.dashScopeMenu)) {
-      set({ profileOpen:false, periodMenu:false, dashScopeMenu:false });
+    if (!insideCal && S.stage === 'app' && (S.profileOpen || S.periodMenu || S.dashScopeMenu || S.workMenu !== null)) {
+      set({ profileOpen:false, periodMenu:false, dashScopeMenu:false, workMenu:null });
     }
     return;
   }
@@ -3028,6 +3855,35 @@ document.addEventListener('mouseup', () => {
   set({ dashRange: range, calDragStart: null, calDragHover: null });
 });
 
+/* The same range picker, for a finger. Dragging across a grid is a mouse
+   idiom: on a touch screen holding down and sliding is how you scroll the
+   page, so the handlers above can never see a multi-day drag, and the
+   synthesized mousedown/mouseup pair a tap produces would commit a
+   one-day range on every single tap. Touch gets two taps instead, first
+   day then last day, which is also what every native date picker does.
+   preventDefault on a real tap stops the synthesized mouse events, so the
+   two paths never both fire for one gesture. */
+let calTouch = null;
+document.addEventListener('touchstart', (e) => {
+  const el = e.target.closest && e.target.closest('[data-cal-day]');
+  const t = e.touches[0];
+  calTouch = el && t ? { x: t.clientX, y: t.clientY, el } : null;
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+  const start = calTouch;
+  calTouch = null;
+  if (!start) return;
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t) return;
+  // A finger that travelled was scrolling the sheet, not picking a day.
+  if (Math.abs(t.clientX - start.x) > 10 || Math.abs(t.clientY - start.y) > 10) return;
+  e.preventDefault();
+  const key = start.el.dataset.calDay;
+  if (!S.calDragStart){ set({ calDragStart: key, calDragHover: key }); return; }
+  S.calDragHover = key;
+  set({ dashRange: calRangeSorted(), calDragStart: null, calDragHover: null });
+}, { passive: false });
+
 document.addEventListener('input', (e) => {
   if (!e.target) return;
   if (e.target.id === 'authEmail'){ set({ email: e.target.value, touched:true }); return; }
@@ -3044,7 +3900,6 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'emailChangeCodeInput'){ S.emailChangeCode = e.target.value; return; }
   if (e.target.id === 'businessName'){ S.businessName = e.target.value; return; }
   if (e.target.id === 'settingsTimezone'){ S.timezone = e.target.value; return; }
-  if (e.target.id === 'settingsSiteHours'){ S.siteHours = e.target.value; return; }
   if (e.target.id === 'manualCount'){ S.manualCount = e.target.value; return; }
   if (e.target.id === 'manualCost'){ S.manualCost = e.target.value; return; }
   if (e.target.id === 'manualRevenue'){ S.manualRevenue = e.target.value; return; }
@@ -3076,12 +3931,6 @@ document.addEventListener('input', (e) => {
     applyTaxShield();
     return;
   }
-  if (/^setupWage-\d+$/.test(e.target.id)){
-    const i = Number(e.target.id.slice(10));
-    S.robotWage[i] = Number(e.target.value) || 0;
-    applySetupRow(i);
-    return;
-  }
   if (/^setupInvoice-\d+$/.test(e.target.id)){
     const i = Number(e.target.id.slice(13));
     S.robotInvoice[i] = Number(e.target.value) || 0;
@@ -3094,16 +3943,35 @@ document.addEventListener('input', (e) => {
     applySetupRow(i);
     return;
   }
-});
-
-// A robot's "kind of work" counts as reviewed the moment its select opens,
-// value changed or not, that is what proves a human looked, not that they
-// happened to agree. focusin (bubbles), not focus (does not), is what lets
-// one listener catch every row instead of one per select.
-document.addEventListener('focusin', (e) => {
-  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
-  const i = Number(e.target.id.slice(12));
-  if (!S.confirmSeen[i]) set({ confirmSeen: Object.assign({}, S.confirmSeen, { [i]: true }) });
+  // The two halves of a category's rate. Blank clears the override back to
+  // the published benchmark rather than storing 0, which would otherwise
+  // read as "this work is worth nothing" / divide by zero.
+  const wageWork = e.target.getAttribute && e.target.getAttribute('data-rate-wage');
+  if (wageWork){
+    const raw = e.target.value.trim();
+    if (raw === '') delete S.workWage[wageWork]; else S.workWage[wageWork] = Number(raw) || 0;
+    applyRateRow(wageWork);
+    return;
+  }
+  const throughWork = e.target.getAttribute && e.target.getAttribute('data-rate-through');
+  if (throughWork){
+    const raw = e.target.value.trim();
+    if (raw === '') delete S.workThroughput[throughWork]; else S.workThroughput[throughWork] = Number(raw) || 0;
+    applyRateRow(throughWork);
+    return;
+  }
+  // One employee's fields. Patch in place rather than re-render, or the
+  // field being typed into is replaced mid-keystroke.
+  for (const [attr, key] of [['role','role'],['wage','wage'],['units','unitsPerHour'],['hours','hoursWeek']]){
+    const id = e.target.getAttribute && e.target.getAttribute('data-emp-'+attr);
+    if (id){
+      const emp = S.employees.find(x => x.id === Number(id));
+      if (!emp) return;
+      emp[key] = attr === 'role' ? e.target.value : (e.target.value.trim() === '' ? 0 : Number(e.target.value) || 0);
+      applyRateRow(emp.work);
+      return;
+    }
+  }
 });
 
 document.addEventListener('change', (e) => {
@@ -3115,15 +3983,60 @@ document.addEventListener('change', (e) => {
     reader.readAsDataURL(file);
     return;
   }
-  if (!e.target || !/^confirmWork-\d+$/.test(e.target.id)) return;
-  const i = Number(e.target.id.slice(12));
-  S.confirmWork[i] = e.target.value;
-  // This select is also Setup's "What it does" field (same overlay, same
-  // id pattern, reused rather than duplicated). applySetupRow is a no-op
-  // when Setup isn't the page currently rendered, its ids just aren't
-  // in the document, so this is safe to call unconditionally.
-  applySetupRow(i);
+  // What one unit of an owner-named category is called, and whether it is
+  // counted per task or per hour.
+  const unitWork = e.target.getAttribute && e.target.getAttribute('data-work-unit');
+  if (unitWork){
+    const unit = e.target.value.trim() || 'task';
+    // Naive plural is right far more often than it is wrong for the words
+    // that land here (pick, tote, tray, cycle), and the owner can type the
+    // singular they want; nothing derives meaning from the plural.
+    setCustomWork(unitWork, { unit, unitPlural: unit.endsWith('s') ? unit : unit + 's' });
+    set({});
+    return;
+  }
+  const basisWork = e.target.getAttribute && e.target.getAttribute('data-work-basis');
+  if (basisWork){
+    setCustomWork(basisWork, { basis: e.target.value });
+    set({});
+    return;
+  }
+  if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-cost-scope')){
+    set({ costScope: e.target.value });
+    return;
+  }
+  // The name typed into "+ Type my own…".
+  const newIdx = e.target.getAttribute && e.target.getAttribute('data-work-new');
+  if (newIdx !== null && newIdx !== undefined && newIdx !== ''){
+    commitWorkName(Number(newIdx), e.target.value);
+    return;
+  }
 });
+
+/** Commit a name typed into "+ Type my own…". Blank closes the field and
+ * leaves the robot on whatever it had, rather than creating a nameless
+ * category every downstream figure would key off "". */
+function commitWorkName(i, raw){
+  const name = String(raw ?? '').trim();
+  S.workEntry = Object.assign({}, S.workEntry, { [i]: false });
+  if (name){
+    S.confirmWork[i] = name;
+    // A name we publish no numbers for needs a shape before anything can
+    // price it, so the rates table has a row to render immediately.
+    if (isCustomWork(name) && !S.customWork[name]) setCustomWork(name, {});
+  }
+  // Deferred by a tick because this also fires on blur, and re-rendering
+  // synchronously inside a blur handler rips out the node the browser is
+  // still dispatching against ("node to be removed is no longer a child").
+  setTimeout(() => set({}), 0);
+}
+
+/** Merge into one owner-named category's shape. */
+function setCustomWork(work, patch){
+  S.customWork = Object.assign({}, S.customWork, {
+    [work]: Object.assign({}, CUSTOM_WORK_DEFAULT, S.customWork[work] || {}, patch),
+  });
+}
 
 // Opening a "how this is calculated" accordion grows its own card without
 // going through render(), a native <details> toggle, not a data-act click,
@@ -3137,6 +4050,12 @@ document.addEventListener('toggle', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target && e.target.id === 'authEmail') submitEmail();
+  // Enter commits a typed work name. Without this the only way to apply it
+  // is to click away, which reads as the field having ignored you.
+  if (e.target && e.target.getAttribute && e.target.getAttribute('data-work-new') !== null){
+    if (e.key === 'Enter'){ e.preventDefault(); commitWorkName(Number(e.target.getAttribute('data-work-new')), e.target.value); }
+    if (e.key === 'Escape'){ e.preventDefault(); commitWorkName(Number(e.target.getAttribute('data-work-new')), ''); }
+  }
 });
 
 /* Dashboard block reordering, iOS-homescreen style: neighbors slide out of
