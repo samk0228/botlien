@@ -288,7 +288,7 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
 <div id="root"></div>
 
 <script>
-const ICONS = __ICONS_JSON__;
+const ICONS = {"chevron-right":"<polyline points=\"9 18 15 12 9 6\"/>","equal":"<line x1=\"5\" x2=\"19\" y1=\"9\" y2=\"9\"/><line x1=\"5\" x2=\"19\" y1=\"15\" y2=\"15\"/>","boxes":"<path d=\"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z\"/><path d=\"m7 16.5-4.74-2.85\"/><path d=\"m7 16.5 5-3\"/><path d=\"M7 16.5v5.17\"/><path d=\"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z\"/><path d=\"m17 16.5-5-3\"/><path d=\"m17 16.5 4.74-2.85\"/><path d=\"M17 16.5v5.17\"/><path d=\"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z\"/><path d=\"M12 8 7.26 5.15\"/><path d=\"m12 8 4.74-2.85\"/><path d=\"M12 13.5V8\"/>","ruler":"<path d=\"M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z\"/><path d=\"m14.5 12.5 2-2\"/><path d=\"m11.5 9.5 2-2\"/><path d=\"m8.5 6.5 2-2\"/><path d=\"m17.5 15.5 2-2\"/>","sliders-horizontal":"<path d=\"M10 5H3\"/><path d=\"M12 19H3\"/><path d=\"M14 3v4\"/><path d=\"M16 17v4\"/><path d=\"M21 12h-9\"/><path d=\"M21 19h-5\"/><path d=\"M21 5h-7\"/><path d=\"M8 10v4\"/><path d=\"M8 12H3\"/>","upload":"<path d=\"M12 3v12\"/><path d=\"m17 8-5-5-5 5\"/><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/>","list":"<path d=\"M3 5h.01\"/><path d=\"M3 12h.01\"/><path d=\"M3 19h.01\"/><path d=\"M8 5h13\"/><path d=\"M8 12h13\"/><path d=\"M8 19h13\"/>","settings":"<path d=\"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>","log-out":"<path d=\"m16 17 5-5-5-5\"/><path d=\"M21 12H9\"/><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"/>","bell":"<path d=\"M10.268 21a2 2 0 0 0 3.464 0\"/><path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\"/>","chevron-down":"<path d=\"m6 9 6 6 6-6\"/>","check":"<path d=\"M20 6 9 17l-5-5\"/>","upload-cloud":"<path d=\"M12 13v8\"/><path d=\"M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242\"/><path d=\"m8 17 4-4 4 4\"/>","moon":"<path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\"/>","sun":"<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2\"/><path d=\"M12 20v2\"/><path d=\"m4.93 4.93 1.41 1.41\"/><path d=\"m17.66 17.66 1.41 1.41\"/><path d=\"M2 12h2\"/><path d=\"M20 12h2\"/><path d=\"m6.34 17.66-1.41 1.41\"/><path d=\"m19.07 4.93-1.41 1.41\"/>","globe":"<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20\"/><path d=\"M2 12h20\"/>","panel-left":"<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M9 3v18\"/>","triangle-alert":"<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/>","trending-up":"<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/>","trending-down":"<polyline points=\"22 17 13.5 8.5 8.5 13.5 2 7\"/><polyline points=\"16 17 22 17 22 11\"/>","user":"<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/>","star":"<path d=\"M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z\"/>","zap":"<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\"/>","shield":"<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.79 17 5 19 5a1 1 0 0 1 1 1z\"/>","anchor":"<circle cx=\"12\" cy=\"5\" r=\"3\"/><path d=\"M12 22V8\"/><path d=\"M5 12H2a10 10 0 0 0 20 0h-3\"/>","hexagon":"<path d=\"M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/>","home":"<path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/>","percent":"<line x1=\"19\" x2=\"5\" y1=\"5\" y2=\"19\"/><circle cx=\"6.5\" cy=\"6.5\" r=\"2.5\"/><circle cx=\"17.5\" cy=\"17.5\" r=\"2.5\"/>","trash-2":"<path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\"/><line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\"/>"};
 const LOGO = "__LOGO__";
 
 function ic(name, size, style){
@@ -977,6 +977,222 @@ function computeTaxShield(){
   };
 }
 
+
+/* ─────────────  WHAT IT COSTS TO KEEP THEM RUNNING  ─────────────
+
+   Two kinds of claim, kept apart on purpose, because they are not the same
+   kind of fact:
+
+   - stalls and stalled are MEASURED. They come off the same telemetry every
+     other figure on this dashboard reads: a stuck-or-error field, and the
+     duration attached to it.
+   - the minutes a person spends per stall is ESTIMATED. Nothing in any
+     export knows how long someone takes to notice, walk over, free the
+     machine and walk back. It is S.stallMinutes, it defaults to 6, and it
+     is editable on screen right next to the figure it moves.
+   - hand is MEASURED: hours logged with a person on the controls, the same
+     field ROBOTS[].hand already reports as a percentage.
+
+   stalled is never priced as labour anywhere. Those hours are already
+   counted in coverage as work the robot did not perform, and billing them
+   again here would flatter this panel with money it has already spent.
+
+   Index-for-index parallel to CONFIRM/ROBOTS/SETUP, same discipline as
+   every other per-robot table in this file. */
+const KEEPING = [
+  { stalls:9,   hand:0,    stalled:1.7 },
+  { stalls:142, hand:0,    stalled:19.4 },
+  { stalls:11,  hand:0,    stalled:2.0 },
+  { stalls:8,   hand:0,    stalled:1.5 },
+  { stalls:4,   hand:0,    stalled:0.8 },
+  { stalls:0,   hand:18.5, stalled:0 },
+  { stalls:6,   hand:0,    stalled:1.0 },
+  { stalls:5,   hand:0,    stalled:0.8 },
+  { stalls:2,   hand:0,    stalled:0.3 },
+  { stalls:7,   hand:0,    stalled:1.1 },
+  { stalls:6,   hand:0,    stalled:1.0 },
+  { stalls:5,   hand:0,    stalled:0.8 },
+  { stalls:5,   hand:0,    stalled:0.6 }
+];
+
+/** The published loaded wage for the work the scope is mostly doing, NOT
+ * wageFor(): whoever walks over and frees a stuck machine is not doing the
+ * picking, so blending the pickers' own roster wage into it would price one
+ * job at another job's rate. The benchmark loaded wage is the honest
+ * default, and it is named on screen wherever it multiplies anything. */
+function keepWage(rows){
+  const byWork = {};
+  rows.forEach(r => { byWork[r.work] = (byWork[r.work] || 0) + 1; });
+  const dominant = Object.keys(byWork).sort((a,b) => byWork[b] - byWork[a])[0];
+  const w = dominant ? workDef(dominant).wageCentsHour / 100 : null;
+  return w > 0 ? w : 24;
+}
+
+/** One calculation, same rule as computeStatement: every figure in the
+ * section is a view of this and never its own arithmetic. rows are
+ * computeStatement rows, so this can be asked about any scope the rest of
+ * the page already knows how to describe, including the cost card's own. */
+function keepingFor(rows, minutes){
+  const wage = keepWage(rows);
+  const out = rows.map(r => {
+    const k = KEEPING[r.i] || { stalls:0, hand:0, stalled:0 };
+    const clearHours = Math.round(k.stalls * minutes / 60 * 10) / 10;
+    const clearMoney = Math.round(clearHours * wage * 100) / 100;
+    const handMoney = Math.round(k.hand * wage * 100) / 100;
+    return {
+      i: r.i, name: r.name, work: r.work,
+      stalls: k.stalls, stalled: k.stalled, handHours: k.hand,
+      clearHours, clearMoney, handMoney,
+      total: Math.round((clearMoney + handMoney) * 100) / 100
+    };
+  });
+  const sum = (f) => Math.round(out.reduce((a,r) => a + f(r), 0) * 100) / 100;
+  const sum1 = (f) => Math.round(out.reduce((a,r) => a + f(r), 0) * 10) / 10;
+  return {
+    wage, rows: out,
+    stalls: out.reduce((a,r) => a + r.stalls, 0),
+    stalledHours: sum1(r => r.stalled),
+    clearHours: sum1(r => r.clearHours),
+    handHours: sum1(r => r.handHours),
+    clearMoney: sum(r => r.clearMoney),
+    handMoney: sum(r => r.handMoney),
+    total: sum(r => r.total)
+  };
+}
+
+/** The Costs screen's own scope: the site filter, same control Dashboard,
+ * Fleet and Numbers already share. */
+function computeKeeping(minutes){
+  return keepingFor(computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded), minutes);
+}
+
+/* ─────────────  WHEN THEY GET STUCK  ─────────────
+
+   A floor map lived here once. It was cut for two reasons, both fatal: it
+   needed x/y coordinates, which src/importer.mjs discards unconditionally
+   (pose: null), so no file-based customer could ever have seen it; and
+   nobody could read it, because a dark square seven across and three down
+   is not a place a warehouse manager knows how to walk to. They think in
+   aisles and shifts, not in metres from an arbitrary origin.
+
+   Same question on an axis every human can already read: not WHERE they
+   get stuck but WHEN. This needs a timestamp and a stuck-or-error field,
+   which every export on earth carries.
+
+   shape is the share of that category's stall time landing in each hour of
+   the day, midnight first. A zero is a genuinely closed hour, so the
+   non-zero span IS the operating window and no second table can drift out
+   of step with it. */
+const STALL_SHAPE = {
+  'Order picking': [0,0,0,0,0,0, 0.055,0.06,0.07,0.065,0.06,0.055,0.05,0.075,0.19,0.19,0.07,0.06, 0,0,0,0,0,0],
+  'Floor cleaning': [0.12,0.12,0.13,0.12,0.12,0.12, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0.14,0.13]
+};
+
+function hourLabel(h){
+  const n = ((h % 24) + 24) % 24;
+  return n === 0 ? '12a' : n < 12 ? n + 'a' : n === 12 ? '12p' : (n - 12) + 'p';
+}
+
+/** Worst contiguous SPAN hours. Non-wrapping only: a bracket that ran off
+ * the right edge and reappeared on the left would be a puzzle, not a
+ * finding, and the night shift's own peak sits inside one day anyway. */
+function worstWindow(series, span){
+  let best = { start:0, hours:0 };
+  let bestRaw = -1;
+  for (let i = 0; i + span <= series.length; i++){
+    let h = 0;
+    for (let j = 0; j < span; j++) h += series[i+j];
+    if (h > bestRaw){ bestRaw = h; best = { start:i, hours: Math.round(h * 10) / 10, raw: h }; }
+  }
+  return best;
+}
+
+/** One strip per kind of work, never one for the fleet. A night scrubber
+ * scored against the day shift's picking peak reads as permanently idle,
+ * and the page would confidently send an operator to fix a robot doing
+ * exactly what it should at exactly the right hour. Same rule tips.mjs
+ * already follows. */
+function computeStallTiming(){
+  const rows = computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded);
+  const byWork = {};
+  rows.forEach(r => {
+    const k = KEEPING[r.i] || { stalled:0 };
+    const g = byWork[r.work] || (byWork[r.work] = { work:r.work, stalled:0, active:0, count:0 });
+    g.stalled += k.stalled;
+    g.active += parseFloat((ROBOTS[r.i] || {}).hours) || 0;
+    g.count++;
+  });
+  return Object.values(byWork).map(g => {
+    const shape = STALL_SHAPE[g.work];
+    const stalled = Math.round(g.stalled * 10) / 10;
+    const active = Math.round(g.active * 10) / 10;
+    if (!shape || stalled <= 0) return null;
+    const shapeSum = shape.reduce((a,b) => a+b, 0) || 1;
+    // Unrounded for every comparison, rounded only where it is printed. A
+    // flat shape rounds to a dead tie at one decimal, and the tie would go
+    // to whichever hour happened to come first.
+    const raw = shape.map(w => stalled * (w / shapeSum));
+    const series = raw.map(v => Math.round(v * 10) / 10);
+    const openHours = shape.filter(w => w > 0).length;
+    const win = worstWindow(raw, 2);
+    const stallShare = stalled > 0 ? win.raw / stalled : 0;
+    const hourShare = openHours > 0 ? 2 / openHours : 0;
+    const allRate = active > 0 ? stalled / active : null;
+    // The window's share of running time is ASSUMED proportional to its
+    // share of the operating day. The stall hours and the total running
+    // hours either side of it are both measured; that assumption is stated
+    // on screen next to the figure it produces, never in a footnote.
+    const winActive = active > 0 && hourShare > 0 ? active * hourShare : null;
+    const winRate = winActive > 0 ? win.raw / winActive : null;
+    return {
+      work: g.work, count: g.count, stalled, active, series, raw, openHours, win,
+      stallShare, hourShare, allRate, winRate,
+      ratio: (allRate > 0 && winRate > 0) ? winRate / allRate : null,
+      peak: Math.max.apply(null, raw.concat([0]))
+    };
+  }).filter(Boolean).sort((a,b) => b.stalled - a.stalled);
+}
+
+/* ─────────────  BRAND AGAINST BRAND  ─────────────
+
+   The one comparison a robot manufacturer structurally cannot ship: a
+   vendor dashboard only ever sees that vendor's own machines. Every figure
+   is read off computeStatement(), the same per-robot rows Fleet shows, so a
+   brand row can be checked against the robots it came from.
+
+   Grouped by work FIRST, then by brand, deliberately. Cost per pick and
+   cost per cleaning hour are different units, and ranking them together
+   produces a number with no dimension. A category with only one make
+   priced drops out rather than rendering a table of one row. */
+function brandOf(model){ return String(model || '').split(' ')[0]; }
+function computeBrands(){
+  const rows = computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded);
+  const groups = {};
+  rows.forEach(r => {
+    const rb = ROBOTS[r.i] || {};
+    const g = groups[r.work] || (groups[r.work] = {});
+    const brand = brandOf(rb.model);
+    const e = g[brand] || (g[brand] = { brand, count:0, units:0, hours:0, invoice:0, value:0, names:[] });
+    e.count++;
+    e.units += r.units;
+    e.invoice += r.invoice;
+    e.value += r.value;
+    e.hours += parseFloat(rb.hours) || 0;
+    e.names.push(r.name);
+  });
+  return Object.keys(groups).map(work => {
+    const b = workDef(work);
+    const brands = Object.values(groups[work]).map(e => Object.assign({}, e, {
+      units: Math.round(e.units * 10) / 10,
+      hours: Math.round(e.hours * 10) / 10,
+      invoice: Math.round(e.invoice * 100) / 100,
+      perUnit: e.units > 0 ? Math.round(e.invoice / e.units * 100) / 100 : null,
+      cov: e.invoice > 0 ? e.value / e.invoice : null
+    })).filter(e => e.perUnit !== null).sort((x,y) => x.perUnit - y.perUnit);
+    return { work, unit:b.unit, unitPlural:b.unitPlural, basis:b.basis, brands };
+  }).filter(t => t.brands.length >= 2);
+}
+
 const BUSINESSES = [
   ['Warehouse or e-commerce','Order picking, putaway and replenishment, floor cleaning'],
   ['Restaurant or cafe','Tray delivery, bussing runs, floor cleaning'],
@@ -1025,6 +1241,7 @@ const COPY = {
   dashv2:['Dashboard',''],
   robots:['Fleet',''],
   setup:['Numbers','5 inputs per robot.'],
+  costs:['Costs',''],
   start:['Import usage','Start from an export so you can read your numbers today. The live API connection is the upgrade, not the first step.'],
   states:['How figures read','Every state a figure or a button can be in, and the form it takes on the page. A missing input is stated plainly instead of being smoothed into a number.'],
   settings:['Settings','Site first, because timezone and operating hours feed the math. Everything else follows in the order you are likely to need it.'],
@@ -1113,6 +1330,13 @@ const S = {
   // calDragStart/calDragHover track an in-progress drag, cleared on mouseup.
   dashRange: null, calMonth: 7, calYear: 2026, calDragStart: null, calDragHover: null,
   taxRate: 25, taxInterestRate: 9, taxDepMethod: 'bonus',
+  // Minutes of someone's time per stall. The stall COUNT is measured; this
+  // is the assumption laid on top of it, so it lives in state where the
+  // reader can reach it rather than baked into a constant they cannot.
+  stallMinutes: 6,
+  // Which finding is expanded, and whether the method panel is open. One
+  // row at a time: two open details and the queue stops being a queue.
+  costsOpen: '',
   avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
   avatarIcon: AVATAR_ICONS[Math.floor(Math.random() * AVATAR_ICONS.length)],
   avatarImage: '',
@@ -1515,6 +1739,7 @@ function appRail(){
     + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:8px;overflow-y:auto;overflow-x:hidden">'
       + item('dashv2','equal','Dashboard')
       + item('robots','boxes','Fleet', badge)
+      + item('costs','ruler','Costs')
       + item('setup','sliders-horizontal','Numbers')
     + '</nav>'
     // shadcn's NavUser pattern: the footer is ONE SidebarMenuButton (the
@@ -1649,12 +1874,12 @@ function appHeader(){
   // show a period-scoped statement. Settings, credentials, notifications,
   // and the UI-states reference page aren't reports, so a date claim
   // there would be about data that page doesn't have.
-  const showPeriod = view === 'dashv2' || view === 'robots';
+  const showPeriod = view === 'dashv2' || view === 'robots' || view === 'costs';
   // The picker itself, the clickable control for switching which period
   // you're looking at, is Dashboard-only. Fleet already always shows the
   // current period's numbers; a switcher there implied you could browse
   // past periods per robot, which isn't a thing this page does.
-  const showPeriodPicker = view === 'dashv2';
+  const showPeriodPicker = view === 'dashv2' || view === 'costs';
   const periodPicker = !showPeriodPicker ? '' : '<div style="position:relative">'
       + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:11px 16px;border:1px solid var(--hair);border-radius:4px;font-size:13.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+p.label+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
       + (S.periodMenu ? '<div data-pop-back></div><div data-pop data-pop-panel style="position:absolute;top:48px;right:0;z-index:45">'+renderCalendar()+'</div>' : '')
@@ -2193,7 +2418,16 @@ function costCard(){
   // lease invoice and not the purchase price, so both sides are "cost this
   // period over output this period" and neither needs an assumed useful
   // life on top of everything else.
-  const robot = scope.perUnit ? (unitSum > 0 ? invoiceSum / unitSum : null) : invoiceSum;
+  // The lease invoice is not what the robots cost. The time the team
+  // spends unsticking and hand-driving them is real money, it arrives on
+  // no invoice, and any operator who has actually run a fleet knows it is
+  // missing — leaving it out is what makes this card read as a brochure.
+  // Totals carry it. Per-unit is deliberately left alone: dividing labour
+  // by picks would restate the cost-per-unit figure the brand table on
+  // Costs defines as invoice over output, and two pages would then answer
+  // the same question differently.
+  const keep = keepingFor(rows, S.stallMinutes);
+  const robot = scope.perUnit ? (unitSum > 0 ? invoiceSum / unitSum : null) : Math.round((invoiceSum + keep.total) * 100) / 100;
   const money2 = (v) => v === null ? '—' : money(v);
 
   // A bar per side, both scaled to whichever costs more, so the gap is seen
@@ -2244,6 +2478,12 @@ function costCard(){
         + ratio.toFixed(2)+'x, '
         + (one ? 'this robot&#39;s' : 'this slice&#39;s')+' coverage.'
       + '</div>'
+      // Says where the second half of the robots' cost came from, and how
+      // to go and check it, rather than asking the reader to notice that
+      // the figure is no longer the invoice.
+      + ((!scope.perUnit && keep.total > 0)
+        ? '<div style="font-size:11px;color:var(--fg3);line-height:1.6;margin-top:5px">Keeping them running is counted here. <span data-act="go" data-view="costs" style="color:var(--fg1);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px">See Costs</span>.</div>'
+        : '')
     + '</div>';
   }
 
@@ -2270,7 +2510,9 @@ function costCard(){
         scope.perUnit
           ? (robot === null ? 'No '+esc(b.unitPlural)+' recorded this period, so there is nothing to divide by.'
              : 'Invoiced across '+unitSum.toLocaleString('en-US')+' '+esc(b.unitPlural))
-          : 'Invoiced across '+rows.length+' robot'+(rows.length===1?'':'s'),
+          : (keep.total > 0
+              ? money(invoiceSum)+' leased + '+money(keep.total)+' of your team&#39;s time keeping them running'
+              : 'Invoiced across '+rows.length+' robot'+(rows.length===1?'':'s')),
         robot, 'var(--ink)')
     + verdict
   + '</div>';
@@ -3195,6 +3437,12 @@ function viewSettings(){
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--fg1)">Import usage</button></div>'
 
+  + '<div style="padding:0;margin-bottom:48px">'
+    + '<h2 style="font-size:18px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How we count</h2>'
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:74ch">Where a figure rests on an assumption rather than on something a robot reported, this is the assumption. Costs links here.</p>'
+    + methodItems()
+    + '</div>'
+
   + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
     + '<h2 style="font-size:15px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg2)">Delete account</h2>'
     + '<p style="font-size:13px;color:var(--fg3);margin:0 0 16px;line-height:1.65;max-width:70ch">Deleting removes your imports, rates, invoices and statements. Nothing is recoverable and no copy is kept.</p>'
@@ -3202,10 +3450,507 @@ function viewSettings(){
     + (S.notInDemo === 'delete' ? '<div style="margin-top:12px;font-size:13px;line-height:1.6;color:var(--fg1);max-width:70ch">Asks you to type the site name to confirm, then removes every import, rate, invoice and statement. No copy is kept and nothing is recoverable.</div>' : '') + '</div>';
 }
 
+/* ─────────────────────────  COSTS VIEW  ─────────────────────────
+
+   Every other card in this product tells the operator their robots were a
+   good decision. This screen is the only one that does not, and that is the
+   entire reason it earns trust — so it must never overstate the cost, the
+   same way the rest of the page must never overstate the benefit.
+
+   Three rules it holds to, everywhere below:
+   1. Measured and estimated are never blended into one figure. They get
+      different labels, on screen, next to the money.
+   2. Every assumption is stated where the number is, never in a footnote,
+      and the one that matters most is editable in place.
+   3. No hour is charged twice. Stalled robot time is context here and is
+      never priced as labour; coverage already counts it.
+
+   One tab, not three. The three sections answer one question between them,
+   and two of them can be legitimately absent for a given operator, so as
+   separate tabs they would risk being dead tabs. No status colours: ink
+   height and ink weight carry every quantity, so this survives being
+   printed in black and white and handed to a shift lead. */
+
+function costsTile(label, value, note, valueId, noteId){
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="font-size:13px;font-weight:600;color:var(--fg3);margin-bottom:10px">' + label + '</div>'
+    + '<div id="' + valueId + '" style="font-size:clamp(22px,3.4vw,28px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);font-variant-numeric:tabular-nums">' + value + '</div>'
+    + '<div id="' + noteId + '" style="font-size:12.5px;color:var(--fg2);margin-top:8px;line-height:1.5">' + note + '</div>'
+  + '</div>';
+}
+
+/** Arithmetic line for one robot. Terms that are zero are dropped rather
+ * than printed: a robot whose whole cost is hand-driving must not read
+ * "0.0 h clearing", and one that never stalled must not carry a trailing
+ * "stalled 0.0 h". Hours always carry one decimal even where the prose
+ * above rounds — "21 hours x $24.00/h = $504.00" does not survive being
+ * checked on paper, "21.0" does. */
+function keepingEq(r, wage){
+  const eq = [];
+  if (r.clearHours > 0) eq.push(r.clearHours.toFixed(1) + ' h clearing &times; ' + money(wage) + '/h');
+  if (r.handHours > 0) eq.push(r.handHours.toFixed(1) + ' h driven by hand &times; ' + money(wage) + '/h');
+  if (r.stalled > 0) eq.push('robot itself stalled ' + r.stalled.toFixed(1) + ' h');
+  return eq.join(' &middot; ');
+}
+
+function keepingRow(r, wage){
+  const qual = [];
+  if (r.stalls > 0) qual.push(r.stalls.toLocaleString('en-US') + ' stall' + (r.stalls === 1 ? '' : 's'));
+  if (r.handHours > 0) qual.push('driven by hand');
+  return '<div style="border-top:1px solid var(--hair)">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:16px;padding:18px 4px 6px">'
+      + '<span style="min-width:180px;font-size:15.5px;font-weight:600;color:var(--fg1)">' + esc(r.name) + '</span>'
+      + '<span style="font-size:12.5px;color:var(--fg3)">' + qual.join(' &middot; ') + '</span>'
+      + '<span id="keepRowMoney-' + r.i + '" style="margin-left:auto;font-size:18px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">' + money(r.total) + '</span>'
+    + '</div>'
+    + '<div id="keepRowEq-' + r.i + '" style="padding:0 4px 18px;font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.6;overflow-x:auto;white-space:nowrap">' + keepingEq(r, wage) + '</div>'
+  + '</div>';
+}
+
+function keepingNote(k, minutes){
+  return 'The stall count is measured. The ' + minutes + ' minute' + (minutes === 1 ? '' : 's') + ' per stall is not: it is our assumption about how long a person takes to notice, walk over, free the machine and walk back. Halve it and this figure halves. The hours the robot spent stalled are shown for context and are deliberately not charged here as labour, because your coverage figure already counts them as work the robot did not really perform, and billing the same hours twice would flatter this panel.';
+}
+function keepingClearNote(k, minutes){
+  return k.stalls.toLocaleString('en-US') + ' stalls, counted from telemetry, at an assumed ' + minutes + ' minute' + (minutes === 1 ? '' : 's') + ' of someone&#39;s time each';
+}
+function keepingProse(k){
+  return k.stalls.toLocaleString('en-US') + ' stalls cleared by hand, about ' + Math.round(k.clearHours) + ' hours, plus ' + k.handHours.toFixed(1) + ' hours with someone driving the robot directly.';
+}
+
+function keepingSection(k){
+  const minutes = S.stallMinutes;
+  const rows = k.rows.filter(r => r.total > 0).sort((a,b) => b.total - a.total).slice(0,5);
+  return '<div style="padding:0;margin-bottom:56px">'
+    + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 22px;color:var(--fg1)">What it costs to keep them running</h2>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:16px;margin-bottom:24px">'
+      + costsTile('Clearing stalls', money(k.clearMoney), keepingClearNote(k, minutes), 'keepClearMoney', 'keepClearNote')
+      + costsTile('Driving by hand', money(k.handMoney), k.handHours.toFixed(1) + ' hours with a person on the controls, measured directly, no assumption', 'keepHandMoney', 'keepHandNote')
+      + costsTile('On top of the lease', money(k.total), 'labour your invoice never shows, over the same period as every other figure here', 'keepTotalMoney', 'keepTotalNote')
+    + '</div>'
+    + '<p id="keepProse" style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 24px;max-width:86ch">' + keepingProse(k) + '</p>'
+    + '<div style="margin-bottom:24px">' + rows.map(r => keepingRow(r, k.wage)).join('') + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:20px;margin-bottom:16px;padding-top:18px;border-top:1px dashed var(--hair)">'
+      + '<div><label for="stallMinutesInput" style="display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:6px">Minutes per stall &middot; assumed</label>'
+        + '<div style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--fg1)">'
+        + '<input id="stallMinutesInput" type="text" inputmode="decimal" value="' + minutes + '" style="width:44px;font-size:14px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-variant-numeric:tabular-nums">min</div></div>'
+      + '<div style="font-size:12.5px;color:var(--fg3);line-height:1.6;max-width:54ch">Move it and every figure above moves with it, this card and the person-versus-robots card both. An assumption you can change is an assumption you can trust.</div>'
+    + '</div>'
+  + '</div>';
+}
+
+/** The strip. 24 columns, midnight to midnight, ink height carrying the
+ * stall time that landed in each hour across the period. The operating
+ * window gets a faint wash so the quiet hours read as quiet because
+ * nothing was running, not because nothing went wrong. Monochrome: no
+ * status colours, no red band on the peak — the bracket names it instead.
+ *
+ * ceiling is shared across every strip on the page (see stuckSection), and
+ * that is the whole point. Normalised to its own maximum, the strip for a
+ * 1.7-hour problem drew heavier than the strip for a 29.3-hour one, so the
+ * picture argued against the sentence printed under it — the same failure
+ * the floor map had. Against one ceiling the trivial problem renders as a
+ * barely visible sliver, which is the truth.
+ *
+ * No minimum bar height and no clamping: a near-zero hour draws as
+ * near-zero. An always-visible floor is the same lie in a smaller form. */
+function stallStrip(t, ceiling){
+  const H = 96;
+  const peak = ceiling || 1;
+  const cell = (h) => {
+    const v = t.raw[h];
+    const open = v > 0 || STALL_SHAPE[t.work][h] > 0;
+    const pct = (v / peak) * 100;
+    return '<div style="position:relative;display:flex;align-items:flex-end;height:' + H + 'px;background:' + (open ? 'var(--ghost)' : 'transparent') + '">'
+      + (v > 0 ? '<div title="' + hourLabel(h) + ' &middot; ' + t.series[h].toFixed(1) + ' h" style="width:100%;height:' + pct.toFixed(2) + '%;background:var(--ink)"></div>' : '')
+    + '</div>';
+  };
+  const bars = [];
+  for (let h = 0; h < 24; h++) bars.push(cell(h));
+  // Bracket over the worst contiguous two hours, placed by grid column so
+  // it lines up with the bars underneath it rather than being nudged into
+  // place with a percentage.
+  const bracket = '<div style="grid-column:' + (t.win.start + 1) + ' / span 2;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">'
+    + '<div style="font-size:11px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:3px">' + t.win.hours.toFixed(1) + 'h</div>'
+    + '<div style="width:100%;height:5px;border:1px solid var(--hair3);border-bottom:none"></div></div>';
+  const axis = [];
+  for (let h = 0; h < 24; h++){
+    const label = (h === 0 || h === 6 || h === 12 || h === 18) ? hourLabel(h) : (h === 23 ? '12a' : '');
+    axis.push('<div style="font-size:10.5px;color:var(--fg3);text-align:' + (h === 23 ? 'right' : 'left') + ';white-space:nowrap">' + label + '</div>');
+  }
+  return '<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:2px;height:26px;align-items:flex-end;margin-bottom:2px">' + bracket + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:2px">' + bars.join('') + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:6px">' + axis.join('') + '</div>';
+}
+
+/** Raw stall hours by hour of day mostly reproduce the operating schedule,
+ * which tells the operator nothing they did not already know. The finding
+ * is the RATE: how much of the time the robots were actually running in
+ * that window got lost to being stuck. Both numbers appear. */
+function stallReading(t){
+  const pctStall = Math.round(t.stallShare * 100);
+  const pctHours = Math.round(t.hourShare * 100);
+  const t1 = hourLabel(t.win.start), t2 = hourLabel(t.win.start + 2);
+  const b = (s) => '<b style="color:var(--fg1);font-weight:700">' + s + '</b>';
+  const head = 'Your ' + esc(t.work.toLowerCase()) + ' robots lost ' + b(t.stalled.toFixed(1) + ' hours') + ' to stalls this period. ';
+  if (t.ratio !== null && t.ratio >= 1.5){
+    return head
+      + b(t.win.hours.toFixed(1) + ' of them, ' + pctStall + '%, fell between ' + t1 + ' and ' + t2)
+      + ', which is only ' + pctHours + '% of your working hours. Across the whole day those robots lost '
+      + (t.allRate * 100).toFixed(1) + '% of their running time to being stuck; in that window it is '
+      + (t.winRate * 100).toFixed(1) + '%, so it is ' + b(t.ratio.toFixed(1) + ' times worse than a normal hour')
+      + '. That is the shift to go and watch.';
+  }
+  return head
+    + 'The worst two hours, ' + t1 + ' to ' + t2 + ', hold ' + pctStall + '% of it against ' + pctHours
+    + '% of the hours' + (t.ratio !== null ? ', only ' + t.ratio.toFixed(1) + ' times a normal hour' : '')
+    + '. Stalls spread this evenly across the working day point at the machines or the routes rather than at a moment in the shift, so there is no shift to go and watch here.';
+}
+
+function stallCard(t, ceiling){
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 20px;margin-bottom:20px">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;margin-bottom:18px">'
+      + '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3)">' + esc(t.work) + '</span>'
+      + '<span style="font-size:12px;color:var(--fg3);font-variant-numeric:tabular-nums">' + t.count + ' robot' + (t.count === 1 ? '' : 's') + ' &middot; ' + t.openHours + ' declared operating hours a day &middot; ' + t.active.toFixed(1) + ' hours actually run</span></div>'
+    + stallStrip(t, ceiling)
+    + '<div style="display:flex;flex-wrap:wrap;gap:18px;margin-top:12px;font-size:11.5px;color:var(--fg3)">'
+      + '<span style="display:inline-flex;align-items:center;gap:7px"><span style="width:11px;height:11px;flex:none;background:var(--ink)"></span>stall time landing in that hour</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:7px"><span style="width:11px;height:11px;flex:none;background:var(--ghost);border:1px solid var(--hair)"></span>hours this work runs</span>'
+      + '<span>bracket marks the worst two hours</span>'
+      // Bar height is one hour of stall time; the bracket figure is a
+      // two-hour total. Different quantities, so the reader is told what
+      // the tallest bar actually is rather than left to merge them.
+      + '<span style="font-variant-numeric:tabular-nums">tallest bar = ' + ceiling.toFixed(1) + 'h</span>'
+    + '</div>'
+    + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:18px 0 0;max-width:86ch">' + stallReading(t) + '</p>'
+  + '</div>';
+}
+
+function stuckSection(timings, totalStalled){
+  const ceiling = Math.max.apply(null, timings.map(t => t.peak).concat([0])) || 1;
+  return '<div style="padding:0;margin-bottom:56px">'
+    + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 10px;color:var(--fg1)">When they get stuck</h2>'
+    // Everything that used to follow this sentence was our reasoning about
+    // how the chart was built. The customer never saw a floor plan and does
+    // not care that we rejected one, and "peaks inside one kind of work" is
+    // demonstrated by there being separate strips rather than narrated.
+    + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 22px;max-width:86ch">Your robots lost <b style="color:var(--fg1);font-weight:700">' + totalStalled.toFixed(1) + ' hours</b> to stalls this period. Here is when.</p>'
+    // One ceiling for the page, taken from the tallest single hour on any
+    // strip. Only the vertical scale is shared; each strip keeps its own
+    // bracket, which is still that strip's own real finding.
+    + timings.map(t => stallCard(t, ceiling)).join('')
+  + '</div>';
+}
+
+function brandRow(t, b, best){
+  const facts = [];
+  if (t.basis === 'active_hour'){
+    facts.push(b.units.toFixed(1) + ' ' + esc(t.unitPlural));
+  } else {
+    facts.push(b.units.toLocaleString('en-US') + ' ' + esc(t.unitPlural) + ' started');
+    facts.push(b.hours.toFixed(0) + ' active hours');
+  }
+  facts.push(money(b.invoice) + ' of invoice');
+  if (b.cov !== null) facts.push(b.cov.toFixed(2) + 'x coverage');
+  return '<div style="border-top:1px solid var(--hair)">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:16px;padding:18px 4px 6px">'
+      + '<span style="min-width:110px;font-size:15.5px;font-weight:' + (b === best ? 700 : 600) + ';color:var(--fg1)">' + esc(b.brand) + '</span>'
+      + '<span style="font-size:12.5px;color:var(--fg3)">' + b.count + ' robot' + (b.count === 1 ? '' : 's') + '</span>'
+      + '<span style="margin-left:auto;font-size:18px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">' + money(b.perUnit) + '</span>'
+    + '</div>'
+    + '<div style="padding:0 4px 18px;font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.6;overflow-x:auto;white-space:nowrap">' + facts.join(' &middot; ') + '</div>'
+  + '</div>';
+}
+
+function brandTable(t){
+  const best = t.brands[0];
+  const worst = t.brands[t.brands.length - 1];
+  const morePct = best.perUnit > 0 ? Math.round((worst.perUnit - best.perUnit) / best.perUnit * 100) : 0;
+  const gap = Math.round((worst.perUnit - best.perUnit) * worst.units);
+  // One machine can be a good machine rather than evidence about a brand,
+  // so a row resting on a single robot says so by name, visibly, never in
+  // a tooltip.
+  const singles = t.brands.filter(b => b.count === 1);
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 20px;margin-bottom:20px">'
+    + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:12px">' + esc(t.work) + ' &middot; cost per ' + esc(t.unit) + '</div>'
+    + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 18px;max-width:86ch">Your ' + esc(best.brand) + ' machines do the same job for ' + money(best.perUnit) + ' per ' + esc(t.unit) + '. Your ' + esc(worst.brand) + ' machines cost ' + money(worst.perUnit) + ', ' + morePct + '% more.</p>'
+    + t.brands.map(b => brandRow(t, b, best)).join('')
+    + '<div style="font-size:12px;color:var(--fg3);line-height:1.6;margin-top:16px">Cost per ' + esc(t.unit) + ' is invoice divided by work performed, the same definition used everywhere else on the page, so a brand row can be checked against the robot rows it came from. Only ' + esc(t.work.toLowerCase()) + ' is ranked here: cost per ' + esc(t.unit) + ' and cost per hour of a different job are different units, and ranking them together would produce a number with no dimension.</div>'
+    + (singles.length ? '<div style="font-size:12.5px;font-weight:600;color:var(--fg1);line-height:1.6;margin-top:12px">' + singles.map(b => esc(b.brand) + ' rests on one machine, ' + esc(b.names[0])).join('. ') + '. One machine can be a good machine rather than evidence about a brand.</div>' : '')
+    + '<p style="font-size:13px;line-height:1.7;color:var(--fg3);margin:14px 0 0;max-width:88ch">At the volume your ' + esc(worst.brand) + ' machines actually ran, that gap is worth about $' + gap.toLocaleString('en-US') + ' over this period.</p>'
+  + '</div>';
+}
+
+function brandSection(tables){
+  return '<div style="padding:0;margin-bottom:56px">'
+    + '<h2 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;margin:0 0 10px;color:var(--fg1)">Brand against brand</h2>'
+    + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 22px;max-width:86ch">A vendor dashboard only ever sees that vendor&#39;s own machines, so this is the one comparison a robot manufacturer structurally cannot ship.</p>'
+    + tables.map(brandTable).join('')
+  + '</div>';
+}
+
+/* ─────────────────────────  THE SCAN LAYER  ─────────────────────────
+
+   This screen used to render 1,002 words. A dashboard screen should be 80
+   to 150, and the default view below holds under 60.
+
+   Nothing was deleted to get there. Every sentence, figure and caveat that
+   was on the screen moved one layer down: into a row's detail, or into the
+   one page-level "how we count" panel. The sections themselves are
+   untouched — they are exactly the same functions, rendered inside an
+   expansion instead of stacked down the page.
+
+   Why words took over in the first place: the product refuses status
+   colours, which was the right call but was never paid for. Colour is a
+   signal channel, and giving it up means shape and position have to work
+   twice as hard. They did almost nothing, so prose became the only
+   channel. This layer spends the budget on shape instead.
+
+   Four conventions, declared once in the legend and never restated in
+   prose: paired bars are a money comparison, longer is more; solid fill is
+   measured and hatched fill is estimated from a stated assumption; a solid
+   left rule is money already spent and a dashed left rule is money
+   conditional on doing something; ink density carries magnitude. */
+
+// The scan layer speaks in whole dollars. money() keeps its two decimals
+// wherever arithmetic has to be checkable, which is every figure inside a
+// detail — a row is for magnitude, not for reconciliation.
+function money0(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
+
+// Estimated fill, used wherever a figure rests on a stated assumption
+// rather than on something the robot reported. Monochrome hatching, no
+// second colour, so the distinction survives being printed in black and
+// white.
+const HATCH = 'repeating-linear-gradient(135deg,var(--fg1) 0 1.5px,transparent 1.5px 4.5px)';
+
+/** The hero. One figure and one bar: what the robots are really costing
+ * against what the invoice says they cost. The labour segment is split by
+ * fill, not by label — the hand-driving hours are measured and the stall
+ * clearing is estimated from the minutes assumption, and that difference is
+ * the whole reason this screen is trusted. */
+function costsHero(k, invoiceSum){
+  const total = invoiceSum + k.total;
+  const pct = (v) => (total > 0 ? (v / total) * 100 : 0);
+  const seg = (w, fill, label, id) => '<div' + (id ? ' id="' + id + '"' : '') + ' style="width:' + w.toFixed(2) + '%;background:' + fill + '"' + (label ? ' title="' + label + '"' : '') + '></div>';
+  return '<div style="margin-bottom:34px">'
+    + '<div data-hero-invoice="' + invoiceSum + '"></div>'
+    + '<div id="keepHeadline" style="font-size:clamp(26px,4.2vw,34px);font-weight:700;letter-spacing:-0.03em;color:var(--fg1);margin-bottom:14px">'
+      + money0(k.total) + ' beyond the lease</div>'
+    + '<div style="display:flex;height:26px;gap:2px;max-width:640px">'
+      + seg(pct(invoiceSum), 'var(--ghost2)', 'lease, invoiced', 'heroLease')
+      + seg(pct(k.handMoney), 'var(--fg1)', 'driving by hand, measured', 'heroHand')
+      + seg(pct(k.clearMoney), HATCH, 'clearing stalls, estimated', 'heroClear')
+    + '</div>'
+    + '<div style="display:flex;gap:22px;margin-top:9px;font-size:11.5px;color:var(--fg3);font-variant-numeric:tabular-nums">'
+      + '<span>lease ' + money0(invoiceSum) + '</span>'
+      + '<span id="heroLabour">labour ' + money0(k.total) + '</span>'
+    + '</div>'
+  + '</div>';
+}
+
+/** The shape on a cost row: the 24-hour strip at 110 by 24, no axis, no
+ * labels, no legend. It carries the pattern and nothing else; the full
+ * chart with its scale and its bracket lives one click down. */
+function miniStrip(t){
+  const peak = t.peak || 1;
+  const bars = [];
+  for (let h = 0; h < 24; h++){
+    const v = t.raw[h];
+    const inWin = h >= t.win.start && h < t.win.start + 2;
+    bars.push('<div style="display:flex;align-items:flex-end;height:18px">'
+      + (v > 0 ? '<div style="width:100%;height:' + ((v / peak) * 100).toFixed(1) + '%;background:var(--fg1)"></div>' : '')
+    + '</div>');
+  }
+  const mark = '<div style="grid-column:' + (t.win.start + 1) + ' / span 2;height:2px;background:var(--fg1)"></div>';
+  return '<div style="width:110px;flex:none">'
+    + '<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:1px">' + bars.join('') + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:1px;margin-top:2px">' + mark + '</div>'
+  + '</div>';
+}
+
+/** The shape on an opportunity row: paired bars, cheapest first. Same
+ * convention everywhere on the page — longer is more money. */
+function miniBars(t){
+  const best = t.brands[0], worst = t.brands[t.brands.length - 1];
+  const bar = (b, fill) => '<div style="display:flex;align-items:center;gap:5px">'
+    + '<div style="width:' + ((b.perUnit / worst.perUnit) * 100).toFixed(1) + '%;height:7px;background:' + fill + '"></div></div>';
+  return '<div style="width:110px;flex:none;display:flex;flex-direction:column;gap:4px">'
+    + bar(best, 'var(--ghost2)') + bar(worst, 'var(--fg1)')
+  + '</div>';
+}
+
+/** One row. Rank, a headline that instructs, the magnitude, the shape, a
+ * chevron. Plus one subline carrying the single qualifying fact. Nothing
+ * else: no method, no arithmetic, no caveat — those are all one click
+ * down, which is the entire point of the layer. */
+function costsRow(f, n, open){
+  return '<div style="border-top:1px solid var(--hair)">'
+    + '<div data-act="costsToggle" data-row="' + f.id + '" class="hv-ghost" role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') + '" style="display:flex;align-items:center;gap:18px;padding:16px 14px 16px 15px;cursor:pointer;'
+      // The convention tips.mjs already established: money already spent
+      // gets a solid rule, money conditional on the operator doing
+      // something gets a dashed one. It is what stops the brand row
+      // reading as a bill.
+      + 'border-left:2px ' + (f.kind === 'cost' ? 'solid' : 'dashed') + ' var(--fg1)">'
+      + '<span style="flex:none;width:14px;font-size:11.5px;font-weight:600;color:var(--fg3);font-variant-numeric:tabular-nums">' + n + '</span>'
+      + '<span style="flex:1;min-width:0">'
+        + '<span style="display:block;font-size:15.5px;font-weight:600;color:var(--fg1);letter-spacing:-0.01em">' + f.head + '</span>'
+        + '<span style="display:block;font-size:12.5px;color:var(--fg3);margin-top:3px">' + f.sub + '</span>'
+      + '</span>'
+      + '<span' + (f.magId ? ' id="' + f.magId + '"' : '') + ' style="flex:none;font-size:17px;font-weight:700;color:var(--fg1);font-variant-numeric:tabular-nums">' + f.mag + '</span>'
+      + f.shape
+      + '<span style="flex:none;display:flex;color:var(--fg3);transform:rotate(' + (open ? '90' : '0') + 'deg);transition:transform .15s">' + ic('chevron-right', 16) + '</span>'
+    + '</div>'
+    + (open ? '<div style="padding:6px 2px 30px">' + f.detail() + '</div>' : '')
+  + '</div>';
+}
+
+/** Rows must never describe the same money twice, and this is the part
+ * that is easy to get wrong in a way that makes the screen dishonest in a
+ * new direction. The 2pm peak is not money separate from the $948, it is
+ * where the $948 concentrates; the worst single robot is not separate
+ * money either, it is a slice of the same total. Listing all three as rows
+ * would triple-count one problem and make the fleet look busier than it
+ * is. So the labour cost and its timing collapse into ONE row, with the
+ * timing as the instruction for acting on the cost, and the brand gap
+ * stands alone because it genuinely is separate money.
+ *
+ * Ordering is costs before opportunities, then by size. Money already
+ * spent is certain; money conditional on an action is not, so $2,533 of
+ * conditional upside must not outrank $948 of spent labour just because
+ * the number is bigger.
+ *
+ * The queue is never padded to three. One finding renders one row. */
+function costsFindings(k, hasKeeping, timings, tables){
+  const costs = [], opps = [];
+
+  if (hasKeeping && k.total > 0){
+    const lead = timings.filter(t => t.ratio !== null && t.ratio >= 1.5).sort((a,b) => b.stalled - a.stalled)[0];
+    const flat = timings.slice().sort((a,b) => b.stalled - a.stalled)[0];
+    const t = lead || flat;
+    costs.push({
+      id: 'labour', kind: 'cost',
+      head: lead ? 'Go watch the ' + hourLabel(lead.win.start) + ' shift' : 'Cut the time robots sit stuck',
+      sub: lead
+        ? Math.round(lead.stallShare * 100) + '% of it lands between ' + hourLabel(lead.win.start) + ' and ' + hourLabel(lead.win.start + 2)
+        : 'spread evenly, no shift to go and watch',
+      mag: money0(k.total), magId: 'rowMagLabour',
+      size: k.total,
+      shape: t ? miniStrip(t) : '<div style="width:110px;flex:none"></div>',
+      detail: () => keepingSection(k) + (timings.length ? stuckSection(timings, Math.round(timings.reduce((a,x) => a + x.stalled, 0) * 10) / 10) : '')
+    });
+  }
+
+  tables.forEach(t => {
+    const best = t.brands[0], worst = t.brands[t.brands.length - 1];
+    const gap = Math.round((worst.perUnit - best.perUnit) * worst.units);
+    if (gap <= 0) return;
+    opps.push({
+      id: 'brand-' + t.work.replace(/\s+/g, '-').toLowerCase(), kind: 'opportunity',
+      head: 'Try ' + esc(worst.brand) + ' on the ' + esc(best.brand) + ' routes',
+      sub: 'if the difference is the machine and not the route',
+      mag: money0(gap), size: gap,
+      shape: miniBars(t),
+      detail: () => brandTable(t)
+    });
+  });
+
+  const bySize = (a,b) => b.size - a.size;
+  return costs.sort(bySize).concat(opps.sort(bySize));
+}
+
+/** The three method paragraphs used to sit in three places on this screen,
+ * each teaching the reader how we think at the moment they were trying to
+ * read a number. Each is correct and each is kept — collected here, once,
+ * behind a page-level link, alongside the minutes assumption and the note
+ * that stalled hours are shown but never billed.
+ *
+ * The minutes-per-stall control itself does NOT move here. It stays inside
+ * the labour detail, next to the figure it changes: an assumption the
+ * reader can move is the one piece of method that earns its place beside
+ * the number. */
+function methodItems(){
+  const item = (h, b) => '<div style="padding:18px 2px;border-top:1px solid var(--hair)">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--fg1);margin-bottom:5px">' + h + '</div>'
+    + '<div style="font-size:13px;line-height:1.7;color:var(--fg2);max-width:88ch">' + b + '</div></div>';
+  return ''
+      + item('The minutes per stall are assumed, not measured',
+          'The stall count is measured. The minutes per stall are not: that is our assumption about how long a person takes to notice, walk over, free the machine and walk back. Halve it and the figure halves. It is editable next to the figure it changes.')
+      + item('Stalled robot hours are never billed as labour',
+          'The hours the robot spent stalled are shown for context and are deliberately not priced here, because your coverage figure already counts them as work the robot did not really perform. Billing the same hours twice would flatter this screen.')
+      + item('Peaks are found inside one kind of work, never across the fleet',
+          'A night scrubber scored against the day shift&#39;s picking peak would read as permanently idle, and the screen would confidently send you to fix a robot doing exactly what it should at exactly the right hour. Each kind of work gets its own strip.')
+      + item('The share of running time inside the bracket is assumed',
+          'The stall hours and the hours actually run are both measured. The share of running time falling inside the worst two hours is not: it is assumed to be that window&#39;s proportional share of the operating day, because a timestamp says when a robot got stuck and not how busy it was that hour.')
+      + item('A brand gap is an observation, not an experiment',
+          'Two brands in one fleet are rarely given the same routes, shifts or floors, so a gap only becomes a verdict on the machines once they have run the same work. Swapping them for a fortnight settles it, and that is a thing you can do that nobody else can measure for you.');
+}
+
+/* The "how we count" link is gone from Costs. The panel lives on Settings,
+   under its own heading, where an owner reads it once rather than being
+   offered it again beside every figure. The one piece of method that does
+   belong next to its number, the minutes-per-stall control, stayed in the
+   labour detail. */
+
+function viewCosts(){
+  const k = computeKeeping(S.stallMinutes);
+  // Absent has to look absent, never like zero. Two stalls in a month is a
+  // Tuesday, not a staffing cost, so the section does not render at all
+  // rather than drawing a $9.60 finding and a zero-length bar.
+  const hasKeeping = k.stalls >= 3;
+  const timings = computeStallTiming();
+  const tables = computeBrands();
+  const stmt = computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded);
+  const invoiceSum = Math.round(stmt.reduce((a,r) => a + r.invoice, 0) * 100) / 100;
+  const head = '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:16px">' + scopeToggle() + '</div>';
+
+  if (!hasKeeping && !timings.length && !tables.length){
+    return head
+      + '<div style="border:1px solid var(--hair);border-radius:6px;padding:26px 24px">'
+        + '<div style="font-size:15.5px;font-weight:700;color:var(--fg1);margin-bottom:10px">Nothing on this page can be computed from what has been imported</div>'
+        + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px;max-width:82ch">Each of the three sections needs one field your export is not carrying. Naming them is more use to you than an empty chart frame waiting to be filled.</p>'
+        + '<div style="font-size:13.5px;line-height:2;color:var(--fg2)">'
+          + 'a stuck or error column &mdash; unlocks what it costs to keep them running<br>'
+          + 'a timestamp on those rows &mdash; unlocks when they get stuck<br>'
+          + 'a second make, priced &mdash; unlocks brand against brand</div>'
+      + '</div>';
+  }
+
+  const findings = costsFindings(k, hasKeeping, timings, tables);
+
+  // A period with nothing worth chasing is a real and good result, so it
+  // has to read as one rather than as a screen that failed to load. The
+  // detail stays reachable: nothing here is hidden, it is just not worth
+  // leading with.
+  const queue = findings.length
+    ? '<div style="margin-bottom:8px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:6px">What to do</div>'
+        + findings.map((f,i) => costsRow(f, i + 1, S.costsOpen === f.id)).join('')
+        + '<div style="border-top:1px solid var(--hair)"></div>'
+      + '</div>'
+    : '<div style="border-top:1px solid var(--hair);padding:20px 0 4px">'
+        + '<div style="font-size:15.5px;font-weight:700;color:var(--fg1);margin-bottom:6px">Nothing to chase this period.</div>'
+        + '<div style="font-size:13.5px;line-height:1.7;color:var(--fg2);max-width:80ch">Your robots cost ' + money0(k.total) + ' in staff time, which is noise. The detail is still here if you want it.</div>'
+        + (hasKeeping || timings.length ? '<div style="margin-top:22px">' + (hasKeeping ? keepingSection(k) : '') + (timings.length ? stuckSection(timings, Math.round(timings.reduce((a,t) => a + t.stalled, 0) * 10) / 10) : '') + '</div>' : '')
+      + '</div>';
+
+  return head
+    + (hasKeeping ? costsHero(k, invoiceSum) : '')
+    + queue
+    // The four conventions, stated once. Once a reader has learned them
+    // they stop reading and start scanning, which is the whole objective.
+    + '<div style="display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:11px;color:var(--fg3)">'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:11px;height:11px;flex:none;background:var(--fg1)"></span>measured</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:11px;height:11px;flex:none;background:' + HATCH + '"></span>estimated</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:2px;height:11px;flex:none;background:var(--fg1)"></span>spent</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:0;height:13px;flex:none;border-left:2px dashed var(--fg1)"></span>if you act</span>'
+    + '</div>'
+    ;
+}
+
 function appBody(){
   switch (S.view){
     case 'dashv2': return viewDashV2();
     case 'robots': return viewRobots();
+    case 'costs': return viewCosts();
     case 'setup': return viewSetup();
     case 'start': return viewStart();
     case 'states': return viewStates();
@@ -3353,6 +4098,36 @@ function cssEsc(s){
 // very field being typed into. The trace block gets its whole innerHTML
 // replaced rather than patched span-by-span, its percentage figures are
 // baked into surrounding sentence text, not isolated in their own spans.
+// Same live-patch reason as applyTaxShield and applySensitivity: a full
+// re-render on every keystroke in the minutes field would blow away focus
+// in the very input being typed into. Row ORDER is deliberately not
+// re-sorted here — rows jumping around under the cursor mid-keystroke is
+// worse than a ranking that settles on the next render.
+function applyKeeping(){
+  if (S.view !== 'costs') return;
+  const put = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const minutes = S.stallMinutes;
+  const k = computeKeeping(minutes);
+  put('keepHeadline', money0(k.total) + ' beyond the lease');
+  put('rowMagLabour', money0(k.total));
+  put('heroLabour', 'labour ' + money0(k.total));
+  const base = document.querySelector('[data-hero-invoice]');
+  const invoiceSum = base ? parseFloat(base.dataset.heroInvoice) || 0 : 0;
+  const total = invoiceSum + k.total;
+  const wide = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = (total > 0 ? (v / total) * 100 : 0).toFixed(2) + '%'; };
+  wide('heroLease', invoiceSum);
+  wide('heroHand', k.handMoney);
+  wide('heroClear', k.clearMoney);
+  put('keepClearMoney', money(k.clearMoney));
+  put('keepTotalMoney', money(k.total));
+  put('keepClearNote', keepingClearNote(k, minutes));
+  put('keepProse', keepingProse(k));
+  k.rows.forEach(r => {
+    put('keepRowMoney-' + r.i, money(r.total));
+    put('keepRowEq-' + r.i, keepingEq(r, k.wage));
+  });
+}
+
 function applyTaxShield(){
   const put = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   if (S.view !== 'dashv2') return;
@@ -3711,6 +4486,7 @@ const ACTIONS = {
   },
   calClear: () => set({ dashRange: null }),
   toggleRateHistory: () => set({ rateHistory: !S.rateHistory }),
+  costsToggle: (el) => set({ costsOpen: S.costsOpen === el.dataset.row ? '' : el.dataset.row }),
   toggleWorkMenu: (el) => {
     const i = Number(el.dataset.i);
     // Opening the menu is what proves a human looked at this robot's kind
@@ -3919,6 +4695,12 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'sensRange'){
     S.throughput = Number(e.target.value);
     applySensitivity();
+    return;
+  }
+  if (e.target.id === 'stallMinutesInput'){
+    const v = parseFloat(e.target.value);
+    S.stallMinutes = (isFinite(v) && v > 0) ? v : 0;
+    applyKeeping();
     return;
   }
   if (e.target.id === 'taxRateInput'){
