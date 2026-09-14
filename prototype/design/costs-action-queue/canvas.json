@@ -1,0 +1,70 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Costs · default (56 words)",
+      "x": 0,
+      "y": 0,
+      "w": 1180,
+      "h": 640,
+      "is_interactive": true
+    },
+    {
+      "file": "Quiet.dc.html",
+      "title": "Costs · nothing to chase",
+      "x": 1260,
+      "y": 0,
+      "w": 1180,
+      "h": 520,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "Costs · phone",
+      "x": 2520,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Detail.dc.html",
+      "title": "Row 1 open · cost of keeping them running",
+      "x": 0,
+      "y": 1000,
+      "w": 1180,
+      "h": 1820,
+      "is_interactive": true
+    },
+    {
+      "file": "Brands.dc.html",
+      "title": "Row 2 open · brand against brand",
+      "x": 1260,
+      "y": 1000,
+      "w": 1180,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Method.dc.html",
+      "title": "How we count",
+      "x": 2520,
+      "y": 1000,
+      "w": 1180,
+      "h": 1020,
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 0,
+      "y": -170,
+      "w": 560,
+      "text": "Costs screen, v3 action queue. Default view is under 60 words; every sentence from the old screen survives one layer down. Solid left rule = cost already spent, dashed = upside if you act. Costs rank before opportunities regardless of size. Click a row or 'how we count' on any artboard to expand in place."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

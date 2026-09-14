@@ -1,0 +1,213 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+  <style>
+html,body{min-height:100%;margin:0}
+body{background:#F1F2FC linear-gradient(160deg,#EDEFFC 0%,#F4F1FB 45%,#F2F6FD 100%) fixed;}
+a{color:#16204A;text-underline-offset:3px} a:hover{color:#6B7392}
+.page *{box-sizing:border-box}
+.tiles{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:12px;margin-top:14px}
+.tile{border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:15px 16px;background:transparent}
+.tile .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#9AA1BC}
+.tile .v{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-top:6px;color:#16204A;font-variant-numeric:tabular-nums}
+.tile .n{font-size:11.5px;color:#9AA1BC;margin-top:5px;line-height:1.55}
+.panel{border:1px solid rgba(10,10,10,.10);border-radius:6px;padding:4px 18px;margin-top:12px;background:transparent}
+.rob{padding:13px 0;border-bottom:1px solid rgba(10,10,10,.10)}
+.rob:last-child{border-bottom:0}
+.rob .top{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;font-size:13.5px}
+.rob .nm{font-weight:600;color:#16204A}
+.rob .mk{color:#9AA1BC;font-size:11.5px}
+.rob .cov{margin-left:auto;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;color:#16204A}
+.rob .fml{font-family:ui-monospace,Menlo,"SF Mono",monospace;font-size:11px;color:#9AA1BC;margin-top:7px;line-height:1.6}
+.varsent{font-size:14px;color:#16204A;line-height:1.7;padding:12px 0 4px}
+.varfoot{font-size:11px;color:#9AA1BC;margin-top:14px;line-height:1.75}
+.h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:#9AA1BC;margin:22px 0 8px}
+.legend{font-size:11px;color:#9AA1BC;margin-top:8px;line-height:1.6}
+.method{font-size:13px;color:#6B7392;line-height:1.7}
+.method p{margin:0 0 10px}
+.method b{color:#16204A;font-weight:600}
+.ctl{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(10,10,10,.16);border-radius:4px;padding:2px;background:#fff}
+.ctl button{width:44px;height:44px;border:0;background:transparent;color:#16204A;font-size:18px;font-weight:600;border-radius:3px;cursor:pointer;font-family:inherit}
+.ctl button:hover{background:rgba(10,10,10,.04)}
+.ctl .val{min-width:34px;text-align:center;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;color:#16204A}
+.rowbtn{display:flex;gap:14px;align-items:baseline;width:100%;text-align:left;background:transparent;border:0;padding:0;cursor:pointer;font-family:inherit;color:inherit}
+.shape{flex:none;width:110px;height:24px;display:block}
+@media (max-width:640px){
+  .tiles{grid-template-columns:minmax(0,1fr)}
+  .shape{display:none}
+  .hdr{flex-direction:column;align-items:flex-start;gap:10px}
+  .hdr-right{width:100%;justify-content:space-between}
+  .rowbtn{flex-wrap:nowrap;gap:10px}
+  .barlabels{flex-direction:column;gap:2px}
+  .barlabels span{text-align:left !important}
+}
+</style>
+</helmet>
+<div class="page" style="min-height: 100%; background: transparent; color: #16204A; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.5; padding: 32px 24px 64px;">
+<div style="max-width: 1060px; margin: 0 auto;">
+
+  <div class="hdr" style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 10px;">
+      <h1 style="font-size: 27px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: #16204A;">Costs</h1>
+      <span style="background: rgba(10,10,10,.04); color: #6B7392; border: 1px solid rgba(10,10,10,.16); border-radius: 3px; padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;">DEMO · SIMULATED FLEET</span>
+    </div>
+    <div class="hdr-right" style="display: flex; align-items: center; gap: 10px;">
+      <button type="button" style="display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 12.5px; font-weight: 600; color: #16204A; background: transparent; border: 1px solid rgba(10,10,10,.10); border-radius: 4px; padding: 8px 12px; cursor: pointer;">All 3 sites <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="#6B7392" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+      <span style="font-size: 12.5px; font-weight: 700; color: #16204A; border: 1px solid rgba(10,10,10,.10); border-radius: 4px; padding: 8px 14px; font-variant-numeric: tabular-nums;">Aug 10 – 31, 2026</span>
+    </div>
+  </div>
+
+  <div style="border: 1px solid rgba(10,10,10,.10); border-radius: 6px; padding: 22px 24px 20px; margin-top: 18px;">
+    <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: #9AA1BC;">Beyond the lease</div>
+    <div style="font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: #16204A; margin-top: 6px; font-variant-numeric: tabular-nums;">{{ totalMoney }}</div>
+    <div style="display: flex; height: 14px; margin-top: 16px; border-radius: 2px; overflow: hidden; gap: 2px;">
+      <div style="width: {{ leasePct }}%; background: #16204A; opacity: 0.28;"></div>
+      <div style="width: {{ manualPct }}%; background: #16204A;"></div>
+      <div style="width: {{ clearPct }}%; background: repeating-linear-gradient(135deg, rgba(10,10,10,.35) 0 2px, rgba(10,10,10,.08) 2px 5px);"></div>
+    </div>
+    <div class="barlabels" style="display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 11.5px; color: #9AA1BC; font-variant-numeric: tabular-nums;">
+      <span>lease <b style="color: #6B7392; font-weight: 600;">$16,700.00</b></span>
+      <span style="text-align: right;">measured <b style="color: #6B7392; font-weight: 600;">{{ manualMoney }}</b> &nbsp;·&nbsp; estimated <b style="color: #6B7392; font-weight: 600;">{{ clearMoney }}</b></span>
+    </div>
+  </div>
+
+  <sc-if value="{{ hasFindings }}" hint-placeholder-val="{{ true }}">
+  <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: #9AA1BC; margin: 34px 0 10px;">What to do</div>
+
+  <div style="border-left: 2px solid #16204A; padding: 14px 0 14px 15px;">
+    <button type="button" class="rowbtn" onClick="{{ toggle1 }}">
+      <span style="flex: none; width: 14px; font-family: ui-monospace, Menlo, 'SF Mono', monospace; font-size: 11px; color: #9AA1BC; font-variant-numeric: tabular-nums;">1</span>
+      <span style="flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 700; color: #16204A;">Go watch the 2pm shift</span>
+      <span class="amt" style="margin-left: auto; font-size: 16px; font-weight: 700; color: #16204A; white-space: nowrap; font-variant-numeric: tabular-nums;">{{ totalMoney }}</span>
+      <span class="shape" style="margin-left: 18px;"><svg width="110" height="24" viewBox="0 0 110 24" role="img" aria-label="Stall time by hour of day, worst two hours marked"><rect x="27.75" y="22.39" width="3.63" height="1.61" fill="#16204A" opacity="0.41"></rect><rect x="32.38" y="20.78" width="3.63" height="3.22" fill="#16204A" opacity="0.46"></rect><rect x="37.00" y="19.17" width="3.63" height="4.83" fill="#16204A" opacity="0.52"></rect><rect x="41.63" y="18.20" width="3.63" height="5.80" fill="#16204A" opacity="0.55"></rect><rect x="46.25" y="17.56" width="3.63" height="6.44" fill="#16204A" opacity="0.57"></rect><rect x="50.88" y="17.88" width="3.63" height="6.12" fill="#16204A" opacity="0.56"></rect><rect x="55.50" y="18.53" width="3.63" height="5.47" fill="#16204A" opacity="0.54"></rect><rect x="60.13" y="16.92" width="3.63" height="7.08" fill="#16204A" opacity="0.59"></rect><rect x="64.75" y="7.25" width="3.63" height="16.75" fill="#16204A" opacity="0.92"></rect><rect x="69.38" y="5.00" width="3.63" height="19.00" fill="#16204A" opacity="1.00"></rect><rect x="74.00" y="14.66" width="3.63" height="9.34" fill="#16204A" opacity="0.67"></rect><rect x="78.63" y="15.31" width="3.63" height="8.69" fill="#16204A" opacity="0.65"></rect><path d="M64.75 3.5 V1.5 H73.00 V3.5" fill="none" stroke="#16204A" stroke-width="1"></path></svg></span>
+      <span style="flex: none; display: inline-flex; align-items: center; transform: rotate({{ chev1 }}deg); transition: transform .15s;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex:none;transition:transform .15s;transform:rotate(0deg)"><path d="M6 3l5 5-5 5" stroke="#6B7392" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    </button>
+    <div style="font-size: 13px; color: #6B7392; line-height: 1.65; margin-top: 6px; padding-left: 28px;">38% of it lands between 2p and 4p</div>
+
+    <sc-if value="{{ open1 }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 6px 0 4px 28px;">
+      <div class="tiles">
+        <div class="tile"><div class="k">Clearing stalls</div><div class="v">{{ clearMoney }}</div><div class="n">210 stalls, counted from telemetry, at an assumed {{ minutes }} minutes of someone's time each</div></div>
+        <div class="tile"><div class="k">Driving by hand</div><div class="v">$444.00</div><div class="n">18.5 hours with a person on the controls, measured directly, no assumption</div></div>
+        <div class="tile"><div class="k">On top of the lease</div><div class="v">{{ totalMoney }}</div><div class="n">labour your invoice never shows, over the same period as every other figure here</div></div>
+      </div>
+      <div class="panel">
+        <div class="varsent">210 stalls cleared by hand, about {{ clearHoursRound }} hours, plus 18.5 hours with someone driving the robot directly.</div>
+        <div class="rob"><div class="top"><span class="nm">Scrubber 1 (nights)</span><span class="mk">driven by hand</span><span class="cov">$444.00</span></div><div class="fml">18.5 h driven by hand × $24.00/h</div></div>
+        <div class="rob"><div class="top"><span class="nm">Picker 2 (Zone B)</span><span class="mk">142 stalls</span><span class="cov">{{ picker2Money }}</span></div><div class="fml">{{ picker2Hours }} h clearing × $24.00/h · robot itself stalled 19.4 h</div></div>
+        <div class="rob"><div class="top"><span class="nm">Picker 5 (Zone A)</span><span class="mk">68 stalls</span><span class="cov">{{ picker5Money }}</span></div><div class="fml">{{ picker5Hours }} h clearing × $24.00/h · robot itself stalled 9.6 h</div></div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 0 12px; border-top: 1px solid rgba(10,10,10,.10);">
+          <span style="font-size: 12.5px; color: #6B7392;">Minutes of someone's time per stall</span>
+          <span class="ctl"><button type="button" onClick="{{ decMinutes }}" aria-label="Fewer minutes">−</button><span class="val">{{ minutes }}</span><button type="button" onClick="{{ incMinutes }}" aria-label="More minutes">+</button></span>
+          <span style="font-size: 11.5px; color: #9AA1BC;">assumed, not measured · moves the clearing figure and the total</span>
+        </div>
+      </div>
+
+      <div class="h3">When they get stuck</div>
+      <div class="panel" style="padding: 16px 18px 14px;">
+        <div class="varsent" style="padding: 0 0 12px;">Your robots lost <b>31.0 hours</b> to stalls this period. Here is when.</div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12.5px;"><span style="font-weight: 600; color: #16204A;">Order picking</span><span style="color: #9AA1BC; font-variant-numeric: tabular-nums;">29.3 h lost</span></div>
+        <div style="margin-top: 6px;"><svg viewBox="0 0 480 96" width="100%" style="display:block;height:auto" role="img" aria-label="Order picking: stall time by hour of day"><rect x="120.50" y="22" width="239.00" height="56" fill="rgba(10,10,10,.035)"></rect><line x1="0" y1="78.5" x2="480" y2="78.5" stroke="rgba(10,10,10,.16)" stroke-width="1"></line><rect x="120.50" y="73.25" width="18.08" height="4.75" fill="#16204A" opacity="0.41"></rect><rect x="140.58" y="68.51" width="18.08" height="9.49" fill="#16204A" opacity="0.46"></rect><rect x="160.67" y="63.76" width="18.08" height="14.24" fill="#16204A" opacity="0.52"></rect><rect x="180.75" y="60.92" width="18.08" height="17.08" fill="#16204A" opacity="0.55"></rect><rect x="200.83" y="59.02" width="18.08" height="18.98" fill="#16204A" opacity="0.57"></rect><rect x="220.92" y="59.97" width="18.08" height="18.03" fill="#16204A" opacity="0.56"></rect><rect x="241.00" y="61.86" width="18.08" height="16.14" fill="#16204A" opacity="0.54"></rect><rect x="261.08" y="57.12" width="18.08" height="20.88" fill="#16204A" opacity="0.59"></rect><rect x="281.17" y="28.64" width="18.08" height="49.36" fill="#16204A" opacity="0.92"></rect><rect x="301.25" y="22.00" width="18.08" height="56.00" fill="#16204A" opacity="1.00"></rect><rect x="321.33" y="50.47" width="18.08" height="27.53" fill="#16204A" opacity="0.67"></rect><rect x="341.42" y="52.37" width="18.08" height="25.63" fill="#16204A" opacity="0.65"></rect><text x="0.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="start" font-family="Inter, system-ui, sans-serif">12a</text><text x="120.50" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">6a</text><text x="241.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">12p</text><text x="361.50" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">6p</text><text x="480.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="end" font-family="Inter, system-ui, sans-serif">12a</text><path d="M281.17 18 V13 H319.33 V18" fill="none" stroke="#16204A" stroke-width="1"></path><text x="300.25" y="10" font-size="10" font-weight="700" fill="#16204A" text-anchor="middle" font-family="Inter, system-ui, sans-serif" style="font-variant-numeric:tabular-nums">11.1h</text></svg></div>
+        <div style="font-size: 13px; color: #6B7392; line-height: 1.65; margin-top: 8px;"><b style="color: #16204A; font-weight: 600;">11.1 of them, 38%, fell between 2pm and 4pm</b>, which is only 17% of your working hours. In that window robots lost 4.4% of their working time to being stuck, against 1.9% across the day, so it is <b style="color: #16204A; font-weight: 600;">2.3 times worse than a normal hour</b>. That is the shift to go and watch.</div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12.5px; margin-top: 22px;"><span style="font-weight: 600; color: #16204A;">Floor cleaning</span><span style="color: #9AA1BC; font-variant-numeric: tabular-nums;">1.7 h lost</span></div>
+        <div style="margin-top: 6px;"><svg viewBox="0 0 480 96" width="100%" style="display:block;height:auto" role="img" aria-label="Floor cleaning: stall time by hour of day"><rect x="441.83" y="22" width="38.17" height="56" fill="rgba(10,10,10,.035)"></rect><rect x="0.00" y="22" width="98.42" height="56" fill="rgba(10,10,10,.035)"></rect><line x1="0" y1="78.5" x2="480" y2="78.5" stroke="rgba(10,10,10,.16)" stroke-width="1"></line><rect x="0.00" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><rect x="20.08" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><rect x="40.17" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><rect x="60.25" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><rect x="80.33" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><rect x="441.83" y="76.10" width="18.08" height="1.90" fill="#16204A" opacity="0.37"></rect><rect x="461.92" y="75.63" width="18.08" height="2.37" fill="#16204A" opacity="0.38"></rect><text x="0.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="start" font-family="Inter, system-ui, sans-serif">12a</text><text x="120.50" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">6a</text><text x="241.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">12p</text><text x="361.50" y="92" font-size="9" fill="#9AA1BC" text-anchor="middle" font-family="Inter, system-ui, sans-serif">6p</text><text x="480.00" y="92" font-size="9" fill="#9AA1BC" text-anchor="end" font-family="Inter, system-ui, sans-serif">12a</text></svg></div>
+        <div style="font-size: 13px; color: #6B7392; line-height: 1.65; margin-top: 8px;">Spread evenly across the night shift. No shift to go and watch here; if anything, this points at the machines or the routes.</div>
+        <div class="legend">shaded band is the operating window · bracket marks the worst two hours · every strip shares one scale, tallest bar = 5.9h</div>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+
+  <div style="border-left: 2px dashed #16204A; padding: 14px 0 14px 15px; margin-top: 8px; border-top: 1px solid rgba(10,10,10,.10);">
+    <button type="button" class="rowbtn" onClick="{{ toggle2 }}">
+      <span style="flex: none; width: 14px; font-family: ui-monospace, Menlo, 'SF Mono', monospace; font-size: 11px; color: #9AA1BC; font-variant-numeric: tabular-nums;">2</span>
+      <span style="flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 700; color: #16204A;">Try Fetch on the Locus routes</span>
+      <span class="amt" style="margin-left: auto; font-size: 16px; font-weight: 700; color: #16204A; white-space: nowrap; font-variant-numeric: tabular-nums;">$2,533</span>
+      <span class="shape" style="margin-left: 18px;"><svg width="110" height="24" viewBox="0 0 110 24" role="img" aria-label="Cost per pick, two brands, longer is more"><rect x="0" y="2" width="79.3" height="9" fill="#16204A" opacity="0.55"></rect><rect x="0" y="13" width="110.0" height="9" fill="#16204A" opacity="1"></rect></svg></span>
+      <span style="flex: none; display: inline-flex; align-items: center; transform: rotate({{ chev2 }}deg); transition: transform .15s;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex:none;transition:transform .15s;transform:rotate(0deg)"><path d="M6 3l5 5-5 5" stroke="#6B7392" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    </button>
+    <div style="font-size: 13px; color: #6B7392; line-height: 1.65; margin-top: 6px; padding-left: 28px;">if it is the machine, not the route</div>
+
+    <sc-if value="{{ open2 }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 6px 0 4px 28px;">
+      <div class="panel">
+        <div class="varsent">Your Locus machines do the same job for 44 cents per pick. Your Fetch machines cost 61 cents, 39% more.</div>
+        <div class="rob"><div class="top"><span class="nm">Locus</span><span class="mk">6 robots</span><span class="cov">$0.44</span></div><div class="fml">41,200 picks started · 388 active hours · $18,128.00 of invoice · 2.61x coverage</div></div>
+        <div class="rob"><div class="top"><span class="nm">Fetch</span><span class="mk">3 robots</span><span class="cov">$0.61</span></div><div class="fml">14,900 picks started · 152 active hours · $9,089.00 of invoice · 1.88x coverage</div></div>
+        <div class="varfoot">Cost per pick is the same figure used everywhere else on this page, invoice divided by work performed, so a brand row can be checked against the robot rows it came from. At the volume your Fetch machines actually ran, that gap is worth about $2,533 over this period. Compared inside order picking only; floor cleaning runs one make, so it has no table.</div>
+      </div>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isQuiet }}" hint-placeholder-val="{{ false }}">
+  <div style="border: 1px solid rgba(10,10,10,.10); border-radius: 6px; padding: 22px 24px; margin-top: 34px;">
+    <div style="font-size: 14.5px; font-weight: 700; color: #16204A;">Nothing to chase this period.</div>
+    <div style="font-size: 13.5px; color: #6B7392; line-height: 1.65; margin-top: 6px; max-width: 64ch;">Your robots cost {{ totalMoney }} in staff time across 22 days, which is noise. The detail is still here if you want it.</div>
+  </div>
+  </sc-if>
+
+  <div style="margin-top: 22px; display: flex; justify-content: flex-end;">
+    <button type="button" onClick="{{ toggleHow }}" style="display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 0; padding: 10px 0; font-family: inherit; font-size: 12.5px; font-weight: 600; color: #6B7392; cursor: pointer;">how we count <span style="display: inline-flex; transform: rotate({{ chevHow }}deg); transition: transform .15s;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex:none;transition:transform .15s;transform:rotate(0deg)"><path d="M6 3l5 5-5 5" stroke="#6B7392" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></button>
+  </div>
+
+  <sc-if value="{{ openHow }}" hint-placeholder-val="{{ false }}">
+  <div class="method" style="border-top: 1px solid rgba(10,10,10,.10); padding-top: 18px; max-width: 78ch;">
+    <p><b>Solid fill is measured. Hatched fill is estimated</b> from a stated assumption. Paired bars always compare money, and longer is more. A <b>solid left rule</b> is money already spent; a <b>dashed left rule</b> is money you only get if you act. Ink carries magnitude; there are no status colours anywhere.</p>
+    <p><b>The stall count is measured. The minutes per stall are not.</b> They are our assumption about how long a person takes to notice, walk over, free the machine and walk back. Halve it and the clearing figure halves. The control sits next to the figure it changes.</p>
+    <p><b>Stalled robot hours are shown and never billed as labour.</b> Your coverage figure already counts them as work the robot did not perform, and billing the same hours twice would flatter this page.</p>
+    <p><b>Peaks are found inside one kind of work, never across the fleet.</b> A night scrubber scored against the day shift's picking peak would read as permanently idle. The share of running time inside the bracket is assumed rather than measured in this prototype.</p>
+    <p><b>A brand gap is an observation, not an experiment.</b> Two brands in one fleet are rarely given the same routes, shifts or floors, so the gap only becomes a verdict on the machines once they have run the same work. Swapping them for a fortnight settles it. When a brand figure rests on a single machine, the row says so by name.</p>
+    <p>Every figure shows its arithmetic so it can be checked on paper. Counts are mission starts reported by the robot, so they read as runs started. Work is valued at replacement rates, never at what an order was worth.</p>
+  </div>
+  </sc-if>
+
+</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"openRow":{"editor":"enum","options":["none","1","2","how"],"default":"how","section":"State"},"period":{"editor":"enum","options":["findings","quiet"],"default":"findings","section":"State"},"$preview":{"width":1180,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var propOpen = this.props.openRow || "none";
+    var open = s.open === undefined ? (propOpen === "none" ? null : propOpen) : s.open;
+    var quiet = (this.props.period || "findings") === "quiet";
+    var minutes = s.minutes === undefined ? 6 : s.minutes;
+    var money = function (c) { return "$" + (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var stalls = quiet ? 10 : 210, manualCents = quiet ? 3720 : 44400;
+    var clearHours = stalls * minutes / 60;
+    var clearCents = Math.round(clearHours * 2400);
+    var totalCents = clearCents + manualCents;
+    var leaseCents = 1670000, all = leaseCents + totalCents;
+    var p2h = 142 * minutes / 60, p5h = 68 * minutes / 60;
+    var self = this;
+    var toggle = function (k) { return function () { self.setState({ open: open === k ? null : k }); }; };
+    return {
+      hasFindings: !quiet, isQuiet: quiet,
+      open1: open === "1", open2: open === "2", openHow: open === "how",
+      chev1: open === "1" ? 90 : 0, chev2: open === "2" ? 90 : 0, chevHow: open === "how" ? 90 : 0,
+      toggle1: toggle("1"), toggle2: toggle("2"), toggleHow: toggle("how"),
+      minutes: minutes,
+      decMinutes: function () { self.setState({ minutes: Math.max(1, minutes - 1) }); },
+      incMinutes: function () { self.setState({ minutes: Math.min(30, minutes + 1) }); },
+      totalMoney: money(totalCents), clearMoney: money(clearCents), manualMoney: money(manualCents),
+      clearHoursRound: Math.round(clearHours),
+      picker2Money: money(Math.round(p2h * 2400)), picker2Hours: p2h.toFixed(1),
+      picker5Money: money(Math.round(p5h * 2400)), picker5Hours: p5h.toFixed(1),
+      leasePct: (100 * leaseCents / all).toFixed(2),
+      manualPct: (100 * manualCents / all).toFixed(2),
+      clearPct: (100 * clearCents / all).toFixed(2)
+    };
+  }
+}
+</script>
+</body>
+</html>

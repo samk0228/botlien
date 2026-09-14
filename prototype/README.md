@@ -1,5 +1,20 @@
 # Botlien clickable prototype
 
+## The published version
+
+The prototype we are working toward is the **Botlien Demo** artifact:
+https://claude.ai/artifact/GCaGNEseYu63EeQMDghUm9. Since Sep 14, 2026 its exact
+source is `src/botlien.part.html` on `main`: the build reproduces the artifact
+page byte for byte (unwrap the publish shell, drop the Claude Design badge, and
+the two are identical). When the artifact changes, bring the change back here
+the same way so the repo never falls behind the design again.
+
+Design explorations that have not been ported yet live in `design/`, one folder
+per canvas, as `.dc.html` artboards plus the generator that writes them:
+
+- `design/costs-action-queue/`: the Costs screen as an action queue (v3 brief),
+  published at https://claude.ai/artifact/12gVKZRVAcpKhRNDGjiFPR.
+
 One self-contained HTML file covering the whole product: sign-in flow, four-step
 first run, and the coverage statement. No build step needed to view it, no
 network calls, fonts and logo inlined as data URIs.

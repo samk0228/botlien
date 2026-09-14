@@ -1,18 +1,50 @@
 # Botlien
 
-Real-time collateral risk monitoring for financed and leased commercial
-service robots. Robot telemetry (Bear Robotics first, Pudu next) is normalized
-into one cross-brand schema and run through transparent, rules-based
-early-warning flags for whoever holds the financial risk on the robot: a RaaS
-operator, or eventually a lender. PD signals (borrower distress read through
-asset behavior) and LGD signals (collateral condition) are kept strictly
-separate.
+Botlien turns robot telemetry into financial telemetry. A fleet operator who
+leases commercial service robots drops a 30-day telemetry export and gets back,
+in dollars, whether the robots earned their keep (coverage), what each task
+really cost, what is dragging the number down, and what to do first.
 
-There are two boards over one pipeline, for two different buyers:
+Live app: **https://app.botlien.com** (Fly.io, single machine, one SQLite file
+per account). Clickable prototype, the design we are working toward: the
+**Botlien Demo** artifact, https://claude.ai/artifact/GCaGNEseYu63EeQMDghUm9,
+whose exact source is `prototype/src/botlien.part.html` on `main`.
 
-- `/` **risk board**, for whoever holds the financial risk: PD/LGD/infra flags.
-- `/owner` **owner board**, for the business owner leasing the robots: what the
-  work was worth against what the lease costs.
+The original creditor framing (PD/LGD risk flags for whoever finances the
+robot) still exists as the `/` risk board behind an operator allowlist. Current
+product work is the operator-facing `/owner` statement.
+
+## Where things live
+
+| Path | What is in it |
+|---|---|
+| [`src/`](src/) | The served app. Plain Node 22 ESM, `node:sqlite`, `node:http`, no framework. `index.mjs` boots, `engine.mjs` owns time, `store.mjs` is the schema, `owner.mjs` renders the statement, `finance.mjs` / `tips.mjs` / `variance.mjs` / `interventions.mjs` / `brands.mjs` are the pure math. |
+| [`src/connectors/`](src/connectors/) | `sim` (demo fleet), `bear` (gRPC, protos in `proto/`), `gausium` (REST). One duck-typed interface. |
+| [`test/`](test/) | `node --test`, deterministic: fixed epochs, seeded PRNG, temp databases, injected clocks. |
+| [`scripts/`](scripts/) | Backtest replay, rollup rebuild, e2e check, mail test, backups. |
+| [`prototype/`](prototype/README.md) | The clickable prototype: `src/botlien.part.html` is the source, `botlien-prototype.html` the build, `design/` holds design-canvas sources. |
+| [`docs/`](docs/README.md) | Company brief, product specs, the Costs design briefs v1 to v3, calculations, the deploy runbook. Start with [`docs/company-brief.md`](docs/company-brief.md). |
+| [`proto/`](proto/) | Vendored Bear Robotics protos (MPL-2.0). |
+| `fly.toml`, `Dockerfile` | Deployment. `max_machines_running = 1` is load-bearing, see the runbook. |
+| `config.json` | Engine and demo timing. Secrets never go here: `.claude/secrets.local.json` (gitignored) or Fly secrets. |
+
+Not in this repo: the marketing site (botlien.com, a Cloudflare Worker deployed
+from Antonio's machine), the internal CRM at botlien.com/internal, and the
+rendered PDFs and screenshots, which live in Sam's vault.
+
+## Branches
+
+`main` is the line of truth and is what deploys. Everything else:
+
+| Branch | Holds | Status |
+|---|---|---|
+| `served-app-costs-tab` | The `/owner/costs` tab for the served app (interventions, brands, floor map) | Open PR. Tests green. Still uses the floor map; the v2 brief says replace it with the timing strip and read brand from the import file before merging. |
+| `mobile-touch-sizing` | Touch-sized controls in `owner.mjs` / `site.mjs` (1 commit, Aug 13) | Unmerged. Small, probably still wanted; rebase onto main. |
+| `signin-page-branding` | Sign-in restyle, then a switch from magic links to email + password (4 commits, Aug 12) | Unmerged. The password switch contradicts the current auth design; decide before touching. |
+| `owner-formula-relocation` | Moves the raw formula line into Setup (1 commit, Aug 12) | Likely superseded by `96b8674` on main. Candidate to delete. |
+| `owner-financial-layer`, `owner-formula-discretion` | Prototype design work, Aug 13 to 18 | Merged into main on Sep 14. Candidates to delete. |
+| `antonio-warehouse-demo` | Antonio's company folder: `website/` (botlien.com source), deck, legal docs, logos, and a fork of the app under `demo/` with an OrionStar connector | Not an app branch. Belongs in its own repo. |
+| `antonio-ui-preview` | A snapshot of the prototype build as `ui-preview/index.html` (Aug 31) | Superseded by the artifact-derived prototype on main. |
 
 ## Quick start
 
@@ -20,7 +52,7 @@ There are two boards over one pipeline, for two different buyers:
 npm test          # full deterministic suite (no network, no credentials)
 npm run demo      # simulated 5-robot fleet at 60x speed → http://127.0.0.1:3230
 npm run e2e       # end-to-end pipeline check, exits 0/1
-npm start         # live mode; uses Bear if credentials exist, else demo fleet
+npm start         # live mode; connectors only if credentials exist, otherwise no robots until an import
 
 node scripts/rebuild-rollups.mjs [--dry-run]   # recompute rollups from snapshots
 ```
@@ -142,7 +174,7 @@ Key invariants:
    ```json
    { "bear": { "credentials": { /* Bear's credentials JSON */ } } }
    ```
-3. `npm start` — auth is JWT via `authorizeApiAccess`, robot list via REST,
+3. `npm start`. Auth is JWT via `authorizeApiAccess`, robot list via REST,
    status via gRPC `SubscribeRobotStatus` with reconnect backoff.
 
 ## Sending real sign-in email
