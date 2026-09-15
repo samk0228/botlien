@@ -217,7 +217,7 @@ function template({ openDefault, periodDefault }) {
   <div style="border-left: 2px dashed ${FG1}; padding: 14px 0 14px 15px; margin-top: 8px; border-top: 1px solid ${HAIR};">
     <button type="button" class="rowbtn" onClick="{{ toggle2 }}">
       <span style="flex: none; width: 14px; font-family: ui-monospace, Menlo, 'SF Mono', monospace; font-size: 11px; color: ${FG3}; font-variant-numeric: tabular-nums;">2</span>
-      <span style="flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 700; color: ${FG1};">Try Fetch on the Locus routes</span>
+      <span style="flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 700; color: ${FG1};">Try Locus on the Fetch routes</span>
       <span class="amt" style="margin-left: auto; font-size: 16px; font-weight: 700; color: ${FG1}; white-space: nowrap; font-variant-numeric: tabular-nums;">$2,533</span>
       <span class="shape" style="margin-left: 18px;">${mini2}</span>
       <span style="flex: none; display: inline-flex; align-items: center; transform: rotate({{ chev2 }}deg); transition: transform .15s;">${chev(0)}</span>

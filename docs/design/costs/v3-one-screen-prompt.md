@@ -41,7 +41,7 @@ Count them. Everything visible before any click, including header, hero, both ro
 Subline 13px `#6B7392`, indented 28px, ten words or fewer.
 
 - **Row 1, solid rule:** `1` · `Go watch the 2pm shift` · `$948.00` · shape: the 24-hour stall strip in miniature, bars `#16204A` with opacity scaling from 35% to 100% by height, a 1px bracket over 2p–4p · subline `38% of it lands between 2p and 4p`
-- **Row 2, dashed rule:** `2` · `Try Fetch on the Locus routes` · `$2,533` · shape: two horizontal bars, cheapest first, Locus at 0.44 lighter and shorter, Fetch at 0.61 darker and longer · subline `if it is the machine, not the route`
+- **Row 2, dashed rule:** `2` · `Try Locus on the Fetch routes` · `$2,533` · shape: two horizontal bars, cheapest first, Locus at 0.44 lighter and shorter, Fetch at 0.61 darker and longer · subline `if it is the machine, not the route`
 
 Costs rank before opportunities regardless of size. $948 spent outranks $2,533 conditional.
 

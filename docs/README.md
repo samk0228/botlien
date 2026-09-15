@@ -42,6 +42,14 @@ The v3 design canvas (six artboards, click-to-edit) is at
 https://claude.ai/artifact/12gVKZRVAcpKhRNDGjiFPR; its sources are in
 [`../prototype/design/costs-action-queue/`](../prototype/design/costs-action-queue/).
 
+### Whole-dashboard review, Sep 14
+
+| File | What it is |
+|---|---|
+| [`design/DESIGN.md`](design/DESIGN.md) | The design system: tokens, type scale, surfaces, layout rules. Source of truth when prototype and app disagree. |
+| [`design/dashboard-review-2026-09-14.md`](design/dashboard-review-2026-09-14.md) | Seven-pass design review of every screen, rated before and after, nine decisions, ten tasks |
+| [`design/dashboard-v2-iteration-prompt.md`](design/dashboard-v2-iteration-prompt.md) | The brief to run in Claude Design against the Demo prototype to apply those decisions |
+
 ## Ops
 
 | File | What it is |
