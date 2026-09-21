@@ -9,6 +9,9 @@ import { economicsFor, BENCHMARKS, TASK_BASIS, BUSINESS_TYPES, worksFor, default
 import { robotFinancials, fleetFinancials, byTaskType, formulaLine } from "./finance.mjs";
 import { buildTips, profileByHourOfDay, mergeProfiles, peakHours, centsPerActiveHour, chargingShareByHourOfDay } from "./tips.mjs";
 import { periodStats, decomposeCoverage, varianceSentence } from "./variance.mjs";
+import { robotInterventions, fleetInterventions, interventionSentence, MINUTES_PER_CLEAR } from "./interventions.mjs";
+import { buildFloorplan } from "./floorplan.mjs";
+import { byBrand, brandSentence } from "./brands.mjs";
 import { esc } from "./board.mjs";
 
 const DAY_MS = 86_400_000;
@@ -256,6 +259,61 @@ export function ownerModel(store, nowMs, config = {}) {
 
   const tipResult = buildTips(tipCtxs, { periodLabel: `over the ${Math.round(observedDays)} days measured` });
 
+  // ---- what it costs to keep them running ----
+  // The invoice is the only cost anyone hands the owner. It is not the only
+  // cost they pay, and the rest of it has been sitting in this database
+  // unpriced since the first import.
+  const interventionRows = robotViews
+    .filter((v) => v.fin)
+    .map((v) => {
+      const rollups = rollupsByRobot.get(v.id) ?? [];
+      const samples = store.stuckSampleCount(v.id, fromMs, toMs);
+      const manual = store.manualControlSamples(v.id, fromMs, toMs);
+      return robotInterventions({
+        robot: { id: v.id, name: v.name },
+        rollups,
+        wageCentsHour: v.fin.wageCentsHour,
+        wageIsBenchmark: v.fin.wageIsBenchmark,
+        stuckSamples: samples.stuck,
+        totalSamples: samples.total,
+        conditionSamples: manual.total,
+        activeManualSamples: manual.activeManual,
+        activeSamples: manual.activeTotal,
+        activeMs: rollups.reduce((n, r) => n + (r.active_ms ?? 0), 0),
+        observedMs: rollups.reduce((n, r) => n + (r.bucket_ms ?? 0), 0),
+      });
+    });
+  const interventions = fleetInterventions(interventionRows);
+
+  // ---- the floor ----
+  // Queried per site, not per robot: two robots stalling either side of one
+  // doorway are one bad doorway. Stall hours are attributed to cells so the
+  // map carries the same figure the panel above it states.
+  const stalledBySite = new Map();
+  const rowById = new Map(interventionRows.map((r) => [r.robotId, r]));
+  for (const v of robotViews) {
+    const row = rowById.get(v.id);
+    if (!row) continue;
+    stalledBySite.set(v.site, (stalledBySite.get(v.site) ?? 0) + row.stalledHours);
+  }
+  const floors = sites
+    .map((s) => ({
+      site: s.name,
+      robotCount: s.robots.length,
+      plan: buildFloorplan(
+        store.poseGrid(
+          s.robots.map((r) => r.id),
+          fromMs,
+          toMs
+        ),
+        { stalledHours: stalledBySite.get(s.name) ?? null }
+      ),
+    }))
+    .filter((f) => f.plan !== null);
+
+  // ---- brand against brand ----
+  const brands = byBrand(robotViews);
+
   // ---- period over period: why the number moved ----
   // The comparison SPLITS THE OBSERVED WINDOW IN HALF rather than reaching back
   // for a full prior window of equal length. Reaching back is the textbook
@@ -289,6 +347,12 @@ export function ownerModel(store, nowMs, config = {}) {
     windowDays,
     observedDays,
     clamped,
+    interventions,
+    interventionRows,
+    interventionSentence: interventionSentence(interventions),
+    minutesPerClear: MINUTES_PER_CLEAR,
+    floors,
+    brands,
     tips: tipResult.tips,
     tipsHidden: tipResult.hidden,
     tipsUpsideCents: tipResult.totalUpsideCents,
@@ -467,6 +531,25 @@ fieldset.excluded legend .tag{background:var(--ghost);color:var(--fg2)}
 .varwho{font-size:12px;color:var(--fg2);margin-top:14px;line-height:1.75}
 .varwho b{color:var(--fg1);font-weight:600}
 
+/* The floor map. Monochrome on purpose: the page carries no status colours
+   anywhere (see the note at the top of this stylesheet), so stall density is
+   carried by ink opacity, never by a red-to-green ramp. It also has to survive
+   being printed and handed to a shift lead, which is the actual use. */
+.map{margin-top:2px;padding:16px 2px 6px}
+.map svg{display:block;width:100%;height:auto;max-height:380px;overflow:visible}
+.map .ground{fill:var(--fg1)}
+.map .stall{fill:var(--fg1)}
+.map .lbl{font-family:var(--mono);font-size:.34px;font-weight:700;text-anchor:middle;dominant-baseline:central}
+.maplegend{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:14px;font-size:11px;color:var(--fg3)}
+.maplegend i{display:inline-block;width:11px;height:11px;border:1px solid var(--hair2);vertical-align:-1px;margin-right:6px}
+.maplegend i.g{background:rgba(22,32,74,.09)}
+.maplegend i.s{background:rgba(22,32,74,.72)}
+.mapsite{font-size:12px;color:var(--fg2);margin-top:14px}
+.mapsite b{color:var(--fg1);font-weight:600}
+
+/* Brand rows reuse .rob wholesale; only the small print differs. */
+.brandnote{font-size:11px;color:var(--fg3);margin-top:6px;line-height:1.6;font-style:italic}
+
 /* ---- app shell ----
    Measurements taken from the prototype's render() / appRail() / appStage() at
    c0c25e0, not approximated: 256px is shadcn's SIDEBAR_WIDTH, which is what
@@ -577,6 +660,7 @@ function periodPill(m) {
 const NAV_ITEMS = [
   { key: "dashboard", href: "/owner", label: "Dashboard" },
   { key: "fleet", href: "/owner/fleet", label: "Fleet" },
+  { key: "costs", href: "/owner/costs", label: "Costs" },
   { key: "numbers", href: "/owner/setup", label: "Numbers" },
 ];
 
@@ -789,6 +873,233 @@ ${m.sites.length === 0 ? '<h2>Robots</h2><div class="panel"><div class="empty">n
  *  badge with unknowns would train the owner to ignore it. */
 export function underLeaseCount(m) {
   return m.robots.filter((r) => r.fin && r.fin.coverage !== null && r.fin.coverage < 1).length;
+}
+
+/** The Costs page.
+ *
+ *  One tab rather than three, because these three panels answer one question
+ *  between them: what is this fleet really costing, and where is it leaking?
+ *  Splitting them would put three metrics in a rail that otherwise lists
+ *  places (the summary, the robots, the settings), and two of the three do not
+ *  render for every operator: the brand table needs a fleet running more than
+ *  one make, and the map needs a feed that reports position. As tabs those
+ *  would be dead tabs. As sections they simply are not there, and the page says
+ *  what would bring them back.
+ */
+export function renderCostsHTML(m) {
+  // ---- what it costs to keep them running ----
+  // Two figures kept strictly apart, because one is measured and one is not.
+  // Driving by hand comes off the wire. Clearing a stall is a count off the
+  // wire multiplied by an assumption about a person, and the panel says which
+  // is which rather than blending them into one confident total.
+  const iv = m.interventions;
+  const hrs = (h) => (h === null || h === undefined ? "–" : h >= 10 ? Math.round(h).toLocaleString("en-US") : h.toFixed(1));
+  // Prose rounds; the formula line does not. Every derivation on this page is
+  // meant to survive being checked on paper, and "13 h × $25.00/h = $315.00"
+  // does not survive it.
+  const exact = (h) => (h === null || h === undefined ? "–" : h.toFixed(1));
+  const interventionsPanel = !iv || !iv.material
+    ? ""
+    : `<h2>What it costs to keep them running</h2>
+<div class="tiles">
+  <div class="tile"><div class="k">Clearing stalls</div><div class="v">${esc(money(iv.clearCents))}</div>
+    <div class="n">${esc(iv.clears.toLocaleString("en-US"))} stalls, counted from telemetry, at an assumed ${m.minutesPerClear} minutes of someone's time each</div></div>
+  <div class="tile"><div class="k">Driving by hand</div>
+    <div class="v">${iv.hasManualFeed ? esc(money(iv.manualCents)) : "–"}</div>
+    <div class="n">${
+      iv.hasManualFeed
+        ? `${esc(hrs(iv.manualHours))} hours with a person on the controls, measured directly, no assumption`
+        : "your feed does not report manual control, so this one is unknown rather than zero"
+    }</div></div>
+  <div class="tile"><div class="k">On top of the lease</div><div class="v">${esc(money(iv.totalCents))}</div>
+    <div class="n">labour your invoice never shows, over the same period as every other figure here</div></div>
+</div>
+<div class="panel">
+  ${m.interventionSentence ? `<div class="varsent">${esc(m.interventionSentence)}</div>` : ""}
+  ${iv.worst
+    .map(
+      (r) => `
+    <div class="rob">
+      <div class="top">
+        <span class="nm">${esc(r.robotName)}</span>
+        <span class="mk">${
+          r.clears > 0 ? `${esc(r.clears.toLocaleString("en-US"))} stall${r.clears === 1 ? "" : "s"}` : "driven by hand"
+        }</span>
+        <span class="cov">${esc(money(r.totalCents))}</span>
+      </div>
+      <div class="fml">${
+        // Zero terms are dropped rather than printed. A robot whose whole cost
+        // is somebody steering it should not read "0.0 h clearing", and one
+        // that never stalled should not carry a trailing "stalled 0.0 h".
+        [
+          r.clears > 0 ? `${esc(exact(r.clearHours))} h clearing` : null,
+          r.manualHours !== null && r.manualHours > 0.05 ? `${esc(exact(r.manualHours))} h driven by hand` : null,
+        ]
+          .filter(Boolean)
+          .join(" + ")
+      }${r.wageCentsHour ? ` × ${esc(money(r.wageCentsHour))}/h` : ""}${
+        r.stalledHours > 0.05 ? ` · robot itself stalled ${esc(exact(r.stalledHours))} h` : ""
+      }</div>
+    </div>`
+    )
+    .join("")}
+  <div class="varfoot">
+    The stall count is measured. The ${m.minutesPerClear} minutes per stall is not: it is our assumption about how long a
+    person takes to notice, walk over, free the machine and walk back${
+      iv.anyBenchmarkWage ? ", and some robots are priced at a benchmark wage rather than yours" : ""
+    }. Halve it and this figure halves. The hours the robot spent stalled are shown for context and are deliberately not
+    charged here as labour, because your coverage figure already counts them as work the robot did not really perform,
+    and billing the same hours twice would flatter this panel.
+    ${iv.unpricedCount > 0 ? `${iv.unpricedCount} robot${iv.unpricedCount > 1 ? "s are" : " is"} left out of the money for want of an hourly wage.` : ""}
+  </div>
+</div>`;
+
+  // ---- the floor ----
+  // The stall tip already names the worst spot and prices it. Words make an
+  // owner nod; a picture of their own building makes someone walk out to the
+  // aisle. Same numbers, drawn.
+  const floorSvg = (plan) => {
+    const pad = 0.6;
+    const w = plan.cols + pad * 2;
+    const h = plan.rows + pad * 2;
+    const ground = plan.cells
+      .map(
+        (c) =>
+          `<rect class="ground" x="${(c.x + pad).toFixed(2)}" y="${(c.y + pad).toFixed(2)}" width="1" height="1" opacity="${(0.03 + c.presence * 0.09).toFixed(3)}"/>`
+      )
+      .join("");
+    const stalls = plan.cells
+      .filter((c) => c.stuck > 0)
+      .map(
+        (c) =>
+          `<rect class="stall" x="${(c.x + pad).toFixed(2)}" y="${(c.y + pad).toFixed(2)}" width="1" height="1" opacity="${(0.1 + c.weight * 0.72).toFixed(3)}"/>`
+      )
+      .join("");
+    const labels = plan.cells
+      .filter((c) => c.label && c.hours !== null && c.hours >= 0.5)
+      .map(
+        (c) =>
+          `<text class="lbl" x="${(c.x + pad + 0.5).toFixed(2)}" y="${(c.y + pad + 0.5).toFixed(2)}" fill="${
+            c.weight > 0.55 ? "#FFFFFF" : "#16204A"
+          }">${esc(hrs(c.hours))}h</text>`
+      )
+      .join("");
+    return `<svg viewBox="0 0 ${w.toFixed(2)} ${h.toFixed(2)}" role="img" aria-label="Map of where the robots drive and where they get stuck">${ground}${stalls}${labels}</svg>`;
+  };
+
+  const floorPanel =
+    (m.floors ?? []).length === 0
+      ? ""
+      : `<h2>Where they get stuck</h2>
+${m.floors
+  .map(
+    (f) => `<div class="panel">
+  <div class="mapsite"><b>${esc(f.site)}</b> · ${esc(f.robotCount)} robot${f.robotCount === 1 ? "" : "s"} · about ${esc(
+      Math.round(f.plan.widthMeters)
+    )} m by ${esc(Math.round(f.plan.heightMeters))} m of floor actually driven</div>
+  <div class="map">${floorSvg(f.plan)}</div>
+  <div class="maplegend">
+    <span><i class="g"></i>where the robots drive</span>
+    <span><i class="s"></i>where they get stuck, darker is worse</span>
+    <span>each square is ${esc(f.plan.gridMeters)} m</span>
+  </div>
+  <div class="varfoot">
+    No floor plan was uploaded and none is needed. The shape above is simply everywhere your robots have driven, so it is
+    their map rather than the building's. ${Math.round(f.plan.top3Share * 100)}% of the stall time at this site landed in
+    the three darkest squares${
+      f.plan.hottest && f.plan.hottest.hours !== null ? `, the worst of them holding about ${esc(hrs(f.plan.hottest.hours))} hours on its own` : ""
+    }.
+    ${
+      f.plan.top3Share >= 0.5
+        ? "That is concentrated enough to walk to: a door that swings shut, a pallet corner, a mat edge, a blind turn the robot's map does not know about."
+        : "That is spread out rather than concentrated, which points at the traffic or the machines themselves rather than at one bad spot in the building."
+    }
+  </div>
+</div>`
+  )
+  .join("")}`;
+
+  // ---- brand against brand ----
+  // The one comparison a manufacturer structurally cannot ship, because a
+  // vendor dashboard can only ever see that vendor's own machines.
+  const brandGroups = (m.brands?.groups ?? []).filter((g) => g.comparable);
+  const brandPanel =
+    brandGroups.length === 0
+      ? ""
+      : `<h2>Brand against brand</h2>
+${brandGroups
+  .map(
+    (g) => `<div class="panel">
+  <div class="varsent">${esc(brandSentence(g) ?? "")}</div>
+  ${g.brands
+    .map(
+      (b) => `
+    <div class="rob">
+      <div class="top">
+        <span class="nm">${esc(b.brand)}</span>
+        <span class="mk">${esc(b.robotCount)} robot${b.robotCount === 1 ? "" : "s"}${
+        b.thin ? " · too little work here to read as a finding" : ""
+      }</span>
+        <span class="cov">${esc(money(b.costPerTaskCents))}</span>
+      </div>
+      <div class="fml">${esc(num(b.tasks, g.basis))} ${esc(g.taskLabel)} · ${esc(hrs(b.activeHours))} active hours · ${esc(
+        money(b.invoiceCents)
+      )} of invoice · ${esc(ratio(b.coverage))} coverage</div>
+    </div>`
+    )
+    .join("")}
+  <div class="varfoot">
+    Cost per ${esc(g.unit)} is the same figure used everywhere else on this page, invoice divided by work performed, so a
+    brand row can be checked against the robot rows it came from. At the volume your ${esc(g.worst.brand)} machines
+    actually ran, that gap is worth about ${esc(money(g.gapValueCents))} over this period.
+  </div>
+  <div class="brandnote">
+    ${
+      g.singleMachineBrands.length
+        ? `Your ${g.singleMachineBrands.map((b) => esc(b)).join(" and ")} figure rests on a single machine, so it may be telling you about that machine rather than about the brand. `
+        : ""
+    }This is an observation, not an experiment. Two brands in one fleet are rarely given the same routes, shifts or floors,
+    so the gap only becomes a verdict on the machines once they have run the same work. Swapping them for a fortnight
+    settles it, and that is a thing you can do that nobody else can measure for you.
+  </div>
+</div>`
+  )
+  .join("")}`;
+
+  const nothing = !interventionsPanel && !floorPanel && !brandPanel;
+
+  return shell(
+    "Botlien · costs",
+    `<div class="ph"><h1>Costs${m.demo ? '<span class="badge">DEMO — simulated fleet</span>' : ""}</h1>
+<div class="per">${esc(periodPill(m))}</div></div>
+<div class="sub">what the fleet costs beyond the invoice · ${esc(new Date(m.nowMs).toLocaleString("en-US"))}</div>
+<div class="nav"><a href="/owner">Dashboard</a><a href="/owner/fleet">Fleet</a><a href="/owner/setup">Set your numbers</a></div>
+
+${
+  nothing
+    ? `<div class="panel"><div class="empty">Nothing to show for this period yet.</div></div>
+<div class="varfoot">
+  This page fills in from telemetry you may already have. Stall clearing needs a stuck or error field and at least a
+  few stalls in the window. The floor map needs position on each reading. The brand comparison needs a fleet running
+  more than one make, priced. Anything your export does not carry is left blank here rather than guessed at.
+</div>`
+    : `<div class="headline">
+  <span class="cap">Beyond the lease invoice</span>
+  <span class="big">${esc(money(m.interventions?.totalCents ?? null))}</span>
+  <div class="say">
+    Labour spent keeping the robots working over this period, which arrives on no invoice and appears in no vendor
+    dashboard. It sits <b>on top of</b> the lease payments already counted in your coverage figure, not inside them.
+  </div>
+</div>
+
+${interventionsPanel}
+${floorPanel}
+${brandPanel}`
+}
+
+<div class="honest">${esc(HONESTY_NOTE.trim())}</div>`,
+    { nav: { active: "costs", fleetBadge: underLeaseCount(m) } }
+  );
 }
 
 export function renderFleetHTML(m) {

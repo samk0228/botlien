@@ -409,6 +409,81 @@ export class Store {
     );
   }
 
+  /** Stuck samples against all samples, with NO pose requirement.
+   *  stallSampleCount() above answers a map question and therefore throws away
+   *  rows with no coordinates. This answers a labour question: a robot that
+   *  stalls without reporting where it stood still had a person walk over to
+   *  it, and dropping those rows would under-count the cost by exactly the
+   *  fleets whose vendor sends no pose. */
+  stuckSampleCount(robotId, sinceMs, untilMs) {
+    const r = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total, SUM(CASE WHEN stuck=1 THEN 1 ELSE 0 END) AS stuck
+         FROM status_snapshots WHERE robot_id=? AND at>=? AND at<=?`
+      )
+      .get(robotId, sinceMs, untilMs);
+    return { total: r?.total ?? 0, stuck: r?.stuck ?? 0 };
+  }
+
+  /** Hands-on-controls samples, split by whether the robot was working.
+   *
+   *  Reads snapshot_conditions, which most feeds never populate: Bear sends no
+   *  such field and an imported CSV carries none. A zero `total` therefore
+   *  means "not reported", and the caller renders that differently from
+   *  "reported, and it was none".
+   *
+   *  The active split exists because a share has to be converted back into
+   *  hours against the right clock. A vendor that reports manual_controlling on
+   *  every heartbeat, parked or not, would otherwise turn a 45% flag into 45%
+   *  of the wall clock, which is more hours than the machine even ran. The
+   *  predicate here (mission_state='active') is deliberately the SAME one
+   *  rollup.mjs uses to accumulate active_ms, so the share and the time it is
+   *  multiplied by are defined identically and the result cannot exceed the
+   *  hours the robot actually worked. */
+  manualControlSamples(robotId, sinceMs, untilMs) {
+    const r = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN sc.manual_controlling=1 THEN 1 ELSE 0 END) AS manual,
+                SUM(CASE WHEN ss.mission_state='active' THEN 1 ELSE 0 END) AS active_total,
+                SUM(CASE WHEN ss.mission_state='active' AND sc.manual_controlling=1 THEN 1 ELSE 0 END) AS active_manual
+         FROM snapshot_conditions sc
+         JOIN status_snapshots ss ON ss.id = sc.snapshot_id
+         WHERE sc.robot_id=? AND sc.at>=? AND sc.at<=?`
+      )
+      .get(robotId, sinceMs, untilMs);
+    return {
+      total: r?.total ?? 0,
+      manual: r?.manual ?? 0,
+      activeTotal: r?.active_total ?? 0,
+      activeManual: r?.active_manual ?? 0,
+    };
+  }
+
+  /** The floor, as a grid, for a set of robots at once.
+   *  One query per SITE rather than per robot, because the map is a picture of
+   *  a building and a building is shared: two robots stalling either side of
+   *  the same doorway are one bad doorway, and per-robot queries would draw it
+   *  as two unrelated smudges.
+   *
+   *  Same ROUND-based snapping as stallHotspots so both read the same grid. */
+  poseGrid(robotIds, sinceMs, untilMs, { gridMeters = 2, limit = 4000 } = {}) {
+    const ids = (robotIds ?? []).filter((n) => Number.isInteger(n));
+    if (ids.length === 0) return [];
+    const holes = ids.map(() => "?").join(",");
+    return this.db
+      .prepare(
+        `SELECT ROUND(pose_x / ?) * ? AS gx, ROUND(pose_y / ?) * ? AS gy,
+                COUNT(*) AS samples,
+                SUM(CASE WHEN stuck=1 THEN 1 ELSE 0 END) AS stuck_samples
+         FROM status_snapshots
+         WHERE robot_id IN (${holes}) AND at>=? AND at<=?
+           AND pose_x IS NOT NULL AND pose_y IS NOT NULL
+         GROUP BY gx, gy ORDER BY samples DESC LIMIT ?`
+      )
+      .all(gridMeters, gridMeters, gridMeters, gridMeters, ...ids, sinceMs, untilMs, limit);
+  }
+
   // ---- economics ----
   upsertRobotEconomics(robotId, e, nowMs) {
     this.db
