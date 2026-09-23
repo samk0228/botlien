@@ -145,7 +145,8 @@ CREATE TABLE IF NOT EXISTS robot_economics (
 
 -- Robots the owner says they no longer lease. A separate table because robots
 -- cannot take new columns: CREATE TABLE IF NOT EXISTS will not add one to an
--- existing database, and there is no migration system. Renames and category
+-- existing database, and this table predates MIGRATIONS below. New columns
+-- now go through a migration instead. Renames and category
 -- corrections need no storage here, since display_name and category already
 -- exist on robots and are updated in place.
 CREATE TABLE IF NOT EXISTS robot_exclusions (
@@ -192,11 +193,63 @@ CREATE INDEX IF NOT EXISTS idx_wear_robot_at ON component_wear(robot_id, at);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 `;
 
+// Ordered, append-only. Each entry runs once per database, tracked by
+// PRAGMA user_version, so a tenant file opened by a newer build picks up the
+// tables and columns it is missing. Never edit or reorder a shipped entry:
+// add a new one. SCHEMA above stays the version-0 baseline.
+export const MIGRATIONS = [
+  // 1. What the owner tells us that no robot reports: which site a robot
+  //    works at, what its lease promised, and the tickets they opened with
+  //    the vendor. These fill the Demo's SITES, CONTRACT and TICKETS tables.
+  `CREATE TABLE IF NOT EXISTS sites (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE,
+     created_at INTEGER NOT NULL
+   );
+   ALTER TABLE robots ADD COLUMN site_id INTEGER;
+   CREATE TABLE IF NOT EXISTS robot_contracts (
+     robot_id INTEGER PRIMARY KEY,
+     start_date TEXT,
+     term_months INTEGER,
+     payback_months INTEGER,
+     uptime_pct REAL,
+     equip_cost_cents INTEGER,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS vendor_tickets (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     ref TEXT,
+     brand TEXT,
+     robot_id INTEGER,
+     title TEXT NOT NULL,
+     opened_at INTEGER NOT NULL,
+     responded_at INTEGER,
+     status TEXT NOT NULL DEFAULT 'open'
+   );`,
+];
+
+export function migrate(db) {
+  const current = Number(db.prepare("PRAGMA user_version").get().user_version ?? 0);
+  for (let v = current; v < MIGRATIONS.length; v++) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(MIGRATIONS[v]);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw new Error(`migration ${v + 1} failed: ${err.message}`);
+    }
+  }
+  return MIGRATIONS.length;
+}
+
 export function openStore(path) {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(SCHEMA);
+  migrate(db);
   return new Store(db);
 }
 
@@ -689,6 +742,62 @@ export class Store {
   }
 
   // ---- kv ----
+  // ---- sites, contracts, tickets (migration 1) ----
+  upsertSite(name, nowMs) {
+    const found = this.db.prepare(`SELECT id FROM sites WHERE name=?`).get(name);
+    if (found) return Number(found.id);
+    return Number(this.db.prepare(`INSERT INTO sites (name, created_at) VALUES (?, ?)`).run(name, nowMs).lastInsertRowid);
+  }
+
+  listSites() {
+    return this.db.prepare(`SELECT * FROM sites ORDER BY id`).all();
+  }
+
+  setRobotSite(robotId, siteId) {
+    this.db.prepare(`UPDATE robots SET site_id=? WHERE id=?`).run(siteId, robotId);
+  }
+
+  upsertRobotContract(robotId, c, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO robot_contracts (robot_id, start_date, term_months, payback_months, uptime_pct, equip_cost_cents, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(robot_id) DO UPDATE SET start_date=excluded.start_date, term_months=excluded.term_months,
+           payback_months=excluded.payback_months, uptime_pct=excluded.uptime_pct,
+           equip_cost_cents=excluded.equip_cost_cents, updated_at=excluded.updated_at`
+      )
+      .run(robotId, c.startDate ?? null, c.termMonths ?? null, c.paybackMonths ?? null, c.uptimePct ?? null, c.equipCostCents ?? null, nowMs);
+  }
+
+  listRobotContracts() {
+    return this.db.prepare(`SELECT * FROM robot_contracts`).all();
+  }
+
+  insertTicket({ ref = null, brand = null, robotId = null, title, openedAt, respondedAt = null, status = "open" }) {
+    return Number(
+      this.db
+        .prepare(`INSERT INTO vendor_tickets (ref, brand, robot_id, title, opened_at, responded_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(ref, brand, robotId, title, openedAt, respondedAt, status).lastInsertRowid
+    );
+  }
+
+  listTickets() {
+    return this.db.prepare(`SELECT * FROM vendor_tickets ORDER BY opened_at`).all();
+  }
+
+  /** Only the samples where something was wrong. Downtime episodes are built
+   *  from these alone: a healthy robot at 15-second sampling writes ~180k rows
+   *  a month, and none of them change the answer. */
+  abnormalSnapshots(robotId, sinceMs, untilMs) {
+    return this.db
+      .prepare(
+        `SELECT at, stuck, e_stop, errors, connection_state, pose_x, pose_y FROM status_snapshots
+         WHERE robot_id=? AND at>=? AND at<=? AND (stuck=1 OR e_stop=1 OR (errors IS NOT NULL AND errors != '[]'))
+         ORDER BY at`
+      )
+      .all(robotId, sinceMs, untilMs);
+  }
+
   getKV(key) {
     return this.db.prepare(`SELECT value FROM kv WHERE key=?`).get(key)?.value ?? null;
   }

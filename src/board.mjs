@@ -310,6 +310,7 @@ export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export function startBoard(port, {
   getState,
   getOwnerState: baseGetOwnerState = null,
+  getFleetContract: baseGetFleetContract = null,
   saveEconomics: baseSaveEconomics = null,
   onboarding: baseOnboarding = null,
   tenancy = null,
@@ -332,6 +333,8 @@ export function startBoard(port, {
       // Per-request bindings. Without tenancy these are the single store the
       // process was started with; with it, they are the account's own.
       let getOwnerState = baseGetOwnerState;
+      let getFleetContract = baseGetFleetContract;
+      let signedIn = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -359,6 +362,8 @@ export function startBoard(port, {
           }
           const bound = tenancy.forAccount(account);
           getOwnerState = bound.getOwnerState;
+          getFleetContract = bound.getFleetContract;
+          signedIn = account;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -377,6 +382,22 @@ export function startBoard(port, {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(model));
+        return;
+      }
+
+      // ---- the data contract: every table the dashboard reads, as JSON ----
+      if (getFleetContract && req.method === "GET" && path === "/api/v1/fleet") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(await getFleetContract()));
+        return;
+      }
+
+      // ---- the dashboard: the Demo's screens on this account's data ----
+      if (getFleetContract && req.method === "GET" && path === "/app") {
+        const { renderAppHTML } = await import("./app.mjs");
+        const demo = /[?&]demo=1(&|$)/.test(req.url ?? "");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderAppHTML({ contract: demo ? null : await getFleetContract(), account: signedIn }));
         return;
       }
 

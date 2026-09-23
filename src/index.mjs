@@ -10,6 +10,7 @@ import { createSimConnector } from "./connectors/sim.mjs";
 import { boardModel, startBoard, readBody } from "./board.mjs";
 import { ownerModel, parseSetupForm, confirmModel, parseConfirmForm, applyConfirm, recordImport, businessType, setBusinessType } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
+import { fleetContract } from "./contract.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { ROOT, resolvePath } from "./infra.mjs";
 import { join } from "node:path";
@@ -155,6 +156,7 @@ async function main() {
     tenancy,
     getState: () => boardModel(store, clock.now()),
     getOwnerState: () => ownerModel(store, clock.now(), config),
+    getFleetContract: () => fleetContract(store, clock.now(), config),
     saveEconomics: (params) => {
       const { updates, errors } = parseSetupForm(params, store.listRobots());
       const nowMs = clock.now();

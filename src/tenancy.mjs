@@ -21,6 +21,7 @@ import {
   setBusinessType,
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
+import { fleetContract } from "./contract.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
 
@@ -175,7 +176,8 @@ export function createTenancy({
       },
     };
 
-    return { store, getOwnerState, saveEconomics, onboarding };
+    const getFleetContract = () => fleetContract(store, now(), config);
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, onboarding };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

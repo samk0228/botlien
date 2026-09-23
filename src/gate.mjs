@@ -157,6 +157,8 @@ export function requiresSession(path) {
     path === "/owner" ||
     path.startsWith("/owner/") ||
     path === "/api/owner" ||
+    path.startsWith("/api/v1/") ||
+    path === "/app" ||
     path === "/ops" ||
     path === "/api/state"
   );
