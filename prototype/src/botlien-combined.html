@@ -449,7 +449,7 @@ function metricTabs(tabs, current, act){
   return '<div data-metric-tabs style="display:flex;flex-wrap:nowrap;gap:8px;position:relative;z-index:1">'
     + tabs.map(t => {
       const on = t.id === current;
-      return '<div data-act="'+(t.act||act)+'" data-tab="'+(t.tab||t.id)+'" role="tab" aria-selected="'+(on?'true':'false')+'" class="'+(on?'':'hv-dim9')+'" style="position:relative;flex:1 1 0;min-width:120px;box-sizing:border-box;overflow:hidden;padding:10px 12px 11px;border-radius:8px 8px 0 0;cursor:pointer;'
+      return '<div data-act="'+(t.act||act)+'" data-tab="'+(t.tab||t.id)+'" data-tile="'+t.id+'" role="tab" aria-selected="'+(on?'true':'false')+'" class="'+(on?'':'hv-dim9')+'" style="position:relative;flex:1 1 0;min-width:120px;box-sizing:border-box;overflow:hidden;padding:10px 12px 11px;border-radius:8px 8px 0 0;cursor:pointer;'
         + (on ? 'background:var(--card);border:1px solid var(--hair);border-bottom-color:var(--card);margin-bottom:-1px;' : 'background:rgba(22,32,74,.07);border:1px solid transparent;border-bottom:none;')
         + '">'
         // The selected tile is the one thing on the strip you are acting
@@ -3288,8 +3288,8 @@ function utilizationCard(opts){
   }));
   const avg = points.reduce((a,p) => a+p.value, 0) / points.length;
   const inner = '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px">'
-      + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Utilization</div>'
-      + '<span style="font-size:12px;color:var(--fg3)">6-month average '+Math.round(avg)+'%</span>'
+      + '<div '+openAttrs('utilization', 'fleet', 'time')+' role="link" tabindex="0" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer">Utilization</div>'
+      + '<span '+openAttrs('utilization', 'fleet', 'time')+' role="link" tabindex="0" title="Open Utilization as a tab" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;cursor:pointer;'+linkStyle()+'">6-month average '+Math.round(avg)+'%'+ic('chevron-right',14,'color:var(--acc)')+'</span>'
     + '</div>'
     + sparklineChart(points, { formatValue: v => Math.round(v)+'%', area:true, gradientId:'utilAreaFill', dots:false });
   return o.bare ? inner : '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'+inner+'</div>';
@@ -3402,13 +3402,13 @@ function workSplitCard(){
   const total = s.totalValue;
   const rows = s.byCategory.map((k, i) => {
     const pct = total > 0 ? (k.value / total) * 100 : 0;
-    return '<div style="margin-bottom:14px">'
+    return '<div '+openAttrs('work', slug(k.work), 'robots')+' role="link" tabindex="0" class="hv-ghost" style="margin:0 -8px 8px;padding:6px 8px;border-radius:4px;cursor:pointer">'
       + '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="font-weight:500;color:var(--fg1)">'+esc(k.work)+' · '+k.count+' '+(k.count===1?'robot':'robots')+'</span><span style="color:var(--fg2);font-variant-numeric:tabular-nums">'+money(k.value)+'</span></div>'
       + '<div style="height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+SLICE_FILLS[i % SLICE_FILLS.length]+'"></div></div>'
     + '</div>';
   }).join('');
   return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
-    + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">Where the work is</div>'
+    + (s.byCategory.length ? detailHead('Where the work is', openAttrs('work', slug(s.byCategory[0].work), 'robots'), 'By kind of work') : '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">Where the work is</div>')
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">Share of work serviced, by kind, this period</div>'
     + (rows || '<div style="font-size:13px;color:var(--fg3)">'+noRobotNote()+'</div>')
   + '</div>';
@@ -3458,7 +3458,8 @@ function taxShieldCard(opts){
     + '<span style="color:var(--fg1);font-weight:500">'+esc(k.work)+' &middot; '+k.count+' '+(k.count===1?'robot':'robots')+'</span>'
     + '<span style="color:var(--fg2);font-variant-numeric:tabular-nums">'+m(k.costCents)+'</span>'
   + '</div>').join('');
-  const inner = (o.bare ? '' : '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">Tax shield &amp; depreciation</div>')
+  const tsAttrs = openAttrs('taxshield', 'fleet', 'shield');
+  const inner = (o.noLink ? '' : o.bare ? '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'+detailLink(tsAttrs, 'Open Tax shield')+'</div>' : detailHead('Tax shield &amp; depreciation', tsAttrs, 'Open Tax shield'))
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:16px">What financing '+scopeName+', '+t.robotCount+' robot'+(t.robotCount===1?'':'s')+', instead of leasing them would be worth at tax time. Illustrative, not tax advice.</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:18px">'
       + '<div><div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px">Year-1 tax shield</div><div id="taxShieldValue" style="font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+m(t.shieldCents)+'</div></div>'
@@ -3530,7 +3531,7 @@ function viewDashV2(){
   const util = utilSummary(), cost = costSummary();
   const pb = computePayback();
   const tabs = [
-    { id:'kpi', act:'openCoverage', extra:'<span data-peek="coverage:fleet" role="button" tabindex="0" title="Quick look" aria-label="Quick look at coverage" class="hv-ghost" style="position:absolute;right:6px;top:8px;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;color:var(--fg2)">'+ic('chevron-right',14)+'</span>', label:'Coverage',               value: s.coverage === null ? '–' : s.coverage.toFixed(2)+'x', unit: s.mode === 'estimate' ? 'estimate' : 'this period' },
+    { id:'kpi',       label:'Coverage',               value: s.coverage === null ? '–' : s.coverage.toFixed(2)+'x', unit: s.mode === 'estimate' ? 'estimate' : 'this period' },
     { id:'cost',      label:'A person vs your robots', value: cost.value, unit: cost.unit },
     { id:'util',      label:'Utilization',            value: util.value, unit: util.unit },
     { id:'payback',   label:'Payback',                value: pb.rows.length ? pb.paid+' of '+pb.rows.length : '–', unit:'paid back' }
@@ -3580,7 +3581,7 @@ function paybackDashPanel(p){
     + '<div style="min-width:0">'
       + '<p style="font-size:14px;line-height:1.7;color:var(--fg2);margin:0 0 16px">Across all '+p.rows.length+' robots you have earned back '+money0(p.earnedTotal)+' of the '+money0(p.priceTotal)+' they cost, '+pct+'%.'
         + (p.fleetPace === null ? '' : ' At the pace of the last three months the fleet as a whole crosses its price in month '+p.fleetPace+' from the first contract.')+'</p>'
-      + '<span data-act="go" data-view="payback" class="hv-fade" style="font-size:13px;font-weight:600;color:var(--fg1);cursor:pointer">Open Payback &rarr;</span>'
+      + detailLink('data-act="go" data-view="payback"', 'Open Payback')
     + '</div>'
   + '</div>';
 }
@@ -3678,7 +3679,7 @@ function sensitivityCard(opts){
     const note = s.included.length === 0
       ? noRobotNote()
       : 'Every included robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test. This card appears once a per-run or per-pick robot is in the fleet.';
-    const none = (o.bare ? '' : '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>')
+    const none = (o.noLink ? '' : o.bare ? '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'+detailLink(openAttrs('rate','fleet','test'), 'Open Rate assumption')+'</div>' : detailHead('The one input you cannot measure', openAttrs('rate','fleet','test'), 'Open Rate assumption'))
       + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">'+note+'</div>';
     return o.bare ? none : '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px;margin-bottom:20px">'+none+'</div>';
   }
@@ -3690,7 +3691,7 @@ function sensitivityCard(opts){
   const secs = Math.round(3600 / be);
   const fill = ((t - min) / (max - min) * 100).toFixed(1);
   const unitLabel = base.unit+'s/hr';
-  const inner = (o.bare ? '' : '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">The one input you cannot measure</div>')
+  const inner = (o.noLink ? '' : o.bare ? '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'+detailLink(openAttrs('rate','fleet','test'), 'Open Rate assumption')+'</div>' : detailHead('The one input you cannot measure', openAttrs('rate','fleet','test'), 'Open Rate assumption'))
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:18px">Every figure here assumes '+base.benchUnitsPerHour+' '+unitLabel+' for '+esc(base.work.toLowerCase())+' ('+base.domCount+' robot'+(base.domCount===1?'':'s')+'). Drag it and they move with you.</div>'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:16px">'
       + '<input id="sensRange" class="bl-slider" type="range" min="'+min+'" max="'+max+'" step="1" value="'+t+'" style="flex:1;min-width:120px;--bl-fill:'+fill+'%" aria-label="'+esc(base.unit)+'s a person completes per hour">'
@@ -3877,7 +3878,7 @@ function costCard(opts){
     ? 'What one '+esc(b.unit)+' costs each way'
     : 'What this period cost each way, across '+scope.workCount+' kinds of work';
 
-  const inner = '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:2px">A person vs your robots</div>'
+  const inner = detailHead('A person vs your robots', 'data-act="go" data-view="costs"', 'Open Costs')
     + '<div style="font-size:12px;color:var(--fg3);margin-bottom:14px">'+subtitle+'</div>'
     // Labelled, and says its reach. Sitting near the site filter, an
     // unlabelled dropdown invites the assumption that it scopes the page;
@@ -5667,6 +5668,17 @@ function brandSection(tables){
 // The scan layer speaks in whole dollars. money() keeps its two decimals
 // wherever arithmetic has to be checkable, which is every figure inside a
 // detail – a row is for magnitude, not for reconciliation.
+/** A card title with the one link to its full page, the Coverage card's
+ *  shape: title left, the accent link with a chevron on the right. */
+function detailHead(title, attrs, label, mb){
+  return '<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;margin-bottom:'+(mb == null ? 2 : mb)+'px">'
+    + '<div '+attrs+' role="link" tabindex="0" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer">'+title+'</div>'
+    + detailLink(attrs, label)
+  + '</div>';
+}
+function detailLink(attrs, label){
+  return '<span '+attrs+' role="link" tabindex="0" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;cursor:pointer;color:var(--acc);text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">'+label+ic('chevron-right',14,'color:var(--acc)')+'</span>';
+}
 function money0(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
 
 // Estimated fill, used wherever a figure rests on a stated assumption
@@ -7347,12 +7359,12 @@ document.addEventListener('keydown', (e) => {
    Level 4 is the floor. Nothing ever leaves the dashboard: this file opens
    no browser tab and no window. */
 
-const L3_KINDS = ['robot','site','vendor','period','work','shift','coverage','brief'];
+const L3_KINDS = ['robot','site','vendor','period','work','shift','coverage','utilization','taxshield','rate','brief'];
 const RECORD_KINDS = ['incident','spot','ticket','claim','robotshift','part','hour'];
 const TAB_MAX = 6;
-const KIND_ICON = { robot:'boxes', site:'home', vendor:'building', period:'calendar', work:'hexagon', shift:'sun', coverage:'percent', brief:'bell',
+const KIND_ICON = { robot:'boxes', site:'home', vendor:'building', period:'calendar', work:'hexagon', shift:'sun', coverage:'percent', utilization:'trending-up', taxshield:'shield', rate:'sliders-horizontal', brief:'bell',
   incident:'triangle-alert', spot:'anchor', ticket:'file-text', claim:'coins', robotshift:'boxes', part:'sliders-horizontal', hour:'calendar' };
-const KIND_LABEL = { robot:'Robot', site:'Site', vendor:'Vendor', period:'Period', work:'Work', shift:'Shift', coverage:'Coverage', brief:'Brief',
+const KIND_LABEL = { robot:'Robot', site:'Site', vendor:'Vendor', period:'Period', work:'Work', shift:'Shift', coverage:'Coverage', utilization:'Utilization', taxshield:'Tax shield', rate:'Rate assumption', brief:'Brief',
   incident:'Incident', spot:'Stall spot', ticket:'Vendor ticket', claim:'Credit claim', robotshift:'Robot on a shift', part:'Part', hour:'One hour' };
 const VIEW_ICON = { dashv2:'equal', robots:'boxes', robot:'boxes', costs:'ruler', trends:'trending-up', payback:'coins', contract:'file-text', decisions:'route', whatif:'sliders-horizontal',
   benchmark:'users', incidents:'list', vendors:'building', evidence:'building', setup:'sliders-horizontal', numbersRobot:'sliders-horizontal', settings:'settings', alerts:'bell', coverage:'percent' };
@@ -7582,6 +7594,8 @@ function hourGrid(){
   return { cells, max, worst, val, cost };
 }
 function coverageBridge(){
+  // A new account's first period has nothing before it to bridge from.
+  if (PERIODS.length < 2) return null;
   const now = covForPeriod(PERIODS[0], S.dashScope), prev = covForPeriod(PERIODS[1], S.dashScope);
   const rows = computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.rate !== null);
   const inv = rows.reduce((a, r) => a + r.invoice, 0);
@@ -7649,7 +7663,7 @@ function tabPage(t){
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:12px;min-height:32px">'+crumbHtml(parts.crumb)+(t.kind !== 'site' && t.kind !== 'brief' ? '<div style="margin-left:auto">'+scopeToggle()+'</div>' : '')+'</div>'
     + '<h1 style="font-size:clamp(19px,2.4vw,23px);font-weight:600;letter-spacing:-0.02em;line-height:1.35;margin:0 0 '+(note ? '6px' : '20px')+';color:var(--fg1);max-width:62ch;text-wrap:pretty">'+parts.h.headline+'</h1>'
     + (note ? '<div style="font-size:12.5px;color:var(--fg3);margin:0 0 18px">'+note+'</div>' : '')
-    + metricTabs(parts.h.tiles.slice(0, 4), parts.cur, 'l3Inner')
+    + metricTabs(parts.h.tiles.slice(0, parts.h.maxTiles || 4), (t.tile && parts.h.tiles.some(x => x.id === t.tile && (x.tab || x.id) === parts.cur)) ? t.tile : parts.cur, 'l3Inner')
     + metricPanel(subNav(parts.inner, parts.cur, 'l3Inner', parts.content).replace('top:84px', 'top:124px'))
     + seeAlso(parts.see)
   + '</div>';
@@ -8146,8 +8160,170 @@ L3.coverage = {
         }), [false,false,false], 440);
     }
     const b = coverageBridge();
+    if (!b || b.prev == null || isNaN(b.prev)) return lead('This is the first period with a reading at this scope, so there is no earlier period to compare it with yet. The bridge fills in once a period closes.');
     return lead('From '+fmtX(b.prev)+' in '+esc(periodName(1))+' to '+fmtX(b.now)+' now.') + bridgeChart(b)
       + srcNote('Each robot bar is its own change in work valued at today&#39;s rate, over the fleet&#39;s lease. Robots that moved less than 0.05x on their own, and any rate change since July closed, are folded into others.');
+  }
+};
+/* ── Utilization: hours the robots ran against the hours you scheduled ── */
+function utilRows(){
+  const days = daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end);
+  return computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded).map(r => {
+    const duty = parseFloat((ROBOTS[r.i] || {}).hours), perDay = schedHours(r.i);
+    const cap = perDay > 0 ? perDay * days : 0;
+    return { i:r.i, name:r.name, work:r.work, site: robotSite(r.i), duty: isFinite(duty) ? duty : null, perDay, cap, util: cap > 0 && isFinite(duty) ? duty / cap * 100 : null };
+  });
+}
+function pct(v){ return v == null || !isFinite(v) ? 'not reported' : Math.round(v)+'%'; }
+L3.utilization = {
+  head(){
+    // Months with no reading (a live site that started later) are left out.
+    const vals = PERIODS.map(p => utilForPeriod(p, S.dashScope)).filter(v => v != null && !isNaN(v));
+    const now = vals[0], avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+    const rows = utilRows();
+    const idle = rows.reduce((a, r) => a + (r.cap > 0 && r.duty != null ? Math.max(0, r.cap - r.duty) : 0), 0);
+    const sites = SITES.map((s, n) => ({ n, name:s.name, v: liveUtilization(n) })).filter(x => (S.dashScope === 'all' || x.n === Number(S.dashScope)) && x.v != null);
+    const low = sites.slice().sort((x, y) => x.v - y.v)[0];
+    const lowR = rows.filter(r => r.util != null).sort((x, y) => x.util - y.util)[0];
+    return { name:'Utilization',
+      crumb: [{ label:'Dashboard', attrs:'data-act="go" data-view="dashv2"' }, { label:'Utilization' }],
+      headline: pct(now)+' of scheduled hours used across '+rows.length+' robot'+(rows.length === 1 ? '' : 's')+', '+(now >= avg ? 'up ' : 'down ')+Math.abs(now - avg).toFixed(0)+' points on the six-month average.',
+      tiles: [
+        { id:'time', label:'This period', value: pct(now), unit:'6-mo avg '+pct(avg) },
+        { id:'site', label:'Lowest site', value: low ? pct(low.v) : 'not reported', unit: low ? low.name : '' },
+        { id:'robots', label:'Lowest robot', value: lowR ? pct(lowR.util) : 'not reported', unit: lowR ? lowR.name : '' },
+        { id:'how', label:'Scheduled, not run', value: Math.round(idle).toLocaleString('en-US')+' h', unit:'this period' }
+      ] };
+  },
+  inner(){ return [{ id:'time', label:'Over time', icon:'trending-up' }, { id:'site', label:'By site', icon:'home' }, { id:'robots', label:'By robot', icon:'boxes' }, { id:'how', label:'How it is counted', icon:'help-circle' }]; },
+  see(){ return [['robots','Fleet'],['setup','Numbers'],['trends','Trends'],['dashv2','Dashboard']]; },
+  body(id, tab){
+    if (tab === 'site'){
+      const fleet = liveUtilization('all');
+      const rows = SITES.map((s, n) => ({ n, s, v: liveUtilization(n) })).filter(x => S.dashScope === 'all' || x.n === Number(S.dashScope))
+        .map(x => ({ label: x.s.name, value: x.v || 0, display: pct(x.v), mark: fleet, attrs:'data-peek="site:'+siteSlug(x.n)+'"' }));
+      return lead('Each site this period against the whole fleet at '+pct(fleet)+', the dashed line.') + compareBars(rows, 'Fleet '+pct(fleet))
+        + srcNote('Hours the robots reported running, over the hours a day you scheduled on Numbers times the days in the period.');
+    }
+    if (tab === 'robots'){
+      const rows = searchRows(utilRows(), r => r.name).sort((x, y) => (x.util == null ? 1e9 : x.util) - (y.util == null ? 1e9 : y.util));
+      if (!rows.length) return '<div style="font-size:13px;color:var(--fg3)">'+(S.search ? 'No robot matches &ldquo;'+esc(S.search)+'&rdquo;.' : 'No robots at this scope.')+'</div>';
+      return lead('Every robot, lowest first. A figure over 100% means the schedule on Numbers is set lower than the robot actually runs.')
+        + tableShell('minmax(140px,2fr) 56px 76px minmax(60px,1fr) 48px', ['Robot','Ran','Scheduled','Used',''], rows.map(r => ({ attrs:'data-peek="robot:'+r.i+':verdict"', cells:[
+          '<div style="font-weight:500">'+esc(r.name)+'</div><div style="font-size:12px;color:var(--fg3)">'+esc(SITES[r.site].name)+' &middot; '+esc(r.work)+'</div>',
+          r.duty == null ? 'not reported' : Math.round(r.duty)+' h',
+          r.cap > 0 ? Math.round(r.cap)+' h' : 'not set',
+          r.util == null ? '' : '<div style="height:8px;background:var(--ghost2);border-radius:2px;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:'+Math.min(100, r.util).toFixed(1)+'%;background:var(--fg1);border-radius:2px"></div></div>',
+          pct(r.util)] })), [false,false,false,false,true], 440);
+    }
+    if (tab === 'how'){
+      const rows = utilRows();
+      const duty = rows.reduce((a, r) => a + (r.duty || 0), 0), cap = rows.reduce((a, r) => a + r.cap, 0);
+      return lead('Utilization is the share of the hours you scheduled that the robots actually spent running.')
+        + '<div style="max-width:560px">'
+          + eqStep('Hours the robots ran', Math.round(duty).toLocaleString('en-US')+' h', 'Duty hours each robot reported, from your usage import', 'telemetry')
+          + eqStep('Hours you scheduled', Math.round(cap).toLocaleString('en-US')+' h', 'Hours a day on Numbers, times '+daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end)+' days', 'set')
+          + eqStep('So utilization is', pct(cap > 0 ? duty / cap * 100 : null), 'Ran over scheduled', 'derived')
+        + '</div>'
+        + srcNote('Raise a schedule on Numbers and this reads lower, because the robot ran the same hours either way. Closed periods keep the figure they closed with. There is no break-even line: utilization is a rate, not a verdict.');
+    }
+    const pts = PERIODS.slice().reverse().map(p => ({ value: utilForPeriod(p, S.dashScope), label: p.label.split(' ')[0], current: p.status === 'open' }));
+    const vals = pts.map(p => p.value);
+    let big = null;
+    for (let k = 1; k < vals.length; k++){ const d = vals[k] - vals[k-1]; if (!big || Math.abs(d) > Math.abs(big.d)) big = { d, to: PERIODS.length - 1 - k }; }
+    return lead('Six periods of the same figure: hours run over hours scheduled.')
+      + sparklineChart(pts, { formatValue: v => Math.round(v)+'%', gradientId:'l3util' })
+      + (big ? '<div style="font-size:13px;color:var(--fg2);margin-top:14px">The biggest move was into '+esc(periodName(big.to))+', '+(big.d >= 0 ? 'up ' : 'down ')+Math.abs(big.d).toFixed(0)+' points.</div>' : '')
+      + srcNote('The open period is worked out from the schedule as it stands now, so a change on Numbers moves the last point. Closed periods keep what they closed with.');
+  }
+};
+/* ── Tax shield ── */
+L3.taxshield = {
+  head(){
+    const t = computeTaxShield();
+    return { name:'Tax shield',
+      crumb: [{ label:'Dashboard', attrs:'data-act="go" data-view="dashv2"' }, { label:'Tax shield' }],
+      headline: money0(t.shieldCents / 100)+' year-1 tax shield on '+t.robotCount+' robot'+(t.robotCount === 1 ? '' : 's')+', if they were financed instead of leased.',
+      tiles: [
+        { id:'shield', label:'Year-1 tax shield', value: money0(t.shieldCents / 100), unit:'illustrative' },
+        { id:'cost', label:'First-year cost', value: money0(t.netCostCents / 100), unit:'after the shield' },
+        { id:'robots', label:'Equipment cost', value: money0(t.totalCostCents / 100), unit: t.robotCount+' robots' },
+        { id:'how', label:'Tax rate', value: S.taxRate+'%', unit: S.taxDepMethod === 'macrs5' ? '5-yr MACRS' : 'Bonus / Sec. 179' }
+      ] };
+  },
+  inner(){ return [{ id:'shield', label:'The figure', icon:'shield' }, { id:'cost', label:'First-year cost', icon:'coins' }, { id:'robots', label:'By kind of work', icon:'hexagon' }, { id:'how', label:'How it is worked out', icon:'help-circle' }]; },
+  see(){ return [['robots','Fleet'],['payback','Payback'],['dashv2','Dashboard']]; },
+  body(id, tab){
+    const t = computeTaxShield(), m = c => money(c / 100);
+    if (tab === 'cost'){
+      const lease = computeStatement(true, scopeFilter()).totalInvoice * 12;
+      return lead('What buying the fleet outright would cost in year one, once the tax shield comes back.')
+        + '<div style="max-width:560px">'
+          + eqStep('Equipment cost', m(t.totalCostCents), t.robotCount+' robots at the price for the work each does', 'set')
+          + eqStep('Less the year-1 tax shield', '\u2212'+m(t.shieldCents), 'Depreciation and interest at your '+S.taxRate+'% tax rate', 'derived')
+          + eqStep('So the first-year cost is', m(t.netCostCents), 'Equipment cost less the shield', 'derived')
+        + '</div><div style="height:20px"></div>'
+        + statGrid([statRow('Leasing for a year', money0(lease), 'this period&#39;s invoices &times; 12'), statRow('Buying, first year', money0(t.netCostCents / 100), 'after the shield'), statRow('Per robot', t.robotCount ? money0(t.netCostCents / 100 / t.robotCount) : 'not reported', 'first year, after the shield')])
+        + srcNote('Illustrative only, not tax advice. Change the tax rate, financing rate or method on The figure tab and this moves with it. Leasing is this period&#39;s invoices carried for twelve months, with no price change assumed.');
+    }
+    if (tab === 'robots'){
+      if (!t.byCategory.length) return lead(noRobotNote());
+      return lead('Equipment cost by the work each robot does, and its share of the shield.')
+        + tableShell('minmax(150px,2fr) 64px 110px 110px', ['Work','Robots','Equipment cost','Share of shield'], t.byCategory.map(k => ({ attrs: openAttrs('work', slug(k.work), 'robots'), cells:[
+          esc(k.work), String(k.count), m(k.costCents), t.totalCostCents > 0 ? m(t.shieldCents * k.costCents / t.totalCostCents) : '$0.00'] })), [false,false,false,true], 440);
+    }
+    if (tab === 'how'){
+      const dep = S.taxDepMethod === 'macrs5' ? '20% in year one, 5-year MACRS' : '100% in year one, bonus or Section 179';
+      return lead('What the two deductions are worth at your tax rate.')
+        + '<div style="max-width:560px">'
+          + eqStep('Equipment cost', m(t.totalCostCents), 'The price of a robot for the work each one does', 'set')
+          + eqStep('Depreciation in year one', m(t.depreciationCents), dep, 'derived')
+          + eqStep('Interest in year one', m(t.interestCents), 'The full cost financed at '+S.taxInterestRate+'%, which you set', 'derived')
+          + eqStep('Your tax rate', S.taxRate+'%', 'Set on The figure tab', 'set')
+          + eqStep('So the year-1 shield is', m(t.shieldCents), '(depreciation + interest) &times; tax rate', 'derived')
+        + '</div>'
+        + srcNote('Illustrative only, not tax advice. Interest is a flat first-year estimate with no amortization schedule.');
+    }
+    return taxShieldCard({ bare:true, noLink:true });
+  }
+};
+
+/* ── Rate assumption ── */
+L3.rate = {
+  head(){
+    const base = sensBase();
+    const crumb = [{ label:'Dashboard', attrs:'data-act="go" data-view="dashv2"' }, { label:'Rate assumption' }];
+    if (!base) return { name:'Rate assumption', crumb, headline:'Every robot here is priced by the active hour, so there is no throughput to test.', tiles:[{ id:'test', label:'Assumed throughput', value:'not used', unit:'priced by the hour' }] };
+    const min = Math.max(1, Math.round(base.benchUnitsPerHour * 0.5)), max = Math.max(min + 1, Math.round(base.benchUnitsPerHour * 2));
+    const tt = Math.min(max, Math.max(min, S.throughput)), c = calc(tt, base), be = breakEven(base), rc = rateCentsFor(base.work);
+    return { name:'Rate assumption', crumb,
+      headline: 'Every figure assumes a person does '+base.benchUnitsPerHour+' '+esc(base.unitPlural)+' an hour of '+esc(base.work.toLowerCase())+'. Coverage falls to 1.00x at '+be+'.',
+      tiles: [
+        { id:'test', label:'Assumed', value: base.benchUnitsPerHour+' / hr', unit: esc(base.unitPlural)+', you set this' },
+        { id:'_cov', tab:'test', label:'Coverage at your test', value: c.cov.toFixed(2)+'x', unit:'at '+tt+' / hr' },
+        { id:'_be', tab:'test', label:'Break-even', value: be+' / hr', unit:'where coverage is 1.00x' },
+        { id:'rate', label:'Rate per '+esc(base.unit), value: rc === null ? 'not set' : money(rc / 100), unit:'what a person costs' }
+      ] };
+  },
+  inner(){ return [{ id:'test', label:'Test it', icon:'sliders-horizontal' }, { id:'rate', label:'Where the rate comes from', icon:'coins' }, { id:'robots', label:'Robots it prices', icon:'boxes' }]; },
+  see(){ return [['setup','Numbers'],['benchmark','Benchmark'],['dashv2','Dashboard']]; },
+  body(id, tab){
+    const base = sensBase();
+    if (!base) return lead('Every robot here is priced by the active hour, not by a per-task rate, so there is no throughput assumption to test.');
+    const w = base.work, b = workDef(w);
+    if (tab === 'robots') return lead('The robots whose figures move with this one assumption.') + robotTable(computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.work === w));
+    if (tab === 'rate'){
+      const wage = wageFor(w), per = throughputFor(w), rc = rateCentsFor(w);
+      return lead('A person doing '+esc(w.toLowerCase())+' costs '+money(wage)+' an hour and gets through '+per+' '+esc(b.unitPlural)+' in that hour.')
+        + '<div style="max-width:560px">'
+          + eqStep('What a person earns in an hour', money(wage), wageIsOwnSet(w) ? 'Your number, from Numbers' : 'Benchmark loaded wage until you change it', 'set')
+          + eqStep('What they get through in that hour', per+' '+esc(b.unitPlural), throughputIsOwnSet(w) ? 'Your number, from Numbers' : 'Benchmark throughput until you change it', 'set')
+          + eqStep('So one '+esc(b.unit)+' is worth', rc === null ? 'not set' : money(rc / 100), 'Wage over throughput', 'derived')
+        + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">'+secondaryBtn('data-act="go" data-view="setup"', 'Change it on Numbers')+secondaryBtn(openAttrs('work', slug(w), 'rate'), 'Open '+esc(w))+'</div>';
+    }
+    return sensitivityCard({ bare:true, noLink:true })
+      + srcNote('Dragging tests the figure here only. The rate every page uses is set on Numbers.');
   }
 };
 function bridgeChart(b){
@@ -8747,8 +8923,9 @@ L3.brief = {
         { id:'brief', label:'Watch today', value: d.watch ? esc(d.watch.r.name) : 'nothing', unit: d.watch ? fmtDownFor(d.watch.mins)+' down in 7 days' : 'no robot under its lease' },
         { id:'spots', label:'Stall spots', value: String(d.spots.length), unit:'top places, last 7 days' },
         { id:'parts', label:'Parts to order', value: d.parts.length ? String(d.parts.length) : 'none', unit:'under 25% of rated life' },
-        { id:'money', label:'Money waiting', value: money0(money), unit: d.tickets.length+' late ticket'+(d.tickets.length === 1 ? '' : 's') }
-      ] };
+        { id:'money', label:'Money waiting', value: money0(money), unit: d.tickets.length+' late ticket'+(d.tickets.length === 1 ? '' : 's') },
+        { id:'delivery', label:'Delivery', value: S.briefSettings ? esc(S.briefSettings.time) : 'not set up', unit: S.briefSettings ? S.briefSettings.days.filter(Boolean).length+' days a week, '+S.briefSettings.to.filter(x => x.trim()).length+' people' : 'nothing is sent yet' }
+      ], maxTiles: 5 };
   },
   inner(){ return [{ id:'brief', label:'The brief', icon:'bell' }, { id:'spots', label:'Where they got stuck', icon:'anchor' }, { id:'parts', label:'Parts to order', icon:'sliders-horizontal' }, { id:'money', label:'Money waiting', icon:'coins' }, { id:'delivery', label:'Delivery', icon:'settings' }]; },
   see(){ return [['incidents','Incidents'],['contract','Contract'],['vendors','Vendors']]; },
@@ -9296,7 +9473,7 @@ function applyKeeping(){
 
 function applyTaxShield(){
   const put = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  if (S.view !== 'dashv2') return;
+  if (S.view !== 'dashv2' && !(S.activeTab >= 0)) return;
   const t = computeTaxShield();
   const m = (cents) => money(cents / 100);
   put('taxShieldValue', m(t.shieldCents));
@@ -9308,7 +9485,7 @@ function applyTaxShield(){
    tracking the pointer. */
 function applySensitivity(){
   const put = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  if (S.view !== 'dashv2') return;
+  if (S.view !== 'dashv2' && !(S.activeTab >= 0)) return;
   const base = sensBase();
   if (!base) return;
   const c = calc(S.throughput, base);
@@ -9716,7 +9893,7 @@ const ACTIONS = {
   stripTab: (el) => activateTab(Number(el.dataset.idx)),
   closeTab: (el) => closeTab(Number(el.dataset.idx)),
   openTab: (el) => openTabAny(el.dataset.kind, el.dataset.id, el.dataset.tab || ''),
-  l3Inner: (el) => { const t = S.tabs[S.activeTab]; if (!t || !el.dataset.tab) return; t.tab = el.dataset.tab; syncTabsUrl(false); render(); },
+  l3Inner: (el) => { const t = S.tabs[S.activeTab]; if (!t || !el.dataset.tab) return; t.tab = el.dataset.tab; t.tile = el.dataset.tile || ''; syncTabsUrl(false); render(); },
   openCoverage: () => openTabAny('coverage', 'fleet', 'why'),
   tabUndo: () => undoTabClose(),
   tabToastClose: () => { S.tabToast = null; clearTimeout(tabToastTimer); render(); },
