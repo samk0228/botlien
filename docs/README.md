@@ -36,10 +36,19 @@ https://claude.ai/artifact/GCaGNEseYu63EeQMDghUm9. Its exact source is
 | [`design/costs/v2-prototype-and-served-app.md`](design/costs/v2-prototype-and-served-app.md) | Aug 31 | Part A prototype fixes; Part B brings the served app to the prototype's decisions (timing strip, brand on import) |
 | [`design/costs/v3-action-queue.md`](design/costs/v3-action-queue.md) | Sep 2 | Turns the screen into an action queue: 60 words visible, verb headlines, two rows never describing the same money, detail one layer down |
 | [`design/costs/v3-build-prompt-for-claude-design.md`](design/costs/v3-build-prompt-for-claude-design.md) | Sep 14 | Self-contained build prompt for v3 (tokens, numbers, anatomy) used to compare the Claude Design route against the `/design` canvas |
+| [`design/costs/v3-one-screen-prompt.md`](design/costs/v3-one-screen-prompt.md) | Sep 14 | The same v3 design as **one interactive frame** instead of six state frames. This is the one to iterate from in Claude Design. |
 
 The v3 design canvas (six artboards, click-to-edit) is at
 https://claude.ai/artifact/12gVKZRVAcpKhRNDGjiFPR; its sources are in
 [`../prototype/design/costs-action-queue/`](../prototype/design/costs-action-queue/).
+
+### Whole-dashboard review, Sep 14
+
+| File | What it is |
+|---|---|
+| [`design/DESIGN.md`](design/DESIGN.md) | The design system: tokens, type scale, surfaces, layout rules. Source of truth when prototype and app disagree. |
+| [`design/dashboard-review-2026-09-14.md`](design/dashboard-review-2026-09-14.md) | Seven-pass design review of every screen, rated before and after, nine decisions, ten tasks |
+| [`design/dashboard-v2-iteration-prompt.md`](design/dashboard-v2-iteration-prompt.md) | The brief to run in Claude Design against the Demo prototype to apply those decisions |
 
 ## Ops
 

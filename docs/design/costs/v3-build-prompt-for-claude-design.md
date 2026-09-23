@@ -61,7 +61,7 @@ Subline: 13px `--fg2`, indented 28px, ten words or fewer.
 Row treatment: each row has a 2px left rule and padding 14px 0 14px 15px, reusing the convention from the Dashboard's "Needs attention" card. A **solid** rule means money already spent. A **dashed** rule means money conditional on the operator acting. A hairline separates the rows.
 
 - **Row 1 (cost, solid rule):** `1` · `Go watch the 2pm shift` · `$948.00` · shape = the 24-hour stall strip in miniature with a bracket over 2p–4p · subline `38% of it lands between 2p and 4p`
-- **Row 2 (opportunity, dashed rule):** `2` · `Try Fetch on the Locus routes` · `$2,533` · shape = two horizontal bars, cheapest first (Locus at 0.44, Fetch at 0.61 and darker; longer is more) · subline `if it is the machine, not the route`
+- **Row 2 (opportunity, dashed rule):** `2` · `Try Locus on the Fetch routes` · `$2,533` · shape = two horizontal bars, cheapest first (Locus at 0.44, Fetch at 0.61 and darker; longer is more) · subline `if it is the machine, not the route`
 
 Ordering rule: costs before opportunities regardless of size, then by size within each group. $948 spent outranks $2,533 conditional.
 

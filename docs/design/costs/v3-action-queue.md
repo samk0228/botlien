@@ -47,7 +47,7 @@ What to do
 1  Go watch the 2pm shift            $948      ▁▁▂▃▃▂█▇▃▂▁      ›
    38% of it lands between 2p and 4p
 
-2  Try Fetch on the Locus routes     $2,533    ▓▓▓ vs ▓▓        ›
+2  Try Locus on the Fetch routes     $2,533    ▓▓▓ vs ▓▓        ›
    if the difference is the machine and not the route
 
                                             how we count ›
@@ -116,7 +116,7 @@ Five elements, in this order, on one line plus a subline:
 
 1. **Rank numeral.** Quiet, small, mono.
 2. **The verb headline.** Maximum 6 words, and it must start with a verb. Not a noun phrase.
-   "Go watch the 2pm shift", not "When they get stuck". "Try Fetch on the Locus routes", not
+   "Go watch the 2pm shift", not "When they get stuck". "Try Locus on the Fetch routes", not
    "Brand against brand". The heading instructs, it does not describe.
 3. **The magnitude.** One figure, tabular numerals, right of the headline.
 4. **The shape.** One small graphic, roughly 110px wide and 24px tall, no axis, no labels,

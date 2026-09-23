@@ -3,11 +3,14 @@
 ## The published version
 
 The prototype we are working toward is the **Botlien Demo** artifact:
-https://claude.ai/artifact/GCaGNEseYu63EeQMDghUm9. Since Sep 14, 2026 its exact
-source is `src/botlien.part.html` on `main`: the build reproduces the artifact
-page byte for byte (unwrap the publish shell, drop the Claude Design badge, and
-the two are identical). When the artifact changes, bring the change back here
-the same way so the repo never falls behind the design again.
+https://claude.ai/artifact/GCaGNEseYu63EeQMDghUm9. Its exact source is
+`src/botlien.part.html` on `main`: the build reproduces the artifact page byte
+for byte (unwrap the publish shell, drop the Claude Design badge, and the two
+are identical). Last synced Sep 16, 2026 from artifact version
+`1789623340-fba9`, which added Trends, Payback, Contract, Decisions, Benchmark,
+Incidents, Vendors and the printable evidence pack. When the artifact changes,
+bring the change back here the same way so the repo never falls behind the
+design again.
 
 Design explorations that have not been ported yet live in `design/`, one folder
 per canvas, as `.dc.html` artboards plus the generator that writes them:
@@ -67,17 +70,16 @@ node build.cjs          # writes ../botlien-prototype.html
 ```
 
 - `src/botlien.part.html` is the whole app: CSS tokens, data, views, actions.
-  Placeholders `__LOGO__`, `__INTER__`, `__INTER_EXT__`, `__MONO__`,
-  `__ICONS_JSON__` get substituted at build.
+  Placeholders `__LOGO__`, `__INTER__`, `__INTER_EXT__`, `__ICONS_JSON__` get
+  substituted at build. (The mono subset, `__MONO__`, left with the visible
+  arithmetic; nothing references it any more.)
 - `src/assets.json` holds those substitutions (woff2 subsets, logo PNG, lucide
   icon paths) extracted from the original bundles.
 
-To preview locally, wrap it, because the published page is injected into a
-`<body>` and the file has no `<html>` tag of its own:
-
-```
-node -e "const f=require('fs');f.writeFileSync('/tmp/p.html','<!doctype html><html><head><meta charset=utf-8></head><body>'+f.readFileSync('../botlien-prototype.html','utf8')+'</body></html>')"
-```
+The built file is a complete HTML document since the Sep 16 sync, so it opens
+directly; no wrapping step. Every screen is addressable with `?view=` (see
+below), and `?demo=1` lands on the populated Dashboard the way botlien.com/demo
+does.
 
 ## Numbers
 
