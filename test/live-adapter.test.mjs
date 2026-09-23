@@ -71,6 +71,7 @@ test("robots carry the demo's shapes: brand-first model, site index, duty string
   assert.equal(T.CONFIRM[0].work, "Order picking");
   assert.equal(T.CONFIRM[1].work, "Floor cleaning");
   assert.equal(T.SETUP[0].hours, "12.0 h");
+  assert.equal(T.FIRST_RUN, null, "a contract built outside an account has no first-run state");
 });
 
 test("periods read like the demo's and bound the same days", () => {

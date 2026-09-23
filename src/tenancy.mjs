@@ -25,7 +25,7 @@ import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract } from "./contract.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { saveInputs } from "./inputs.mjs";
-import { defaultWorkFor } from "./rates.mjs";
+import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
 
 /** Parse the operator allowlist from a comma-separated string or an array into
@@ -184,7 +184,7 @@ export function createTenancy({
     // The account's data sources ride along with its data, so the page can
     // say where every figure came from and whether the feed is healthy.
     const getFleetContract = () => {
-      const contract = { ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store) };
+      const contract = { ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store), setup: setupState() };
       // The activation moment, now that /app is home: the same rule the old
       // statement page used (numbers saved, a real ratio behind them), fired
       // once when the dashboard's data is first served with it.
@@ -199,6 +199,8 @@ export function createTenancy({
       async connect(vendor, input) {
         const out = await connectVendor({ control, vault: vault ?? { ready: false }, accountId: account.id, vendor, input, config, fetchImpl, now });
         log(`account ${account.id} connected ${vendor} (${out.robotCount} robots)`);
+        // Connecting a vendor is the funnel's data step as much as an upload.
+        onceEvent(account.id, "data_connected", { vendor, robots: out.robotCount });
         return out;
       },
       disconnect(vendor) {
@@ -211,7 +213,40 @@ export function createTenancy({
     // Where this account is in first run, read from its data. /app sends an
     // account that has no fleet yet to the step that gets it one.
     const step = () => onboardingStep(store);
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step };
+    // Everything the first-run screens need, in one read.
+    const setupState = () => {
+      const c = confirmModel(store, now());
+      const siteName = new Map(store.listSites().map((x) => [x.id, x.name]));
+      const siteOf = new Map(store.listRobots().map((r) => [r.id, siteName.get(r.site_id) ?? null]));
+      return {
+        step: step(),
+        business: businessType(store),
+        businessTypes: Object.keys(BUSINESS_TYPES).map((k) => businessPreview(k)),
+        robots: c.robots.map(({ id, name, brand, model, category, excluded, rangeLabel }) => ({ id, name, brand, model, category, excluded, seen: rangeLabel, site: siteOf.get(id) ?? null })),
+        sites: store.listSites().map((x) => x.name),
+        categories: c.categories.map((key) => ({ key, label: BENCHMARKS[key]?.label ?? key })),
+        lastImport: c.lastImport,
+        vendors: describeConnections(control, account.id, store),
+      };
+    };
+    /** Name the sites and say which robot works where. Every robot named in
+     *  `robots` must be on the account and every site must be in `sites`. */
+    const saveSites = ({ sites = [], robots = {} } = {}) => {
+      const names = [...new Set((Array.isArray(sites) ? sites : []).map((n) => String(n ?? "").trim()).filter(Boolean))];
+      if (names.length === 0) throw new Error("Name at least one site.");
+      if (names.some((n) => n.length > 80)) throw new Error("A site name is longer than 80 characters.");
+      const known = new Set(store.listRobots().map((r) => String(r.id)));
+      for (const [id, site] of Object.entries(robots)) {
+        if (!known.has(String(id))) throw new Error(`Robot ${id} is not on this account.`);
+        if (!names.includes(String(site))) throw new Error(`${site} is not one of the sites named.`);
+      }
+      store.transaction(() => {
+        const ids = new Map(names.map((n) => [n, store.upsertSite(n, now())]));
+        for (const [id, site] of Object.entries(robots)) store.setRobotSite(Number(id), ids.get(String(site)));
+      });
+      return setupState();
+    };
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

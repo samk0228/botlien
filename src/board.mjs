@@ -338,6 +338,8 @@ export function startBoard(port, {
       let signedIn = null;
       let saveOwnerInputs = baseSaveOwnerInputs;
       let setupStep = null;
+      let setupState = null;
+      let saveSites = null;
       let connections = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
@@ -370,6 +372,8 @@ export function startBoard(port, {
           signedIn = account;
           saveOwnerInputs = bound.saveOwnerInputs ?? null;
           setupStep = bound.step ?? null;
+          setupState = bound.setupState ?? null;
+          saveSites = bound.saveSites ?? null;
           connections = bound.connections ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
@@ -397,6 +401,55 @@ export function startBoard(port, {
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
         res.end(JSON.stringify(await getFleetContract()));
         return;
+      }
+
+      // ---- first run, as JSON for the dashboard's own screens ----
+      if (setupState && onboarding && path.startsWith("/api/v1/setup")) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET" && path === "/api/v1/setup") return reply(200, setupState());
+        if (req.method === "POST" && path === "/api/v1/setup/business") {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 4096)); } catch { return reply(400, { error: "Send JSON: { business }." }); }
+          if (!onboarding.saveBusiness(String(body.business ?? ""))) {
+            return reply(400, { error: body.business ? "That is not one of the options. Pick the closest match, you can change it later." : "Choose the kind of business this is so we know what your robots' work is worth." });
+          }
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/import") {
+          let text;
+          try { text = await readBody(req, MAX_UPLOAD_BYTES); } catch { return reply(413, { error: "That file is larger than 25MB." }); }
+          const name = new URL(req.url, "http://127.0.0.1").searchParams.get("name") ?? "upload.csv";
+          const result = onboarding.importText(text, name);
+          if (!result.ok) return reply(400, { error: result.message });
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/confirm") {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 256 * 1024)); } catch { return reply(400, { error: "Send JSON: { robots: [{ id, name, category, excluded }] }." }); }
+          // The same form the server page posts, so both paths share one parser.
+          const form = new URLSearchParams();
+          for (const r of Array.isArray(body.robots) ? body.robots : []) {
+            if (r?.id == null) continue;
+            form.set(`name_${r.id}`, String(r.name ?? ""));
+            form.set(`category_${r.id}`, String(r.category ?? ""));
+            if (r.excluded) form.set(`excluded_${r.id}`, "1");
+          }
+          onboarding.saveConfirm(form);
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/sites" && saveSites) {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 64 * 1024)); } catch { return reply(400, { error: "Send JSON: { sites: [names], robots: { id: site } }." }); }
+          try {
+            return reply(200, saveSites(body));
+          } catch (err) {
+            return reply(400, { error: String(err?.message ?? err) });
+          }
+        }
+        return reply(404, { error: "not a setup step" });
       }
 
       // ---- what the owner types on the dashboard ----
@@ -481,7 +534,8 @@ export function startBoard(port, {
         // the first-run step that gets it one (business, then connect or
         // upload, then confirm). Numbers is not a gate; /app has its own.
         const step = !demo && setupStep ? setupStep() : "done";
-        if (step === "business" || step === "import" || step === "confirm") {
+        const { pageRunsFirstRun } = await import("./app.mjs");
+        if ((step === "business" || step === "import" || step === "confirm") && !pageRunsFirstRun()) {
           res.writeHead(303, { Location: `/owner/${step}` });
           res.end();
           return;

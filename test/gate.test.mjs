@@ -395,3 +395,43 @@ test("/app sends a brand-new account to first run, and old pages forward once it
     await app.close();
   }
 });
+
+test("first run works as JSON for the dashboard's own screens", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("json@example.com");
+    const call = async (method, path, body, type = "application/json") => {
+      const res = await fetch(`${app.base}${path}`, { method, headers: { Cookie: cookie, "Content-Type": type }, body });
+      return { status: res.status, body: await res.json() };
+    };
+    let r = await call("GET", "/api/v1/setup");
+    assert.equal(r.body.step, "business");
+    assert.ok(r.body.businessTypes.length >= 4, "every business type is offered");
+
+    r = await call("POST", "/api/v1/setup/business", JSON.stringify({ business: "nope" }));
+    assert.equal(r.status, 400);
+    r = await call("POST", "/api/v1/setup/business", JSON.stringify({ business: "restaurant" }));
+    assert.equal(r.body.step, "import");
+
+    r = await call("POST", "/api/v1/setup/import?name=usage.csv", "name,qty\n", "text/csv");
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /No usable rows|could not be parsed/);
+    r = await call("POST", "/api/v1/setup/import?name=usage.csv", csv("json", 5), "text/csv");
+    assert.equal(r.body.step, "confirm");
+    assert.equal(r.body.robots.length, 1);
+
+    const robot = r.body.robots[0];
+    r = await call("POST", "/api/v1/setup/confirm", JSON.stringify({ robots: [{ id: robot.id, name: "Servi 1 (front)", category: robot.category, excluded: false }] }));
+    assert.equal(r.body.step, "setup", "numbers are next, and /app handles them");
+    assert.equal(r.body.robots[0].name, "Servi 1 (front)");
+
+    r = await call("POST", "/api/v1/setup/sites", JSON.stringify({ sites: ["Pier 4"], robots: { [robot.id]: "Marina" } }));
+    assert.equal(r.status, 400, "a robot cannot go to a site that was not named");
+    r = await call("POST", "/api/v1/setup/sites", JSON.stringify({ sites: ["Pier 4", "Marina"], robots: { [robot.id]: "Marina" } }));
+    assert.deepEqual(r.body.sites, ["Pier 4", "Marina"]);
+    assert.equal(r.body.robots[0].site, "Marina");
+    assert.equal(app.control.funnel().counts.data_connected, 1);
+  } finally {
+    await app.close();
+  }
+});

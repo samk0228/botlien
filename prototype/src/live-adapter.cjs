@@ -172,6 +172,10 @@ function liveTables(c) {
         return { line: x.label.toLowerCase() + ' api · live sync · ' + (x.robotCount || 0) + ' robots · last good sync ' + ago(x.lastOkAt), status: word };
       })
     : [{ line: 'no live connection yet · connect a vendor under Data sources, or import an export', status: 'not connected' }];
+  // First run: where this account is, the business types, the robots to
+  // confirm and the vendors it can connect (GET /api/v1/setup, same shape).
+  // FIRST_RUN, not SETUP: SETUP is already the page's per-robot hours table.
+  T.FIRST_RUN = c.setup || null;
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.

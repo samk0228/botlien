@@ -16,6 +16,14 @@ function pageHTML() {
   return cached;
 }
 
+/** Whether the built page runs first run itself (business, connect or
+ *  upload, confirm) against /api/v1/setup. Until the design pass that adds
+ *  it lands, /app keeps sending a new account to the plain server pages, so
+ *  shipping either half first never strands a new customer. */
+export function pageRunsFirstRun(html = pageHTML()) {
+  return html.includes("const LIVE_FIRST_RUN = true");
+}
+
 /** JSON that is safe inside a <script> element: no "</script>", no "<!--",
  *  and no line separators that end a JS string. */
 export function scriptJSON(value) {
