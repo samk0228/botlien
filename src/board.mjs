@@ -337,6 +337,7 @@ export function startBoard(port, {
       let getFleetContract = baseGetFleetContract;
       let signedIn = null;
       let saveOwnerInputs = baseSaveOwnerInputs;
+      let setupStep = null;
       let connections = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
@@ -368,6 +369,7 @@ export function startBoard(port, {
           getFleetContract = bound.getFleetContract;
           signedIn = account;
           saveOwnerInputs = bound.saveOwnerInputs ?? null;
+          setupStep = bound.step ?? null;
           connections = bound.connections ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
@@ -475,6 +477,15 @@ export function startBoard(port, {
       if (getFleetContract && req.method === "GET" && path === "/app") {
         const { renderAppHTML } = await import("./app.mjs");
         const demo = /[?&]demo=1(&|$)/.test(req.url ?? "");
+        // An account with no fleet yet has nothing to show here: send it to
+        // the first-run step that gets it one (business, then connect or
+        // upload, then confirm). Numbers is not a gate; /app has its own.
+        const step = !demo && setupStep ? setupStep() : "done";
+        if (step === "business" || step === "import" || step === "confirm") {
+          res.writeHead(303, { Location: `/owner/${step}` });
+          res.end();
+          return;
+        }
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
         res.end(renderAppHTML({ contract: demo ? null : await getFleetContract(), account: signedIn }));
         return;
@@ -558,12 +569,25 @@ export function startBoard(port, {
               return;
             }
             onboarding.saveConfirm(new URLSearchParams(body));
-            res.writeHead(303, { Location: "/owner/setup" });
+            // Confirmed: the fleet exists, so the dashboard is home from here.
+            res.writeHead(303, { Location: "/app" });
             res.end();
             return;
           }
         }
 
+        // The old statement pages are now screens in /app. A signed-in owner
+        // with a fleet is forwarded to the same screen there; ?demo=1 and a
+        // process without accounts keep the old pages as they were.
+        const OLD_PAGES = { "/owner": "dashv2", "/owner/fleet": "robots", "/owner/costs": "costs" };
+        if (req.method === "GET" && setupStep && OLD_PAGES[path] && !(req.url ?? "").includes("demo=1")) {
+          const step = setupStep();
+          if (step === "setup" || step === "done") {
+            res.writeHead(303, { Location: `/app?view=${OLD_PAGES[path]}` });
+            res.end();
+            return;
+          }
+        }
         if (req.method === "GET" && path === "/owner") {
           const model = await getOwnerState();
           // Never render a zeroed statement: send the owner to the step that

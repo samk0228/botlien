@@ -158,6 +158,20 @@ function liveTables(c) {
     if (r.configured && r.invoiceCentsMonth != null) T.INVOICE[i] = r.invoiceCentsMonth / 100;
     if (r.configured && r.scheduledHoursDay != null) T.HOURS[i] = r.scheduledHoursDay;
   });
+  // Settings > Data sources: the account's real connections, or one line
+  // saying there are none yet and where to add one.
+  function ago(ms) {
+    if (!ms) return 'never';
+    var min = Math.round((c.asOf - ms) / 60000);
+    return min < 1 ? 'just now' : min < 60 ? min + ' min ago' : min < 1440 ? Math.round(min / 60) + ' h ago' : Math.round(min / 1440) + ' days ago';
+  }
+  var connected = (c.sources || []).filter(function (x) { return x.connected; });
+  T.SOURCES = connected.length
+    ? connected.map(function (x) {
+        var word = { ok: 'syncing', degraded: 'syncing with problems', down: 'not syncing' }[x.state] || 'waiting for first sync';
+        return { line: x.label.toLowerCase() + ' api · live sync · ' + (x.robotCount || 0) + ' robots · last good sync ' + ago(x.lastOkAt), status: word };
+      })
+    : [{ line: 'no live connection yet · connect a vendor under Data sources, or import an export', status: 'not connected' }];
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.

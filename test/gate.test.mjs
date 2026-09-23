@@ -78,7 +78,8 @@ async function boot({ opsEmails = ["sam@harborgrill.com"] } = {}) {
 
     const red = await fetch(`${base}/signin/${token}`, { redirect: "manual" });
     assert.equal(red.status, 303);
-    assert.equal(red.headers.get("location"), "/owner");
+    // The dashboard is home after sign-in.
+    assert.equal(red.headers.get("location"), "/app");
     const cookie = red.headers.get("set-cookie");
     assert.ok(cookie?.startsWith(SESSION_COOKIE), "a session cookie was set");
     return cookie.split(";")[0];
@@ -132,7 +133,7 @@ test("owner routes redirect to sign-in when there is no session", async () => {
   try {
     // /ops and /api/state are in this list on purpose: they read the operator's
     // own connector-fed fleet, so an anonymous request must not reach them.
-    for (const path of ["/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/api/owner", "/ops", "/api/state"]) {
+    for (const path of ["/app", "/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/owner/sources", "/api/owner", "/api/v1/fleet", "/api/v1/connections", "/ops", "/api/state"]) {
       const res = await app.get(path);
       assert.equal(res.status, 303, `${path} is gated`);
       assert.equal(res.headers.get("location"), "/signin");
@@ -239,7 +240,7 @@ test("a signed-in owner is taken to their statement instead of the sales page", 
     const cookie = await app.signIn("sam@harborgrill.com");
     const res = await app.get("/", cookie);
     assert.equal(res.status, 303);
-    assert.equal(res.headers.get("location"), "/owner");
+    assert.equal(res.headers.get("location"), "/app");
   } finally {
     await app.close();
   }
@@ -357,9 +358,15 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
 
     assert.equal(app.control.funnel().counts.numbers_saved, 1);
 
-    // the statement itself is what activates
-    const stmt = await app.get("/owner", cookie);
-    assert.equal(stmt.status, 200, "statement renders rather than redirecting back");
+    // The old statement page now forwards to the dashboard, which is home.
+    const old = await app.get("/owner", cookie);
+    assert.equal(old.status, 303);
+    assert.equal(old.headers.get("location"), "/app?view=dashv2");
+    assert.equal(app.control.funnel().counts.activated ?? 0, 0, "a redirect is not activation");
+
+    // the dashboard itself is what activates
+    const home = await app.get("/app", cookie);
+    assert.equal(home.status, 200, "the dashboard renders rather than redirecting back");
 
     const f = app.control.funnel();
     assert.equal(f.counts.activated, 1, "activated fired");
@@ -367,9 +374,23 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
     assert.notEqual(f.medianTimeToActivateMs, null, "time to activate is measurable");
 
     // reloading must not inflate it
-    await app.get("/owner", cookie);
-    await app.get("/owner", cookie);
+    await app.get("/app", cookie);
+    await app.get("/app", cookie);
     assert.equal(app.control.funnel().counts.activated, 1, "a reload is not a second activation");
+  } finally {
+    await app.close();
+  }
+});
+
+test("/app sends a brand-new account to first run, and old pages forward once it has a fleet", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("new@example.com");
+    const first = await app.get("/app", cookie);
+    assert.equal(first.status, 303);
+    assert.equal(first.headers.get("location"), "/owner/business", "no business chosen yet");
+    const demo = await app.get("/app?demo=1", cookie);
+    assert.equal(demo.status, 200, "the demo is always reachable");
   } finally {
     await app.close();
   }

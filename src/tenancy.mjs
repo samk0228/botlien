@@ -19,6 +19,7 @@ import {
   recordImport,
   businessType,
   setBusinessType,
+  onboardingStep,
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract } from "./contract.mjs";
@@ -182,7 +183,15 @@ export function createTenancy({
 
     // The account's data sources ride along with its data, so the page can
     // say where every figure came from and whether the feed is healthy.
-    const getFleetContract = () => ({ ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store) });
+    const getFleetContract = () => {
+      const contract = { ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store) };
+      // The activation moment, now that /app is home: the same rule the old
+      // statement page used (numbers saved, a real ratio behind them), fired
+      // once when the dashboard's data is first served with it.
+      const coverage = contract.robots.find((r) => r.coverage !== null)?.coverage ?? null;
+      if (onboardingStep(store) === "done" && coverage !== null) onceEvent(account.id, "activated", { coverage });
+      return contract;
+    };
 
     const connections = {
       vendors: Object.keys(VENDORS),
@@ -199,7 +208,10 @@ export function createTenancy({
       },
     };
     const saveOwnerInputs = (changes) => saveInputs(store, changes, now());
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections };
+    // Where this account is in first run, read from its data. /app sends an
+    // account that has no fleet yet to the step that gets it one.
+    const step = () => onboardingStep(store);
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

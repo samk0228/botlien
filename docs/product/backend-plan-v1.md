@@ -174,3 +174,20 @@ reached the server tables. 295 tests pass.
 Next: make `/app` the home after sign-in and wire the Demo's first-run
 screens (business, connect or upload, confirm fleet) to the backend. Sign-in
 still lands on `/owner/business`.
+
+## /app is home (built 2026-09-23)
+
+Sign-in and the front door send a signed-in owner to `/app`. `/app` sends an
+account with no fleet to its first-run step (`/owner/business`, then
+`/owner/import` with a link to Data sources, then `/owner/confirm`), and
+confirming lands in `/app`. The old statement pages (`/owner`,
+`/owner/fleet`, `/owner/costs`) forward to the same screen in `/app` unless
+`?demo=1`. The funnel's `activated` event now fires when the dashboard data
+is served, under the old rule (numbers saved and a real ratio). In a live
+account the Demo's Import, connect, business and confirm buttons go to those
+real pages, and Settings > Data sources lists the account's real
+connections. End-to-end: a new account walked sign-in, business, Gausium
+connect with history, confirm, dashboard. 296 tests pass.
+
+Still to design: the Demo's own first-run screens wired to these endpoints,
+so first run happens inside /app rather than on the plain server pages.

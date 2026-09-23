@@ -1997,7 +1997,7 @@ const PROMISE = [
   ['We will ask what the work is and what a person gets through in an hour, then derive the rate in front of you','Based on what you tell us']
 ];
 
-const SOURCES = [
+const SOURCES = LIVE ? LIVE.SOURCES : [
   { line:'locus-fleet-export.csv · Aug 4 · 41,200 rows, 4 robots', status:'read' },
   { line:'gausium-openapi · live sync · 2 scrubbers, wear included', status:'read' },
   { line:'locus api · live sync', status:'credentials requested' }
@@ -9311,7 +9311,12 @@ const CLOSED_UI_STATE = {
   emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
 };
 
+// In a live account these steps are real server pages: the upload that reads
+// a vendor export, the vendor connection, the business and confirm steps.
+// The demo keeps its own mock screens for them.
+const LIVE_PAGES = { start:'/owner/import', creds:'/owner/sources', business:'/owner/business', confirm:'/owner/confirm' };
 function goView(view, extra){
+  if (LIVE && !S.demoMode && LIVE_PAGES[view]){ location.href = LIVE_PAGES[view]; return; }
   // A rail click changes the section tab and keeps the Level 3 tabs open.
   if (S.stage === 'app' && S.tabs.length) saveTabScroll();
   S.activeTab = -1;

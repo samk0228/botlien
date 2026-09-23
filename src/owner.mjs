@@ -658,7 +658,7 @@ function periodPill(m) {
 }
 
 const NAV_ITEMS = [
-  { key: "dashboard", href: "/owner", label: "Dashboard" },
+  { key: "dashboard", href: "/app", label: "Dashboard" },
   { key: "fleet", href: "/owner/fleet", label: "Fleet" },
   { key: "costs", href: "/owner/costs", label: "Costs" },
   { key: "numbers", href: "/owner/setup", label: "Numbers" },
@@ -1181,9 +1181,9 @@ ${error ? `<div class="err"><b>${esc(error)}</b><div class="cols" style="margin-
 </div>
 
 <div class="second">
-  <b>Connect your robot API for live data</b><br>
-  Once the statement is running, live telemetry keeps it current daily instead of per export.
-  Vendor credentials can take weeks, so this comes second.
+  <b>Or connect your robots directly</b><br>
+  Using Gausium? <a href="/owner/sources">Paste your API keys</a> and your last 90 days load on their own, then it keeps syncing every minute.
+  Other makes connect by export for now.
 </div>
 
 <div class="second">
@@ -1453,7 +1453,7 @@ export function renderSourcesHTML(sources, { error = null, errorVendor = null, c
   return shell(
     "Botlien · data sources",
     `<div class="ph"><h1>Data sources</h1></div>
-<div class="sub">connect your robot vendor once and your dashboard fills in on its own, every minute</div>
+<div class="sub">connect your robot vendor once and your dashboard fills in on its own, every minute · <a href="/app">back to your dashboard</a></div>
 ${connected ? `<div class="note">Connected ${esc(connected)}. The first sync starts within a minute.</div>` : ""}
 ${disconnected ? `<div class="note">Disconnected ${esc(disconnected)}. Data already synced stays on your dashboard.</div>` : ""}
 ${sources.map(card).join("")}
