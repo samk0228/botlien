@@ -7,7 +7,9 @@ import { join } from "node:path";
 import { createVault, VaultError } from "../src/vault.mjs";
 import { openControl } from "../src/control.mjs";
 import { openStore } from "../src/store.mjs";
-import { readCredentials, connectVendor, describeConnections, createTenantSync, ConnectionError } from "../src/connections.mjs";
+import { readCredentials, connectVendor, describeConnections, createTenantSync, ConnectionError, historyStatus } from "../src/connections.mjs";
+import { gausiumTaskReportToEvents } from "../src/normalize.mjs";
+import { fleetContract } from "../src/contract.mjs";
 
 const KEY = randomBytes(32).toString("base64");
 const KEYS = { client_id: "cid-1", client_secret: "shh-secret", open_access_key: "oak-1" };
@@ -15,7 +17,7 @@ const T0 = Date.parse("2026-09-23T17:00:00Z");
 
 /** A stand-in for Gausium's open API: accepts one set of keys, lists two
  *  scrubbers, answers status for each. `calls` records every URL hit. */
-function fakeGausium({ acceptSecret = "shh-secret", robots = ["SN-1", "SN-2"] } = {}) {
+function fakeGausium({ acceptSecret = "shh-secret", robots = ["SN-1", "SN-2"], history = {}, historyFails = [] } = {}) {
   const calls = [];
   const json = (status, body) => ({ ok: status < 400, status, json: async () => body });
   const fetchImpl = async (url, opts = {}) => {
@@ -26,6 +28,13 @@ function fakeGausium({ acceptSecret = "shh-secret", robots = ["SN-1", "SN-2"] } 
     }
     if (String(url).includes("/v1alpha1/robots?")) {
       return json(200, { robots: robots.map((sn) => ({ serialNumber: sn, displayName: `Scrubber ${sn}`, modelTypeCode: "S50" })), total: robots.length });
+    }
+    const h = String(url).match(/robots\/([^/]+)\/taskReports\?/);
+    if (h) {
+      if (historyFails.includes(h[1])) return json(500, {});
+      const page = Number(new URL(String(url)).searchParams.get("page"));
+      const all = history[h[1]] ?? [];
+      return json(200, { robotTaskReports: all.slice((page - 1) * 100, page * 100), total: all.length });
     }
     const m = String(url).match(/robots\/([^/]+)\/status/);
     if (m) {
@@ -166,4 +175,70 @@ test("disconnecting stops the account's sync on the next tick", async () => {
   control.deleteConnection(7, "gausium");
   assert.deepEqual(await sync.tick(T0 + 60_000), []);
   assert.equal(sync.running, 0);
+});
+
+// ---- history ----
+
+const job = (iso, minutes, id) => ({ id, startTime: iso, durationSeconds: minutes * 60, actualCleaningAreaSquareMeter: 800 });
+
+test("a finished job becomes active samples for its length, then idle", () => {
+  const ev = gausiumTaskReportToEvents("SN-1", job("2026-08-10T14:00:00Z", 30, "r1"));
+  assert.equal(ev.length, 31);
+  assert.equal(ev[0].status.missionState, "active");
+  assert.equal(ev[0].status.missionId, "r1");
+  assert.equal(ev.at(-1).status.missionState, "idle");
+  assert.equal(ev.at(-1).at - ev[0].at, 30 * 60_000);
+  assert.deepEqual(gausiumTaskReportToEvents("SN-1", { durationSeconds: 60 }), [], "no start, no guess");
+});
+
+test("connecting pulls the account's past once, and it reaches past days on the dashboard", async () => {
+  const control = openControl(":memory:");
+  const vault = createVault({ keyB64: KEY });
+  // Two jobs a day on SN-1 for the ten days before connecting; SN-2 has none.
+  const history = { "SN-1": [] };
+  for (let d = 1; d <= 10; d++) {
+    const day = new Date(T0 - d * 86_400_000).toISOString().slice(0, 10);
+    history["SN-1"].push(job(`${day}T15:00:00Z`, 90, `a${d}`), job(`${day}T20:00:00Z`, 60, `b${d}`));
+  }
+  const g = fakeGausium({ history });
+  await connectVendor({ control, vault, accountId: 7, vendor: "gausium", input: KEYS, fetchImpl: g.fetchImpl, now: () => T0 });
+  const stores = {};
+  const sync = createTenantSync({ control, tenants: tenantsFor(stores), vault, fetchImpl: g.fetchImpl });
+  await sync.tick(T0);
+  await sync.settled();
+  const store = stores[7];
+  const h = historyStatus(store, "gausium");
+  assert.equal(h.state, "done");
+  assert.equal(h.jobs, 20);
+  assert.equal(h.robots, 2);
+  assert.equal(h.days, 90);
+
+  const c = fleetContract(store, T0);
+  const sn1 = c.robots.find((r) => r.key === "gausium:SN-1");
+  const pastDays = c.daily.filter((d) => d.robotId === sn1.id && d.units > 0);
+  assert.ok(pastDays.length >= 9, `past days on the dashboard: ${pastDays.length}`);
+  assert.ok(describeConnections(control, 7, store)[0].history.jobs === 20, "the page can say how the pull went");
+
+  const reportCalls = () => g.calls.filter((u) => u.includes("/taskReports")).length;
+  const before = reportCalls();
+  await sync.tick(T0 + 60_000);
+  await sync.settled();
+  assert.equal(reportCalls(), before, "history is pulled once per connection, not every tick");
+  await sync.stop();
+});
+
+test("one robot's missing history does not cost the others theirs", async () => {
+  const control = openControl(":memory:");
+  const vault = createVault({ keyB64: KEY });
+  const g = fakeGausium({ history: { "SN-2": [job("2026-09-20T15:00:00Z", 45, "c1")] }, historyFails: ["SN-1"] });
+  await connectVendor({ control, vault, accountId: 7, vendor: "gausium", input: KEYS, fetchImpl: g.fetchImpl, now: () => T0 });
+  const stores = {};
+  const sync = createTenantSync({ control, tenants: tenantsFor(stores), vault, fetchImpl: g.fetchImpl });
+  await sync.tick(T0);
+  await sync.settled();
+  const h = historyStatus(stores[7], "gausium");
+  assert.equal(h.state, "done");
+  assert.equal(h.jobs, 1);
+  assert.deepEqual(h.failed.map((f) => f.serialNumber), ["SN-1"]);
+  await sync.stop();
 });

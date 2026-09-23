@@ -1406,12 +1406,21 @@ export function renderSourcesHTML(sources, { error = null, errorVendor = null, c
     return min < 1 ? "just now" : min < 60 ? `${min} min ago` : min < 1440 ? `${Math.round(min / 60)} h ago` : `${Math.round(min / 1440)} days ago`;
   };
   const stateWord = { ok: "syncing", degraded: "syncing with problems", down: "not syncing" };
+  // The past, pulled once when the account connected.
+  const historyLine = (h) => {
+    if (!h) return "";
+    if (h.state === "running") return `<div class="sub">Pulling your last ${h.days} days of history. Your dashboard fills in as it lands.</div>`;
+    if (h.state === "failed") return `<div class="note">The history pull stopped: ${esc(h.error ?? "no detail")}. Live data is still syncing; disconnect and connect again to retry.</div>`;
+    const partial = h.failed?.length ? ` ${h.failed.length} robot(s) sent no history.` : "";
+    return `<div class="sub">${h.days} days of history loaded: ${h.jobs} job${h.jobs === 1 ? "" : "s"} across ${h.robots} robot${h.robots === 1 ? "" : "s"}.${esc(partial)}</div>`;
+  };
   const card = (v) => {
     if (v.connected) {
       return `
     <fieldset>
       <legend>${esc(v.label)} <span class="tag">${esc(stateWord[v.state] ?? "waiting for first sync")}</span></legend>
       <div class="sub">${v.robotCount ?? 0} robot${v.robotCount === 1 ? "" : "s"} on this account · last sync ${esc(ago(v.lastSyncAt))} · last good sync ${esc(ago(v.lastOkAt))}</div>
+      ${historyLine(v.history)}
       ${v.error ? `<div class="note">${esc(v.error)}</div>` : ""}
       <form method="POST" action="/owner/sources" style="margin-top:12px">
         <input type="hidden" name="action" value="disconnect"><input type="hidden" name="vendor" value="${esc(v.vendor)}">

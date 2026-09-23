@@ -102,8 +102,16 @@ contract carries `sources`. End-to-end check against a local stand-in for
 Gausium: magic-link sign-in, bad keys refused, good keys connected, first
 sync about 10 s later, 3 robots in the account's own store and in
 `/api/v1/fleet` and `/app`, no plaintext key on disk. 284 tests pass.
-Before production: `fly secrets set BOTLIEN_SECRET_KEY=...`. Still open:
-step 4 (history on connect), the Demo's own Data sources screen calling this
+Step 4 built the same day: on first sync the connection pulls the last 90
+days of Gausium task reports in the background (`connector.history()`,
+`gausiumTaskReportToEvents`, `pullHistory`), lands them through
+`engine.ingest` as the samples the live poll would have written, rebuilds
+rollups, and records progress in the account's store (`history.gausium`),
+shown on Data sources. Runs once per connection; one robot's failure is
+listed and the rest land. End-to-end: 90 past jobs landed in about 18 s,
+31 days of work on the dashboard. 287 tests pass.
+BOTLIEN_SECRET_KEY is staged on Fly (owner info@botlien.com) with a backup
+in .claude/secrets.local.json. Still open: the Demo's own Data sources screen calling this
 API (a Claude Design job), and a real Gausium account to try it on.
 
 1. `connections` table in the control DB: tenant, vendor, encrypted

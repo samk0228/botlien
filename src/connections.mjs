@@ -8,6 +8,12 @@
 // screen the account sees fills in with no step of its own.
 import { createEngine } from "./engine.mjs";
 import { createGausiumConnector } from "./connectors/gausium.mjs";
+import { gausiumTaskReportToEvents } from "./normalize.mjs";
+import { rebuildRollupsForRobot } from "./rollup.mjs";
+
+const DAY_MS = 86_400_000;
+export const DEFAULT_HISTORY_DAYS = 90;
+export const historyKey = (vendor) => `history.${vendor}`;
 
 /** The vendors an account can connect today. `fields` is what the owner
  *  pastes; everything else about the vendor stays server-side. */
@@ -20,6 +26,8 @@ export const VENDORS = {
       { key: "open_access_key", label: "Open access key", secret: true },
     ],
     help: "Gausium issues these in the Gausium Open Platform under your company account.",
+    // Past jobs in, as the samples the live poll would have written.
+    historyToEvents: gausiumTaskReportToEvents,
     // BOTLIEN_GAUSIUM_BASE points every customer's connection at another
     // host: a vendor sandbox, or the stand-in the end-to-end check runs.
     create: (secrets, config, deps) =>
@@ -68,8 +76,48 @@ export async function connectVendor({ control, vault, accountId, vendor, input, 
   return { connection: row, robots: probe.robots, robotCount: probe.robotCount };
 }
 
-/** What a page may show about an account's connections. Never the keys. */
-export function describeConnections(control, accountId) {
+/** Where an account's history pull stands, from its own store. */
+export function historyStatus(store, vendor) {
+  try {
+    return JSON.parse(store.getKV(historyKey(vendor)) ?? "null");
+  } catch {
+    return null;
+  }
+}
+
+/** Land a vendor's past in an account's store through the engine's own
+ *  ingest, then rebuild the hourly rollups the dashboard reads. One
+ *  transaction per robot, so a failure part way leaves whole robots, never
+ *  half of one. Returns what it did, for the status and the log. */
+export async function pullHistory({ store, engine, connector, vendor, fromMs, toMs }) {
+  const h = await connector.history(fromMs, toMs);
+  for (const m of h.robots) {
+    store.upsertRobot({ connector: connector.name, externalId: m.externalId, displayName: m.displayName, brand: m.brand, model: m.model, category: m.category }, toMs);
+  }
+  let jobs = 0;
+  let samples = 0;
+  for (const [sn, reports] of Object.entries(h.reports)) {
+    store.transaction(() => {
+      for (const rep of reports) {
+        const events = VENDORS[vendor].historyToEvents(sn, rep);
+        if (!events.length) continue;
+        jobs += 1;
+        samples += events.length;
+        engine.ingest(connector.name, events, toMs, { storeRaw: false });
+        // One archived row per job keeps what the samples cannot carry (area
+        // cleaned, water used) for the figures that will price it later.
+        store.insertRawEvent({ connector: connector.name, robotKey: `${connector.name}:${sn}`, kind: "task_report", source: "history", at: events[0].at, receivedAt: toMs, payload: JSON.stringify(rep) });
+      }
+      const robot = store.getRobotByKey(`${connector.name}:${sn}`);
+      if (robot) rebuildRollupsForRobot(store, robot.id);
+    });
+  }
+  return { robots: h.robots.length, jobs, samples, failed: h.failed };
+}
+
+/** What a page may show about an account's connections. Never the keys.
+ *  With the account's store, it also says how the history pull went. */
+export function describeConnections(control, accountId, store = null) {
   const byVendor = new Map(control.connectionsForAccount(accountId).map((c) => [c.vendor, c]));
   return Object.entries(VENDORS).map(([key, v]) => {
     const c = byVendor.get(key) ?? null;
@@ -86,6 +134,7 @@ export function describeConnections(control, accountId) {
       state: c?.last_state ?? null,
       error: c?.last_error ?? null,
       connectedAt: c?.created_at ?? null,
+      history: c && store ? historyStatus(store, key) : null,
     };
   });
 }
@@ -93,7 +142,7 @@ export function describeConnections(control, accountId) {
 /** Every connected account, synced in turn. One slow or broken vendor never
  *  holds up the rest: each account runs under its own timeout, a failure is
  *  recorded on that connection, and the loop moves on. */
-export function createTenantSync({ control, tenants, vault, config = {}, log = () => {}, fetchImpl = fetch, perAccountTimeoutMs = 30_000 }) {
+export function createTenantSync({ control, tenants, vault, config = {}, log = () => {}, fetchImpl = fetch, perAccountTimeoutMs = 30_000, historyDays = DEFAULT_HISTORY_DAYS }) {
   const runtimes = new Map(); // connection id -> { updatedAt, store, connector, engine, lastState }
 
   async function stopRuntime(id) {
@@ -117,9 +166,36 @@ export function createTenantSync({ control, tenants, vault, config = {}, log = (
     const connector = VENDORS[c.vendor].create(secrets, config, { fetchImpl, log });
     const engine = createEngine({ store, connectors: [connector], config, log });
     await engine.init(nowMs);
-    const fresh = { updatedAt: c.updated_at, store, connector, engine, lastState: null };
+    const fresh = { updatedAt: c.updated_at, store, connector, engine, lastState: null, history: null };
     runtimes.set(c.id, fresh);
     return fresh;
+  }
+
+  /** Start the account's history pull once, in the background: the live sync
+   *  keeps its cadence while months of past jobs land. Done or failed is kept
+   *  in the account's own store, so it never runs twice for one connection,
+   *  and new keys (a new connection row) pull again. */
+  function startHistory(c, rt, nowMs) {
+    if (rt.history || typeof rt.connector.history !== "function") return;
+    const prev = historyStatus(rt.store, c.vendor);
+    if (prev && prev.connectionId === c.id && prev.updatedAt === c.updated_at && prev.state !== "running") return;
+    const fromMs = nowMs - historyDays * DAY_MS;
+    const base = { connectionId: c.id, updatedAt: c.updated_at, fromMs, toMs: nowMs, days: historyDays };
+    rt.store.setKV(historyKey(c.vendor), JSON.stringify({ ...base, state: "running", startedAt: nowMs }));
+    rt.history = pullHistory({ store: rt.store, engine: rt.engine, connector: rt.connector, vendor: c.vendor, fromMs, toMs: nowMs })
+      .then((out) => {
+        rt.store.setKV(historyKey(c.vendor), JSON.stringify({ ...base, state: "done", finishedAt: Date.now(), ...out }));
+        log(`account ${c.account_id} ${c.vendor} history: ${out.jobs} jobs over ${historyDays} days, ${out.robots} robots${out.failed.length ? `, ${out.failed.length} robot(s) failed` : ""}`);
+      })
+      .catch((err) => {
+        const error = String(err?.message ?? err).slice(0, 200);
+        try {
+          rt.store.setKV(historyKey(c.vendor), JSON.stringify({ ...base, state: "failed", finishedAt: Date.now(), error }));
+        } catch {
+          /* the store was closed under us; the next start retries */
+        }
+        log(`account ${c.account_id} ${c.vendor} history pull failed: ${error}`, "warning");
+      });
   }
 
   async function syncOne(c, nowMs) {
@@ -128,6 +204,7 @@ export function createTenantSync({ control, tenants, vault, config = {}, log = (
     let robotCount = null;
     try {
       const rt = await withTimeout(runtimeFor(c, nowMs), perAccountTimeoutMs, "starting the connection timed out");
+      startHistory(c, rt, nowMs);
       await withTimeout(rt.engine.runOnce(nowMs), perAccountTimeoutMs, "sync timed out");
       const hb = rt.store.latestHeartbeat(rt.connector.name);
       state = hb?.state ?? "degraded";
@@ -161,6 +238,10 @@ export function createTenantSync({ control, tenants, vault, config = {}, log = (
     },
     async stop() {
       for (const id of [...runtimes.keys()]) await stopRuntime(id);
+    },
+    /** Resolves when every history pull that has started has finished. */
+    async settled() {
+      await Promise.allSettled([...runtimes.values()].map((rt) => rt.history).filter(Boolean));
     },
     get running() {
       return runtimes.size;

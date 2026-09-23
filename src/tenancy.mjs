@@ -181,11 +181,11 @@ export function createTenancy({
 
     // The account's data sources ride along with its data, so the page can
     // say where every figure came from and whether the feed is healthy.
-    const getFleetContract = () => ({ ...fleetContract(store, now(), config), sources: describeConnections(control, account.id) });
+    const getFleetContract = () => ({ ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store) });
 
     const connections = {
       vendors: Object.keys(VENDORS),
-      list: () => describeConnections(control, account.id),
+      list: () => describeConnections(control, account.id, store),
       async connect(vendor, input) {
         const out = await connectVendor({ control, vault: vault ?? { ready: false }, accountId: account.id, vendor, input, config, fetchImpl, now });
         log(`account ${account.id} connected ${vendor} (${out.robotCount} robots)`);
