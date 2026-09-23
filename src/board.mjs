@@ -311,6 +311,7 @@ export function startBoard(port, {
   getState,
   getOwnerState: baseGetOwnerState = null,
   getFleetContract: baseGetFleetContract = null,
+  saveOwnerInputs: baseSaveOwnerInputs = null,
   saveEconomics: baseSaveEconomics = null,
   onboarding: baseOnboarding = null,
   tenancy = null,
@@ -335,6 +336,7 @@ export function startBoard(port, {
       let getOwnerState = baseGetOwnerState;
       let getFleetContract = baseGetFleetContract;
       let signedIn = null;
+      let saveOwnerInputs = baseSaveOwnerInputs;
       let connections = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
@@ -365,6 +367,7 @@ export function startBoard(port, {
           getOwnerState = bound.getOwnerState;
           getFleetContract = bound.getFleetContract;
           signedIn = account;
+          saveOwnerInputs = bound.saveOwnerInputs ?? null;
           connections = bound.connections ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
@@ -392,6 +395,25 @@ export function startBoard(port, {
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
         res.end(JSON.stringify(await getFleetContract()));
         return;
+      }
+
+      // ---- what the owner types on the dashboard ----
+      if (saveOwnerInputs && req.method === "POST" && path === "/api/v1/inputs") {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        let body;
+        try {
+          body = JSON.parse(await readBody(req, 512 * 1024));
+        } catch {
+          return reply(400, { error: "Send JSON: { account, robots }." });
+        }
+        try {
+          return reply(200, { ok: true, saved: saveOwnerInputs(body) });
+        } catch (err) {
+          return reply(err?.constructor?.name === "InputError" ? 400 : 500, { error: String(err?.message ?? err) });
+        }
       }
 
       // ---- data sources: an account's own vendor connections ----

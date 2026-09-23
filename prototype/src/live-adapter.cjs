@@ -159,6 +159,52 @@ function liveTables(c) {
     if (r.configured && r.scheduledHoursDay != null) T.HOURS[i] = r.scheduledHoursDay;
   });
   T.provenance = c.provenance;
+  // Robot ids in row order: the page keys per-robot inputs by row, the
+  // server by id, and this is the one place the two are joined.
+  T.ROBOT_IDS = robots.map(function (r) { return r.id; });
+  // What the owner saved, back in the page's own shape.
+  var saved = c.inputs || { account: {}, robots: {} };
+  T.SAVED = { account: saved.account || {}, robots: {} };
+  Object.keys(saved.robots || {}).forEach(function (key) {
+    var byIndex = {};
+    Object.keys(saved.robots[key]).forEach(function (id) {
+      var i = indexOf[id];
+      if (i !== undefined) byIndex[i] = saved.robots[key][id];
+    });
+    T.SAVED.robots[key] = byIndex;
+  });
   return T;
 }
-if (typeof module !== 'undefined') module.exports = { liveTables: liveTables };
+
+/* The owner's inputs the page saves, and nothing else. src/inputs.mjs keeps
+   the same two lists, and a test fails if they ever differ. */
+var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'contract'];
+var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
+  'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
+  'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon'];
+
+/* The changes between two snapshots of the page state, in the shape
+   POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner
+   cleared goes out as null so the server drops it too. Returns null when
+   nothing the owner owns has changed. */
+function inputChanges(prev, next, robotIds) {
+  var out = { account: {}, robots: {} };
+  var any = false;
+  PERSIST_ACCOUNT.forEach(function (k) {
+    if (JSON.stringify(next[k]) !== JSON.stringify(prev[k])) { out.account[k] = next[k] === undefined ? null : next[k]; any = true; }
+  });
+  PERSIST_ROBOT.forEach(function (k) {
+    var a = prev[k] || {}, b = next[k] || {}, byId = {}, changed = false;
+    Object.keys(Object.assign({}, a, b)).forEach(function (i) {
+      if (JSON.stringify(a[i]) === JSON.stringify(b[i])) return;
+      var id = robotIds[Number(i)];
+      if (id === undefined) return;
+      byId[id] = b[i] === undefined ? null : b[i];
+      changed = true;
+    });
+    if (changed) { out.robots[k] = byId; any = true; }
+  });
+  return any ? out : null;
+}
+if (typeof module !== 'undefined') module.exports = { liveTables: liveTables, inputChanges: inputChanges, PERSIST_ROBOT: PERSIST_ROBOT, PERSIST_ACCOUNT: PERSIST_ACCOUNT };

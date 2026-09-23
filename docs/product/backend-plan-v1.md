@@ -156,3 +156,21 @@ alert rules, period close, backups check.
   customers. The scheduler must not let one slow vendor stall the rest.
 - The container runs as root and there is no migration system. Both get
   fixed in Phase 1 before customer credentials are stored.
+
+## Owner inputs (built 2026-09-23, after Phase 2)
+
+Nothing an owner typed in `/app` was saved; a reload lost it. Now: migration 2
+adds `owner_inputs`; `src/inputs.mjs` whitelists 5 per-robot keys (invoice,
+hours, work, excluded, lease) stored by robot id and 22 account keys (wages,
+roster, custom work, fixes, plans, brief settings, claims, tax, layout,
+names), validates every batch all-or-nothing, and writes invoice, hours and
+fully stated leases through to `robot_economics` and `robot_contracts`.
+`POST /api/v1/inputs` saves; the contract carries `inputs`; the page restores
+them in `bootScreen` and autosaves 600 ms after any redraw that changed one
+(with a `pagehide` beacon). A test fails if the page's key list and the
+server's ever differ. Browser check: five kinds of edit survived a reload and
+reached the server tables. 295 tests pass.
+
+Next: make `/app` the home after sign-in and wire the Demo's first-run
+screens (business, connect or upload, confirm fleet) to the backend. Sign-in
+still lands on `/owner/business`.

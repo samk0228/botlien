@@ -11,6 +11,7 @@ import { boardModel, startBoard, readBody } from "./board.mjs";
 import { ownerModel, parseSetupForm, confirmModel, parseConfirmForm, applyConfirm, recordImport, businessType, setBusinessType } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract } from "./contract.mjs";
+import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { ROOT, resolvePath } from "./infra.mjs";
 import { join } from "node:path";
@@ -183,6 +184,7 @@ async function main() {
     getState: () => boardModel(store, clock.now()),
     getOwnerState: () => ownerModel(store, clock.now(), config),
     getFleetContract: () => fleetContract(store, clock.now(), config),
+    saveOwnerInputs: (changes) => saveInputs(store, changes, clock.now()),
     saveEconomics: (params) => {
       const { updates, errors } = parseSetupForm(params, store.listRobots());
       const nowMs = clock.now();

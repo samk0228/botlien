@@ -23,6 +23,7 @@ import {
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract } from "./contract.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
+import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
 
@@ -197,7 +198,8 @@ export function createTenancy({
         return gone;
       },
     };
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, onboarding, connections };
+    const saveOwnerInputs = (changes) => saveInputs(store, changes, now());
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

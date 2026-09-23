@@ -761,7 +761,53 @@ function liveTables(c) {
     if (r.configured && r.scheduledHoursDay != null) T.HOURS[i] = r.scheduledHoursDay;
   });
   T.provenance = c.provenance;
+  // Robot ids in row order: the page keys per-robot inputs by row, the
+  // server by id, and this is the one place the two are joined.
+  T.ROBOT_IDS = robots.map(function (r) { return r.id; });
+  // What the owner saved, back in the page's own shape.
+  var saved = c.inputs || { account: {}, robots: {} };
+  T.SAVED = { account: saved.account || {}, robots: {} };
+  Object.keys(saved.robots || {}).forEach(function (key) {
+    var byIndex = {};
+    Object.keys(saved.robots[key]).forEach(function (id) {
+      var i = indexOf[id];
+      if (i !== undefined) byIndex[i] = saved.robots[key][id];
+    });
+    T.SAVED.robots[key] = byIndex;
+  });
   return T;
+}
+
+/* The owner's inputs the page saves, and nothing else. src/inputs.mjs keeps
+   the same two lists, and a test fails if they ever differ. */
+var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'contract'];
+var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
+  'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
+  'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon'];
+
+/* The changes between two snapshots of the page state, in the shape
+   POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner
+   cleared goes out as null so the server drops it too. Returns null when
+   nothing the owner owns has changed. */
+function inputChanges(prev, next, robotIds) {
+  var out = { account: {}, robots: {} };
+  var any = false;
+  PERSIST_ACCOUNT.forEach(function (k) {
+    if (JSON.stringify(next[k]) !== JSON.stringify(prev[k])) { out.account[k] = next[k] === undefined ? null : next[k]; any = true; }
+  });
+  PERSIST_ROBOT.forEach(function (k) {
+    var a = prev[k] || {}, b = next[k] || {}, byId = {}, changed = false;
+    Object.keys(Object.assign({}, a, b)).forEach(function (i) {
+      if (JSON.stringify(a[i]) === JSON.stringify(b[i])) return;
+      var id = robotIds[Number(i)];
+      if (id === undefined) return;
+      byId[id] = b[i] === undefined ? null : b[i];
+      changed = true;
+    });
+    if (changed) { out.robots[k] = byId; any = true; }
+  });
+  return any ? out : null;
 }
 
 const LIVE = (typeof window !== 'undefined' && window.BOTLIEN_LIVE && !/[?&]demo=1(&|$)/.test(location.search))
@@ -9026,7 +9072,61 @@ document.addEventListener('change', (e) => {
 
 /* ─────────────────────────  RENDER  ───────────────────────── */
 
+/* ───── SAVING ─────
+   Live accounts only. After every redraw, the owner's inputs (the two lists
+   in live-adapter.cjs) are compared with what the server last accepted, and
+   any difference is sent 600 ms later as one small batch. The demo never
+   saves: S.demoMode and a missing LIVE both stop it here. */
+let persistBase = null, persistTimer = null, persistInFlight = false;
+function persistSnapshot(){
+  const o = {};
+  PERSIST_ACCOUNT.concat(PERSIST_ROBOT).forEach(k => { o[k] = S[k] === undefined ? undefined : JSON.parse(JSON.stringify(S[k])); });
+  return o;
+}
+function persistSoon(){
+  if (!LIVE || S.demoMode || !persistBase) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, 600);
+}
+async function persistNow(){
+  if (persistInFlight){ persistSoon(); return; }
+  const next = persistSnapshot();
+  const changes = inputChanges(persistBase, next, LIVE.ROBOT_IDS);
+  if (!changes) return;
+  persistInFlight = true;
+  try {
+    const r = await fetch('/api/v1/inputs', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(changes) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    persistBase = next;
+    saveNote('');
+  } catch(e){
+    saveNote('Your last change was not saved. It will try again with your next one.');
+  } finally {
+    persistInFlight = false;
+  }
+}
+function saveNote(text){
+  let el = document.getElementById('bl-save');
+  if (!el){
+    if (!text) return;
+    el = document.createElement('div');
+    el.id = 'bl-save';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:90;padding:9px 14px;border-radius:8px;background:var(--fg1);color:#fff;font-size:12.5px;max-width:calc(100vw - 32px)';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.hidden = !text;
+}
+// Leaving the page mid-edit still sends the last change.
+window.addEventListener('pagehide', () => {
+  if (!LIVE || S.demoMode || !persistBase) return;
+  const changes = inputChanges(persistBase, persistSnapshot(), LIVE.ROBOT_IDS);
+  if (changes && navigator.sendBeacon) navigator.sendBeacon('/api/v1/inputs', new Blob([JSON.stringify(changes)], { type:'application/json' }));
+});
+
 function render(){
+  persistSoon();
   const active = document.activeElement;
   const keepId = active && active.id ? active.id : null;
   const selStart = keepId && 'selectionStart' in active ? active.selectionStart : null;
@@ -10225,6 +10325,9 @@ function bootScreen(){
     S.view = 'dashv2';
     Object.assign(S.robotInvoice, LIVE.INVOICE);
     Object.assign(S.robotHours, LIVE.HOURS);
+    // Then whatever the owner typed last time, on top of the stored economics.
+    PERSIST_ACCOUNT.forEach(k => { if (Object.prototype.hasOwnProperty.call(LIVE.SAVED.account, k) && LIVE.SAVED.account[k] !== null) S[k] = LIVE.SAVED.account[k]; });
+    PERSIST_ROBOT.forEach(k => { if (LIVE.SAVED.robots[k]) S[k] = Object.assign({}, S[k], LIVE.SAVED.robots[k]); });
     const acct = window.BOTLIEN_ACCOUNT;
     if (acct && acct.email){ S.accountEmail = acct.email; S.ownerName = acct.email.split('@')[0]; }
     if (SITES.length === 1) S.siteName = SITES[0].name;
@@ -10275,6 +10378,7 @@ function bootScreen(){
 }
 
 bootScreen();
+if (LIVE && !S.demoMode) persistBase = persistSnapshot();
 render();
 try { history.replaceState(Object.assign({}, history.state, { tabKey: currentTabKey() }), '', location.href); } catch(e){}
 </script>

@@ -16,6 +16,7 @@
 import { robotFinancials, taskCount } from "./finance.mjs";
 import { BENCHMARKS, economicsFor, taskLabelFor } from "./rates.mjs";
 import { robotInterventions, MINUTES_PER_CLEAR } from "./interventions.mjs";
+import { loadInputs } from "./inputs.mjs";
 
 export const CONTRACT_VERSION = 1;
 const DEFAULT_SITE = "Main site";
@@ -377,6 +378,8 @@ export function fleetContract(store, nowMs, config = {}) {
     safety,
     contracts,
     tickets,
+    // What the owner typed on the dashboard, restored into the page on load.
+    inputs: loadInputs(store),
     // Where each table came from, so the page can say "from the robot" or
     // "you set this" at the figure, and "not reported" where nothing came.
     provenance: {

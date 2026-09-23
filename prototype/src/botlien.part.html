@@ -8863,7 +8863,61 @@ document.addEventListener('change', (e) => {
 
 /* ─────────────────────────  RENDER  ───────────────────────── */
 
+/* ───── SAVING ─────
+   Live accounts only. After every redraw, the owner's inputs (the two lists
+   in live-adapter.cjs) are compared with what the server last accepted, and
+   any difference is sent 600 ms later as one small batch. The demo never
+   saves: S.demoMode and a missing LIVE both stop it here. */
+let persistBase = null, persistTimer = null, persistInFlight = false;
+function persistSnapshot(){
+  const o = {};
+  PERSIST_ACCOUNT.concat(PERSIST_ROBOT).forEach(k => { o[k] = S[k] === undefined ? undefined : JSON.parse(JSON.stringify(S[k])); });
+  return o;
+}
+function persistSoon(){
+  if (!LIVE || S.demoMode || !persistBase) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, 600);
+}
+async function persistNow(){
+  if (persistInFlight){ persistSoon(); return; }
+  const next = persistSnapshot();
+  const changes = inputChanges(persistBase, next, LIVE.ROBOT_IDS);
+  if (!changes) return;
+  persistInFlight = true;
+  try {
+    const r = await fetch('/api/v1/inputs', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(changes) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    persistBase = next;
+    saveNote('');
+  } catch(e){
+    saveNote('Your last change was not saved. It will try again with your next one.');
+  } finally {
+    persistInFlight = false;
+  }
+}
+function saveNote(text){
+  let el = document.getElementById('bl-save');
+  if (!el){
+    if (!text) return;
+    el = document.createElement('div');
+    el.id = 'bl-save';
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:90;padding:9px 14px;border-radius:8px;background:var(--fg1);color:#fff;font-size:12.5px;max-width:calc(100vw - 32px)';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.hidden = !text;
+}
+// Leaving the page mid-edit still sends the last change.
+window.addEventListener('pagehide', () => {
+  if (!LIVE || S.demoMode || !persistBase) return;
+  const changes = inputChanges(persistBase, persistSnapshot(), LIVE.ROBOT_IDS);
+  if (changes && navigator.sendBeacon) navigator.sendBeacon('/api/v1/inputs', new Blob([JSON.stringify(changes)], { type:'application/json' }));
+});
+
 function render(){
+  persistSoon();
   const active = document.activeElement;
   const keepId = active && active.id ? active.id : null;
   const selStart = keepId && 'selectionStart' in active ? active.selectionStart : null;
@@ -10062,6 +10116,9 @@ function bootScreen(){
     S.view = 'dashv2';
     Object.assign(S.robotInvoice, LIVE.INVOICE);
     Object.assign(S.robotHours, LIVE.HOURS);
+    // Then whatever the owner typed last time, on top of the stored economics.
+    PERSIST_ACCOUNT.forEach(k => { if (Object.prototype.hasOwnProperty.call(LIVE.SAVED.account, k) && LIVE.SAVED.account[k] !== null) S[k] = LIVE.SAVED.account[k]; });
+    PERSIST_ROBOT.forEach(k => { if (LIVE.SAVED.robots[k]) S[k] = Object.assign({}, S[k], LIVE.SAVED.robots[k]); });
     const acct = window.BOTLIEN_ACCOUNT;
     if (acct && acct.email){ S.accountEmail = acct.email; S.ownerName = acct.email.split('@')[0]; }
     if (SITES.length === 1) S.siteName = SITES[0].name;
@@ -10112,6 +10169,7 @@ function bootScreen(){
 }
 
 bootScreen();
+if (LIVE && !S.demoMode) persistBase = persistSnapshot();
 render();
 try { history.replaceState(Object.assign({}, history.state, { tabKey: currentTabKey() }), '', location.href); } catch(e){}
 </script>

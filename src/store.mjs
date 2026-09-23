@@ -226,6 +226,15 @@ export const MIGRATIONS = [
      responded_at INTEGER,
      status TEXT NOT NULL DEFAULT 'open'
    );`,
+  // 2. Everything else the owner types on the dashboard: wages and the
+  //    roster, custom work, fixes, what-if plans, brief settings, per-robot
+  //    overrides. One JSON value per key; src/inputs.mjs owns the list of
+  //    keys and what each may hold.
+  `CREATE TABLE IF NOT EXISTS owner_inputs (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at INTEGER NOT NULL
+   );`,
 ];
 
 export function migrate(db) {
@@ -796,6 +805,18 @@ export class Store {
          ORDER BY at`
       )
       .all(robotId, sinceMs, untilMs);
+  }
+
+  // ---- owner inputs (migration 2) ----
+  listInputs() {
+    return this.db.prepare(`SELECT key, value, updated_at FROM owner_inputs ORDER BY key`).all();
+  }
+
+  setInput(key, value, nowMs) {
+    this.db
+      .prepare(`INSERT INTO owner_inputs (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`)
+      .run(key, value, nowMs);
   }
 
   getKV(key) {
