@@ -90,7 +90,22 @@ falls back to contractFor()'s default terms silently.
    gives the same headline figures as the published Demo (2.39x, the 13
    robots, aisle 14 with 5 stops).
 
-**Phase 2. Per-customer live connections (about 1 to 2 weeks)**
+**Phase 2. Per-customer live connections (about 1 to 2 weeks)**. Steps 1, 2, 3 and 5 built 2026-09-23.
+
+Status: `src/vault.mjs` (AES-256-GCM, key from `BOTLIEN_SECRET_KEY`, refuses
+in production without it), `connections` table in the control DB,
+`src/connections.mjs` (vendor registry, live key test, sealed save, and
+`createTenantSync`, which runs each connected account through `createEngine`
+against its own store under its own timeout), `/api/v1/connections`
+(GET, POST, DELETE) and the `/owner/sources` Data sources page. The fleet
+contract carries `sources`. End-to-end check against a local stand-in for
+Gausium: magic-link sign-in, bad keys refused, good keys connected, first
+sync about 10 s later, 3 robots in the account's own store and in
+`/api/v1/fleet` and `/app`, no plaintext key on disk. 284 tests pass.
+Before production: `fly secrets set BOTLIEN_SECRET_KEY=...`. Still open:
+step 4 (history on connect), the Demo's own Data sources screen calling this
+API (a Claude Design job), and a real Gausium account to try it on.
+
 1. `connections` table in the control DB: tenant, vendor, encrypted
    credentials (AES-256-GCM, key in a Fly secret), status, last sync, last
    error.

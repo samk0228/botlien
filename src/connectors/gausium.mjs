@@ -89,6 +89,19 @@ export function createGausiumConnector(cfg, secrets, deps = {}) {
   return {
     name: "gausium",
 
+    /** Check a set of keys before they are saved: authenticate and list the
+     *  robots on the account. Unlike init(), which logs and carries on so a
+     *  running process survives a vendor outage, this throws, because the
+     *  owner is standing at the form waiting to hear whether the keys work. */
+    async probe(nowMs = Date.now()) {
+      await authenticate(nowMs);
+      robots = await listRobots();
+      return {
+        robotCount: robots.length,
+        robots: robots.slice(0, 50).map((r) => ({ externalId: r.serialNumber, displayName: r.displayName ?? r.serialNumber, model: r.modelTypeCode ?? null })),
+      };
+    },
+
     async init() {
       try {
         await ensureToken(Date.now());

@@ -22,6 +22,7 @@ import {
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract } from "./contract.mjs";
+import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
 
@@ -56,6 +57,8 @@ export function createTenancy({
   readBody,
   opsEmails = process.env.BOTLIEN_OPS_EMAILS ?? "",
   log = () => {},
+  vault = null,
+  fetchImpl = fetch,
 }) {
   const opsSet = parseOpsEmails(opsEmails);
   /** Events with no account attached (`landed`) still belong in the funnel. */
@@ -176,8 +179,25 @@ export function createTenancy({
       },
     };
 
-    const getFleetContract = () => fleetContract(store, now(), config);
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, onboarding };
+    // The account's data sources ride along with its data, so the page can
+    // say where every figure came from and whether the feed is healthy.
+    const getFleetContract = () => ({ ...fleetContract(store, now(), config), sources: describeConnections(control, account.id) });
+
+    const connections = {
+      vendors: Object.keys(VENDORS),
+      list: () => describeConnections(control, account.id),
+      async connect(vendor, input) {
+        const out = await connectVendor({ control, vault: vault ?? { ready: false }, accountId: account.id, vendor, input, config, fetchImpl, now });
+        log(`account ${account.id} connected ${vendor} (${out.robotCount} robots)`);
+        return out;
+      },
+      disconnect(vendor) {
+        const gone = control.deleteConnection(account.id, vendor);
+        if (gone) log(`account ${account.id} disconnected ${vendor}`);
+        return gone;
+      },
+    };
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, onboarding, connections };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

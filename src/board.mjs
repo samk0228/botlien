@@ -335,6 +335,7 @@ export function startBoard(port, {
       let getOwnerState = baseGetOwnerState;
       let getFleetContract = baseGetFleetContract;
       let signedIn = null;
+      let connections = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -364,6 +365,7 @@ export function startBoard(port, {
           getOwnerState = bound.getOwnerState;
           getFleetContract = bound.getFleetContract;
           signedIn = account;
+          connections = bound.connections ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -390,6 +392,61 @@ export function startBoard(port, {
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
         res.end(JSON.stringify(await getFleetContract()));
         return;
+      }
+
+      // ---- data sources: an account's own vendor connections ----
+      if (connections) {
+        const sendJSON = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET" && path === "/api/v1/connections") return sendJSON(200, connections.list());
+        if (req.method === "POST" && path === "/api/v1/connections") {
+          let body;
+          try {
+            body = JSON.parse(await readBody(req, 16_384));
+          } catch {
+            return sendJSON(400, { error: "Send JSON: { vendor, credentials }." });
+          }
+          try {
+            const out = await connections.connect(String(body?.vendor ?? ""), body?.credentials ?? {});
+            return sendJSON(200, { ok: true, robotCount: out.robotCount, robots: out.robots, sources: connections.list() });
+          } catch (err) {
+            return sendJSON(err?.name === "ConnectionError" || err?.constructor?.name === "ConnectionError" ? 400 : 500, { error: String(err?.message ?? err) });
+          }
+        }
+        const del = path.match(/^\/api\/v1\/connections\/([a-z0-9_-]+)$/);
+        if (req.method === "DELETE" && del) return sendJSON(connections.disconnect(del[1]) ? 200 : 404, { sources: connections.list() });
+
+        if (path === "/owner/sources") {
+          const owner = await import("./owner.mjs");
+          const page = (code, opts) => {
+            res.writeHead(code, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+            res.end(owner.renderSourcesHTML(connections.list(), opts));
+          };
+          if (req.method === "GET") {
+            const q = new URLSearchParams((req.url ?? "").split("?")[1] ?? "");
+            return page(200, { connected: q.get("connected"), disconnected: q.get("disconnected") });
+          }
+          if (req.method === "POST") {
+            const form = new URLSearchParams(await readBody(req, 16_384));
+            const vendor = form.get("vendor") ?? "";
+            if (form.get("action") === "disconnect") {
+              connections.disconnect(vendor);
+              res.writeHead(303, { Location: `/owner/sources?disconnected=${encodeURIComponent(vendor)}` });
+              res.end();
+              return;
+            }
+            try {
+              await connections.connect(vendor, Object.fromEntries(form));
+              res.writeHead(303, { Location: `/owner/sources?connected=${encodeURIComponent(vendor)}` });
+              res.end();
+            } catch (err) {
+              page(400, { error: String(err?.message ?? err), errorVendor: vendor });
+            }
+            return;
+          }
+        }
       }
 
       // ---- the dashboard: the Demo's screens on this account's data ----

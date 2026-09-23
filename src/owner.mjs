@@ -662,6 +662,7 @@ const NAV_ITEMS = [
   { key: "fleet", href: "/owner/fleet", label: "Fleet" },
   { key: "costs", href: "/owner/costs", label: "Costs" },
   { key: "numbers", href: "/owner/setup", label: "Numbers" },
+  { key: "sources", href: "/owner/sources", label: "Data sources" },
 ];
 
 function rail({ active, fleetBadge = 0, businessLabel = null }) {
@@ -1392,6 +1393,63 @@ ${saved ? '<div class="note">Saved.</div>' : ""}
 ${m.robots.length === 0 ? '<div class="panel"><div class="empty">no robots yet, start the engine first</div></div>' : `<form method="POST" action="/owner/setup">${m.robots.map(row).join("")}<button type="submit">Save and see my numbers</button></form>`}
 <div class="honest">${esc(HONESTY_NOTE.trim())}</div>`,
     { nav: { active: "numbers", fleetBadge: underLeaseCount(m) } }
+  );
+}
+
+/** Data sources: connect a vendor account with its API keys. Each vendor is
+ * one card: connected (with how the last sync went) or a form. Keys are never
+ * echoed back, not even masked, because nothing here needs to show them. */
+export function renderSourcesHTML(sources, { error = null, errorVendor = null, connected = null, disconnected = null } = {}) {
+  const ago = (ms) => {
+    if (!ms) return "never";
+    const min = Math.round((Date.now() - ms) / 60_000);
+    return min < 1 ? "just now" : min < 60 ? `${min} min ago` : min < 1440 ? `${Math.round(min / 60)} h ago` : `${Math.round(min / 1440)} days ago`;
+  };
+  const stateWord = { ok: "syncing", degraded: "syncing with problems", down: "not syncing" };
+  const card = (v) => {
+    if (v.connected) {
+      return `
+    <fieldset>
+      <legend>${esc(v.label)} <span class="tag">${esc(stateWord[v.state] ?? "waiting for first sync")}</span></legend>
+      <div class="sub">${v.robotCount ?? 0} robot${v.robotCount === 1 ? "" : "s"} on this account · last sync ${esc(ago(v.lastSyncAt))} · last good sync ${esc(ago(v.lastOkAt))}</div>
+      ${v.error ? `<div class="note">${esc(v.error)}</div>` : ""}
+      <form method="POST" action="/owner/sources" style="margin-top:12px">
+        <input type="hidden" name="action" value="disconnect"><input type="hidden" name="vendor" value="${esc(v.vendor)}">
+        <button type="submit">Disconnect ${esc(v.label)}</button>
+      </form>
+    </fieldset>`;
+    }
+    return `
+    <fieldset>
+      <legend>${esc(v.label)}</legend>
+      <div class="sub">${esc(v.help)}</div>
+      ${errorVendor === v.vendor && error ? `<div class="note">${esc(error)}</div>` : ""}
+      <form method="POST" action="/owner/sources" autocomplete="off">
+        <input type="hidden" name="action" value="connect"><input type="hidden" name="vendor" value="${esc(v.vendor)}">
+        <div class="grid">
+          ${v.fields
+            .map(
+              (f) => `<div>
+            <label for="${esc(v.vendor)}-${esc(f.key)}">${esc(f.label)}</label>
+            <input id="${esc(v.vendor)}-${esc(f.key)}" name="${esc(f.key)}" ${f.secret ? 'type="password"' : ""} autocomplete="off" spellcheck="false">
+          </div>`
+            )
+            .join("")}
+        </div>
+        <button type="submit">Test and connect</button>
+        <div class="hint">We check the keys with ${esc(v.label)} before saving anything. Saved keys are encrypted.</div>
+      </form>
+    </fieldset>`;
+  };
+  return shell(
+    "Botlien · data sources",
+    `<div class="ph"><h1>Data sources</h1></div>
+<div class="sub">connect your robot vendor once and your dashboard fills in on its own, every minute</div>
+${connected ? `<div class="note">Connected ${esc(connected)}. The first sync starts within a minute.</div>` : ""}
+${disconnected ? `<div class="note">Disconnected ${esc(disconnected)}. Data already synced stays on your dashboard.</div>` : ""}
+${sources.map(card).join("")}
+<div class="honest">Using a make we cannot connect yet? Upload its export on the import page and the same dashboard fills in.</div>`,
+    { nav: { active: "sources", fleetBadge: 0 } }
   );
 }
 

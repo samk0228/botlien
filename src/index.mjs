@@ -114,6 +114,8 @@ async function main() {
   // uploaded export whose import path already rebuilds its own rollups. The
   // process store below stays the connector-fed fleet behind /ops.
   let tenancy = null;
+  let tenantSync = null;
+  let syncInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
       import("./control.mjs"),
@@ -122,12 +124,20 @@ async function main() {
       import("./tenancy.mjs"),
     ]);
     const control = openControl(resolvePath(process.env.BOTLIEN_CONTROL_DB ?? "data/control.db"));
+    const { createVault } = await import("./vault.mjs");
+    const { createTenantSync } = await import("./connections.mjs");
+    // Customers' vendor keys are sealed with BOTLIEN_SECRET_KEY. Without it
+    // in production, connecting a vendor is refused rather than stored weakly.
+    const vault = createVault({ devKeyPath: resolvePath("data/.secret-key") });
+    if (!vault.ready) console.warn("BOTLIEN_SECRET_KEY is not set: customers cannot connect vendor APIs until it is.");
+    const tenants = new TenantStores(resolvePath(process.env.BOTLIEN_TENANT_DIR ?? "data/tenants"));
     const mailer = createMailer({ secrets, logPath: resolvePath("data/sent-mail.log") });
     const baseUrl = process.env.BOTLIEN_BASE_URL ?? `http://127.0.0.1:${port}`;
     tenancy = createTenancy({
       control,
       mailer,
-      tenants: new TenantStores(resolvePath(process.env.BOTLIEN_TENANT_DIR ?? "data/tenants")),
+      tenants,
+      vault,
       config,
       now: () => clock.now(),
       baseUrl,
@@ -137,6 +147,22 @@ async function main() {
       readBody,
       log: genesisLog,
     });
+    // Every account that connected a vendor syncs on its own loop, apart from
+    // the ops engine above, so one customer's slow vendor never delays the
+    // ops board and never overlaps its own previous sweep.
+    tenantSync = createTenantSync({ control, tenants, vault, config, log: genesisLog });
+    let syncing = false;
+    syncInterval = setInterval(async () => {
+      if (syncing) return;
+      syncing = true;
+      try {
+        await tenantSync.tick(clock.now());
+      } catch (err) {
+        genesisLog(`customer sync error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        syncing = false;
+      }
+    }, config.engine.tick_ms);
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {
@@ -230,6 +256,8 @@ async function main() {
 
   const shutdown = async () => {
     clearInterval(interval);
+    if (syncInterval) clearInterval(syncInterval);
+    if (tenantSync) await tenantSync.stop();
     server.close();
     await engine.stop();
     store.close();
