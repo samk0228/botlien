@@ -9,7 +9,7 @@
 // production the vault refuses to work without it. On a laptop it falls back
 // to a key file beside the databases, created once with owner-only access,
 // so development and tests need no setup.
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createHmac, timingSafeEqual, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -39,6 +39,19 @@ export function createVault({ keyB64 = process.env.BOTLIEN_SECRET_KEY ?? null, p
 
   return {
     ready: key !== null,
+
+    /** A signature for a link the server must later trust (an unsubscribe
+     *  link), keyed to this server's secret and to what the link is for. */
+    sign(purpose, message) {
+      return createHmac("sha256", need()).update(`${purpose}\0${message}`).digest("base64url");
+    },
+
+    verify(purpose, message, signature) {
+      if (!key || typeof signature !== "string") return false;
+      const want = Buffer.from(this.sign(purpose, message));
+      const got = Buffer.from(signature);
+      return want.length === got.length && timingSafeEqual(want, got);
+    },
 
     /** Object in, one opaque string out: v1.<iv>.<tag>.<ciphertext>. */
     seal(obj) {

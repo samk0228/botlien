@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS connections (
  * so recordEvent rejects it rather than silently writing a name nobody queries. */
 export const EVENTS = [
   "landed",
+  "brief_sent",
   "account_created",
   "data_connected",
   "fleet_confirmed",
@@ -141,6 +142,10 @@ export class Control {
 
   touchAccount(id, nowMs) {
     this.db.prepare(`UPDATE accounts SET last_seen_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  listAccounts() {
+    return this.db.prepare(`SELECT id, email, created_at, last_seen_at FROM accounts ORDER BY id`).all();
   }
 
   countAccounts() {

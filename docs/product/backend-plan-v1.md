@@ -165,7 +165,29 @@ fleet through it.
 2. File import reads the brand column and knows the Locus, Fetch, Pudu and
    Bear export formats.
 
-**Phase 5. Jobs**
+**Phase 5. Jobs**. Morning brief email built 2026-09-23.
+
+Status: `src/brief.mjs` builds the brief from an account's contract with the
+dashboard card's own rules (watch today, where they got stuck, parts to
+order, money waiting on a vendor, one thing to do) and renders it as text
+and HTML email. A browser parity check runs the page's `briefData()` and the
+server's `buildBrief()` on the same account and gets the same robot, spots
+and fix. Two deliberate differences from the page: credit is only mentioned
+against a lease the owner entered (the page assumes 95%), and a part with no
+reported life is not listed. `src/brief-job.mjs` checks every minute and
+sends each account's brief on the owner's days, from their chosen time and
+for three hours after it, once a day (marked sent before sending, so a crash
+never sends twice), only for confirmed fleets and never on data more than two
+days old. Email addresses only (texts are not sent), at most three per
+account. Every email carries its own signed unsubscribe link
+(`/brief/stop`, a confirm page plus POST, so mail scanners cannot
+unsubscribe anyone) and a List-Unsubscribe header. With no signing key it
+sends nothing. **It only really sends with `BOTLIEN_BRIEF_SEND=1`**; without
+it the job logs what it would have sent. 317 tests.
+
+Still to do in this phase: alert emails (the rules on the Alerts page),
+emailing a statement when a period closes, the backups check.
+
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.
 

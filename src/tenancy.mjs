@@ -23,6 +23,7 @@ import {
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract, closePeriods } from "./contract.mjs";
+import { verifyStop, stopBriefFor } from "./brief-job.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -96,6 +97,16 @@ export function createTenancy({
     // the landed-to-activated ratio read as zero while every individual count
     // looked correct. Asserted by a test.
     onEvent,
+    /** Take one address off an account's morning brief, from the signed link
+     *  in the email. False for a link this server did not sign. */
+    stopBrief: (q) => {
+      if (!verifyStop(vault, q)) return false;
+      const account = control.accountById(Number(q.a));
+      if (!account) return false;
+      stopBriefFor(tenants.get(account.id), q.e);
+      log(`account ${account.id}: ${q.e} stopped the morning brief`);
+      return true;
+    },
   };
 
   function forAccount(account) {

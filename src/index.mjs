@@ -117,6 +117,7 @@ async function main() {
   let tenancy = null;
   let tenantSync = null;
   let syncInterval = null;
+  let briefInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
       import("./control.mjs"),
@@ -173,6 +174,24 @@ async function main() {
         syncing = false;
       }
     }, config.engine.tick_ms);
+    // The morning brief, checked every minute. It only really sends with
+    // BOTLIEN_BRIEF_SEND=1; otherwise it logs what it would have sent.
+    const { createBriefJob } = await import("./brief-job.mjs");
+    const briefSend = process.env.BOTLIEN_BRIEF_SEND === "1";
+    const briefJob = createBriefJob({ control, tenants, mailer, vault, config, baseUrl, send: briefSend, log: genesisLog });
+    let briefing = false;
+    briefInterval = setInterval(async () => {
+      if (briefing) return;
+      briefing = true;
+      try {
+        await briefJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`brief job error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        briefing = false;
+      }
+    }, 60_000);
+    if (!briefSend) console.log("morning briefs are logged, not sent (set BOTLIEN_BRIEF_SEND=1 to send)");
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {
@@ -273,6 +292,7 @@ async function main() {
   const shutdown = async () => {
     clearInterval(interval);
     if (syncInterval) clearInterval(syncInterval);
+    if (briefInterval) clearInterval(briefInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
     await engine.stop();
