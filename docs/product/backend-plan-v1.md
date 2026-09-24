@@ -147,10 +147,27 @@ stated uptime promise and is null (not zero) without one. The page shows
 and "Closing" in the grace day. The adapter passes `PERIOD_FIGURES` (per
 robot row and totals) for the Period and Contract pages to use. 305 tests.
 
-Not done yet from this phase: naming places from robot positions (stalls
-still read "near x, y m"), a payback series from real history before the six
-periods (the page still back-projects), and a Downtime table for closed
-periods (their episodes feed uptime and credit but are not listed). If the
+Finished the same day (branch phase-3-derivations):
+- **Payback from measured months.** `paybackFor()` in `src/contract.mjs`,
+  carried as `contract.payback` and adapter `PAYBACK`. It uses every frozen
+  period on record (not only the six shown) plus the open ones. The price is
+  the lease's equipment cost, else the benchmark (`EQUIP_COST_CENTS` in
+  `src/rates.mjs`, same figures as the page). Months between the lease start
+  and the first data are counted, not guessed. Status: paid (measured months
+  alone cross the price), on track / behind / missed (every month since the
+  lease began is measured), partly measured (no verdict), no lease, no price.
+  The page's own payback chart still back-projects; the Claude Design pass
+  moves it onto these numbers.
+- **"A promise is missed" alert**, in the daily alert email, once per robot,
+  only on a measured "missed".
+- **Named places.** Every stop carries `spot`, the 2 m grid key the page
+  already labels "near x, y m". The owner's names are saved as the account
+  input `placeNames` ({ siteSlug: { "x,y": "aisle 14" } }) and every stop at
+  that spot then reads the name, in the contract, the brief and the alerts.
+  A fix saved under the old "near x, y m" label does not follow the rename.
+- **Closed periods' stops** are listed as `contract.pastDowntime` (adapter
+  `DOWNTIME_PAST`), each with its period; the open period's list is
+  unchanged. 349 tests. If the
 owner changes the billing anchor day, periods frozen on the old boundaries
 stop matching and the new ones compute fresh.
 

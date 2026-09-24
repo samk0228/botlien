@@ -38,6 +38,8 @@ export const ACCOUNT_INPUTS = [
   "stallMinutes", "taxRate", "taxDepMethod", "taxInterestRate",
   "dashLayout", "dashHidden", "fixes", "plans", "briefSettings", "claims",
   "ownerName", "siteName", "businessName", "timezone", "avatarColor", "avatarIcon",
+  // Names the owner gives stall spots: { siteSlug: { "x,y": "aisle 14" } }.
+  "placeNames",
 ];
 
 export class InputError extends Error {}

@@ -767,8 +767,7 @@ const ALERT_RULES = [
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
 // A live account's alerts go to the owner; "last sent" is the server's log.
-// The payback rule is not sent yet (payback is only worked out on this page).
-if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = a.name === 'A promise is missed' ? 'Not sent yet' : (LIVE.ALERT_LOG[a.name] || 'Never sent'); });
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = LIVE.ALERT_LOG[a.name] || 'Never sent'; });
 
 const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },
@@ -2143,7 +2142,7 @@ const S = {
   // The tab strip: Level 3 pages and pinned Level 4 records, opened inside
   // the dashboard. activeTab -1 is the section tab.
   tabs: [], activeTab: -1, tabScroll: {}, tabSeen: 0, tabToast: null, tabSheet: false,
-  claims: {}, draftOpen: '', draftCopied: false, briefPlan: '',
+  claims: {}, placeNames: {}, draftOpen: '', draftCopied: false, briefPlan: '',
   incidentSub: 'all', fixHighlight: '',
   fixes: { 'airport:aisle 7': { status:'done', note:'Taped a no-parking zone at the aisle end', owner:'', date:'2026-08-29' } },
   briefForm: { to:[''], time:'5:30 AM', days:[1,1,1,1,1,0,0], sites:[1,1,1] }, briefSettings: null,
