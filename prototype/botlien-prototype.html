@@ -797,6 +797,12 @@ function liveTables(c) {
   });
   // Every rate the figures have used, newest first (Numbers > Rate history).
   T.RATE_LOG = c.rateHistory || [];
+  // When each alert rule last emailed the owner, by the page's rule name.
+  T.ALERT_LOG = {};
+  Object.keys(c.alertLog || {}).forEach(function (rule) {
+    var e = c.alertLog[rule];
+    T.ALERT_LOG[rule] = 'Sent ' + short(localStamp(e.at, tz).slice(0, 10)) + (e.summary ? ' · ' + e.summary : '');
+  });
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.
@@ -1012,9 +1018,9 @@ const ALERT_RULES = [
   { name:'Statement ready', trigger:'A period closes and figures are frozen', to:'Sam, Priya', when:'On the 1st', last:'Sent Aug 4' },
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
-// A live account has no alert history yet: rules go to the owner, and the
-// sending job (backend plan Phase 5) is what will fill in "last sent".
-if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = 'Never sent'; });
+// A live account's alerts go to the owner; "last sent" is the server's log.
+// The payback rule is not sent yet (payback is only worked out on this page).
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = a.name === 'A promise is missed' ? 'Not sent yet' : (LIVE.ALERT_LOG[a.name] || 'Never sent'); });
 
 const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },
@@ -8908,7 +8914,7 @@ function briefBlocks(d, cardMode){
     const f = d.fix, times = f.rows.length;
     const who = f.robots.length === 1 ? esc(robotLabel(f.robots[0])) : f.robots.length+' robots';
     blocks.push({ id:'fix', title:'One thing to do', html: rowLink('data-act="openFix" data-key="'+esc(f.key)+'"', 'check',
-      'Clear the path at '+esc(f.place)+siteOf(f.site)+'. It stopped '+who+' '+(times <= 10 ? countWord(times).toLowerCase() : times)+' time'+(times === 1 ? '' : 's')+' this period.',
+      'Clear the path '+(f.place.indexOf('near ') === 0 ? '' : 'at ')+esc(f.place)+siteOf(f.site)+'. It stopped '+who+' '+(times <= 10 ? countWord(times).toLowerCase() : times)+' time'+(times === 1 ? '' : 's')+' this period.',
       f.status === 'in progress' ? 'fix in progress, first open row of the Fix list' : 'first open row of the Fix list') });
   }
   return blocks;
@@ -8937,7 +8943,7 @@ function briefSms(){
   const siteOf = n => d.multi ? ', '+SITES[n].name : '';
   if (d.watch) lines.push('Watch: '+d.watch.r.name+siteOf(robotSite(d.watch.r.i))+', under its lease, stuck '+d.watch.stuck+'x in 7 days, '+fmtDownFor(d.watch.mins)+' down.');
   if (d.spots[0]) lines.push('Stuck most: '+capFirst(d.spots[0].place)+siteOf(d.spots[0].site)+', '+d.spots[0].n+' stall'+(d.spots[0].n === 1 ? '' : 's')+'.');
-  if (d.fix) lines.push('Do: clear the path at '+d.fix.place+siteOf(d.fix.site)+'.');
+  if (d.fix) lines.push('Do: clear the path '+(d.fix.place.indexOf('near ') === 0 ? '' : 'at ')+d.fix.place+siteOf(d.fix.site)+'.');
   lines.push('botlien.com/b/'+briefDateKey().slice(5).replace('-',''));
   return lines.join('\n');
 }
@@ -10000,7 +10006,16 @@ const ACTIONS = {
   briefAddTo: () => { if (S.briefForm.to.length < 3) S.briefForm.to.push(''); render(); },
   briefDay: (el) => { const d = Number(el.dataset.d); S.briefForm.days[d] = S.briefForm.days[d] ? 0 : 1; render(); },
   briefSite: (el) => { const n = Number(el.dataset.n); S.briefForm.sites[n] = S.briefForm.sites[n] ? 0 : 1; render(); },
-  briefSave: () => { S.briefSettings = JSON.parse(JSON.stringify(S.briefForm)); showTabToast({ text:'Saved. This is a demo, so nothing is sent.' }); render(); },
+  briefSave: () => {
+    S.briefSettings = JSON.parse(JSON.stringify(S.briefForm));
+    // A live account's brief goes out by email; phone numbers wait for texts.
+    const emails = S.briefSettings.to.filter(v => VALID.test(String(v).trim())).length;
+    const phones = S.briefSettings.to.filter(v => String(v).trim() && !VALID.test(String(v).trim())).length;
+    showTabToast({ text: !LIVE || S.demoMode ? 'Saved. This is a demo, so nothing is sent.'
+      : !emails ? 'Saved. Add an email address: the brief goes out by email for now, not by text.'
+      : 'Saved. The brief emails '+emails+(emails === 1 ? ' person' : ' people')+' at '+S.briefSettings.time+' on the days you picked'+(phones ? '. Text messages are not sent yet' : '')+'.' });
+    render();
+  },
   wiLoad: (el) => { wiLoad(Number(el.dataset.n)); render(); },
   wiMenu: () => { S.whatif.menu = !S.whatif.menu; render(); },
   wiAdd: (el) => { S.whatif.changes.push(wiDefault(el.dataset.type)); S.whatif.menu = false; render(); },

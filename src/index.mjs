@@ -117,6 +117,9 @@ async function main() {
   let tenancy = null;
   let tenantSync = null;
   let syncInterval = null;
+  let briefInterval = null;
+  let alertsInterval = null;
+  let backupInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
       import("./control.mjs"),
@@ -173,6 +176,50 @@ async function main() {
         syncing = false;
       }
     }, config.engine.tick_ms);
+    // The morning brief, checked every minute. It only really sends with
+    // BOTLIEN_BRIEF_SEND=1; otherwise it logs what it would have sent.
+    const { createBriefJob } = await import("./brief-job.mjs");
+    const briefSend = process.env.BOTLIEN_BRIEF_SEND === "1";
+    const briefJob = createBriefJob({ control, tenants, mailer, vault, config, baseUrl, send: briefSend, log: genesisLog });
+    let briefing = false;
+    briefInterval = setInterval(async () => {
+      if (briefing) return;
+      briefing = true;
+      try {
+        await briefJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`brief job error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        briefing = false;
+      }
+    }, 60_000);
+    if (!briefSend) console.log("morning briefs are logged, not sent (set BOTLIEN_BRIEF_SEND=1 to send)");
+    // Alert emails (the Alerts page's rules), checked every minute. Only
+    // really sent with BOTLIEN_ALERTS_SEND=1.
+    const { createAlertsJob } = await import("./alerts.mjs");
+    const alertsSend = process.env.BOTLIEN_ALERTS_SEND === "1";
+    const alertsJob = createAlertsJob({ control, tenants, mailer, vault, config, baseUrl, send: alertsSend, log: genesisLog });
+    let alerting = false;
+    alertsInterval = setInterval(async () => {
+      if (alerting) return;
+      alerting = true;
+      try {
+        await alertsJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`alerts job error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        alerting = false;
+      }
+    }, 60_000);
+    if (!alertsSend) console.log("alert emails are logged, not sent (set BOTLIEN_ALERTS_SEND=1 to send)");
+    // The backups check: emails ops (BOTLIEN_OPS_EMAILS) once a day while the
+    // last verified offsite backup is more than 36 hours old.
+    const { createBackupCheck } = await import("./backup-check.mjs");
+    const { parseOpsEmails } = await import("./tenancy.mjs");
+    const backupCheck = createBackupCheck({ control, mailer, opsEmails: [...parseOpsEmails(process.env.BOTLIEN_OPS_EMAILS ?? "")], bootMs: Date.now(), log: genesisLog });
+    backupInterval = setInterval(() => {
+      backupCheck.tick(Date.now()).catch((err) => genesisLog(`backups check error: ${String(err).slice(0, 200)}`, "warning"));
+    }, 3_600_000);
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {
@@ -273,6 +320,9 @@ async function main() {
   const shutdown = async () => {
     clearInterval(interval);
     if (syncInterval) clearInterval(syncInterval);
+    if (briefInterval) clearInterval(briefInterval);
+    if (alertsInterval) clearInterval(alertsInterval);
+    if (backupInterval) clearInterval(backupInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
     await engine.stop();

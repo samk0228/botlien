@@ -165,7 +165,54 @@ fleet through it.
 2. File import reads the brand column and knows the Locus, Fetch, Pudu and
    Bear export formats.
 
-**Phase 5. Jobs**
+**Phase 5. Jobs**. Morning brief email built 2026-09-23.
+
+Status: `src/brief.mjs` builds the brief from an account's contract with the
+dashboard card's own rules (watch today, where they got stuck, parts to
+order, money waiting on a vendor, one thing to do) and renders it as text
+and HTML email. A browser parity check runs the page's `briefData()` and the
+server's `buildBrief()` on the same account and gets the same robot, spots
+and fix. Two deliberate differences from the page: credit is only mentioned
+against a lease the owner entered (the page assumes 95%), and a part with no
+reported life is not listed. `src/brief-job.mjs` checks every minute and
+sends each account's brief on the owner's days, from their chosen time and
+for three hours after it, once a day (marked sent before sending, so a crash
+never sends twice), only for confirmed fleets and never on data more than two
+days old. Email addresses only (texts are not sent), at most three per
+account. Every email carries its own signed unsubscribe link
+(`/brief/stop`, a confirm page plus POST, so mail scanners cannot
+unsubscribe anyone) and a List-Unsubscribe header. With no signing key it
+sends nothing. **It only really sends with `BOTLIEN_BRIEF_SEND=1`**; without
+it the job logs what it would have sent. 317 tests.
+
+Alert emails built the same day (`src/alerts.mjs`, `BOTLIEN_ALERTS_SEND=1`
+to send). One event is one email: a period closing sends one "statement
+ready" email that also names robots under their lease and credit owed; a
+daily check (from 7 AM local) bundles parts at or under 15%, parts past their
+rating on a robot still running, and duty time under a fifth of the schedule
+for seven days (only when the feed is fresh); a vendor sync down for 30
+minutes is one email until it recovers. Every finding is remembered so it
+does not repeat (a low part until replaced, weekly for the rest). The first
+run marks periods already closed as told, so switching alerts on sends no
+backlog. Alerts go to the account's email with a signed stop link. The page's
+Alerts table now shows when each rule last sent. "A promise is missed"
+(payback) is not sent: payback is only worked out in the browser.
+
+Backups check built the same day. The nightly offsite backup
+(`scripts/backup-offsite.sh`, launchd on the Mac mini) had failed every night
+from Sep 10 to Sep 23 because the Fly CLI on the mini lost its login, and its
+failures only reached the local Genesis dashboard. Now each verified backup
+is marked inside production (`scripts/backup-mark.mjs`, control DB `meta`),
+and the app (`src/backup-check.mjs`) emails ops (`BOTLIEN_OPS_EMAILS`) once a
+day while that mark is more than 36 hours old, or when the server has been up
+two days with no mark. The script's failure message now says to run
+`fly auth login` when that is the cause. A backup was taken and verified by
+hand on Sep 23 (3 databases). Worth doing: give the backup job a long-lived
+Fly token so it does not depend on an interactive login.
+
+Phase 5 is done apart from the payback alert, which waits for payback to be
+computed on the server.
+
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.
 
