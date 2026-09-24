@@ -8,8 +8,10 @@
 //   the scheduled hours for seven days running), bundled into one email.
 // - A vendor sync that has been down for half an hour: one email, and none
 //   again until it has recovered.
-// "A promise is missed" (payback) is not sent: payback is only worked out in
-// the browser today, and an alert must not rest on a guess.
+// "A promise is missed" (payback) goes in the daily email, once per robot,
+// only when the contract's measured payback says so: every month since the
+// lease began has data and the robot passed its promised month unpaid. With
+// months before the data began, it cannot know, so it does not say.
 //
 // Every finding has a key, remembered once sent, so nothing repeats: a low
 // part once until it is replaced, a past-rating part or a collapsed robot at
@@ -43,6 +45,7 @@ export const RULE = {
   deferred: "Maintenance is being deferred",
   duty: "Duty time collapses",
   sync: "An import fails",
+  payback: "A promise is missed",
 };
 
 const json = (store, key, fallback) => {
@@ -108,6 +111,13 @@ export function dailyFindings(store, contract, { nowMs, tz, sent }) {
   const since7 = nowMs - 7 * DAY_MS;
   const rollups = fresh ? store.rollupsBetweenAll(since7, nowMs) : [];
 
+  const money = (cents) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
+  for (const p of contract.payback ?? []) {
+    const key = `payback:${p.robotId}`;
+    if (p.status !== "missed" || sent[key]) continue;
+    const r = contract.robots.find((x) => x.id === p.robotId);
+    out.push({ key, rule: RULE.payback, text: `${r?.name ?? "A robot"} passed its ${p.promisedMonths}-month payback without paying back`, sub: `${money(p.earnedCents)} earned of ${money(p.priceCents)} after ${p.monthsSinceStart} months${p.paceMonths ? `; at this pace it pays back in month ${p.paceMonths}` : ""}` });
+  }
   for (const r of contract.robots) {
     const own = rollups.filter((x) => x.robot_id === r.id);
     const ranThisWeek = activeMs(own) > 0;
@@ -232,6 +242,7 @@ export function createAlertsJob({ control, tenants, mailer, vault, config = {}, 
             }
             if (daily.findings.length) {
               const groups = [
+                ["Payback promises missed", RULE.payback],
                 ["Parts past their rating", RULE.deferred],
                 ["Parts running out", RULE.low],
                 ["Duty time collapsed", RULE.duty],

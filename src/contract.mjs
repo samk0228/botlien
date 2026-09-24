@@ -14,7 +14,7 @@
 //   array with its provenance marked "missing", never a row of zeros.
 // - Pure with respect to the injected clock, like every other read path.
 import { robotFinancials, taskCount } from "./finance.mjs";
-import { BENCHMARKS, economicsFor, taskLabelFor } from "./rates.mjs";
+import { BENCHMARKS, EQUIP_COST_CENTS, economicsFor, taskLabelFor } from "./rates.mjs";
 import { robotInterventions, MINUTES_PER_CLEAR } from "./interventions.mjs";
 import { loadInputs } from "./inputs.mjs";
 
@@ -106,6 +106,13 @@ export function billingPeriods(asOfMs, { anchorDay, tz = DEFAULT_TZ, count = PER
   }
   return out;
 }
+
+/** The 2-metre spot a pose falls in, the same grid the dashboard labels
+ *  "near x, y m". The key a place name is saved under. */
+export function spotKey(pose) {
+  return pose ? `${Math.round(pose.x / 2) * 2},${Math.round(pose.y / 2) * 2}` : null;
+}
+const siteSlug = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 /** Downtime episodes from abnormal samples: stuck, e-stop, or reporting an
  *  error. Consecutive abnormal samples of the same kind within EPISODE_GAP_MS
@@ -219,6 +226,14 @@ export function fleetContract(store, nowMs, config = {}) {
   const contracts = [];
   const coverageByPeriod = periods.map(() => new Map()); // siteId -> {work, invoice, active, cap}
   const robotsByPeriod = periods.map(() => ({})); // robotId -> the figures a close freezes
+  const pastDowntime = [];
+  const inputs = loadInputs(store);
+  const placeNames = inputs.account.placeNames ?? {};
+  // A stall where the owner has named the spot carries the name.
+  const named = (siteName, ep) => {
+    const spot = spotKey(ep.pose);
+    return { ...ep, spot, place: (spot && placeNames[siteSlug(siteName)]?.[spot]) || ep.place };
+  };
 
   for (const r of store.listRobots()) {
     if (excluded.has(r.id)) continue;
@@ -266,7 +281,7 @@ export function fleetContract(store, nowMs, config = {}) {
 
     const samples = openRows.reduce((n, x) => n + (x.sample_count ?? 0), 0);
     const sampleMs = samples > 0 ? openRows.reduce((n, x) => n + (x.bucket_ms ?? 0), 0) / samples : undefined;
-    const openEpisodes = downtimeEpisodes(store.abnormalSnapshots(r.id, open.fromMs, open.toMs), { tz, sampleMs });
+    const openEpisodes = downtimeEpisodes(store.abnormalSnapshots(r.id, open.fromMs, open.toMs), { tz, sampleMs }).map((e) => named(siteName, e));
     for (const ep of openEpisodes) {
       downtime.push({ robotId: r.id, ...ep });
       if (ep.kind === "e-stop") safety.push({ robotId: r.id, date: ep.date, time: ep.start, kind: "e-stop", note: null });
@@ -278,8 +293,13 @@ export function fleetContract(store, nowMs, config = {}) {
       ? downtimeEpisodes(store.abnormalSnapshots(r.id, oldestFrom, open.fromMs), {
           tz,
           sampleMs: samplesAll > 0 ? all.reduce((n, x) => n + (x.bucket_ms ?? 0), 0) / samplesAll : sampleMs,
-        })
+        }).map((e) => named(siteName, e))
       : [];
+    // Listed too, by period, so a closed period's stops can be read back.
+    for (const e of pastEpisodes) {
+      const p = periods.find((x) => e.at >= x.fromMs && e.at < x.toMs);
+      if (p) pastDowntime.push({ robotId: r.id, period: p.start, ...e });
+    }
 
     // What each period comes to for this robot: the figures a close freezes.
     // Uptime is against the hours scheduled on the days telemetry covers, and
@@ -439,6 +459,34 @@ export function fleetContract(store, nowMs, config = {}) {
     status: t.status,
   }));
 
+  // Payback from what each robot actually earned, period by period: every
+  // closed period on record (not only the six shown) plus the ones still
+  // open or closing. Months between the lease start and the first data are
+  // counted but not guessed at, and a verdict is only given when the data
+  // settles it.
+  const asOfKey = dateKey(asOfMs, tz);
+  const measuredByRobot = new Map();
+  const seenStart = new Set();
+  for (const close of store.listPeriodCloses()) {
+    seenStart.add(close.start);
+    for (const [id, f] of Object.entries(close.robots)) {
+      if (!measuredByRobot.has(Number(id))) measuredByRobot.set(Number(id), []);
+      measuredByRobot.get(Number(id)).push({ start: close.start, end: close.end, workCents: f.workCents, invoiceCents: f.invoiceCents, frozen: true });
+    }
+  }
+  for (const p of periodsOut) {
+    if (seenStart.has(p.start)) continue;
+    for (const f of p.robots) {
+      if (!measuredByRobot.has(f.robotId)) measuredByRobot.set(f.robotId, []);
+      measuredByRobot.get(f.robotId).push({ start: p.start, end: p.end, workCents: f.workCents, invoiceCents: f.invoiceCents, frozen: false });
+    }
+  }
+  const payback = robots.map((r) => {
+    const lease = contractRows.get(r.id) ?? null;
+    const months = (measuredByRobot.get(r.id) ?? []).sort((a, b) => (a.start < b.start ? -1 : 1));
+    return { robotId: r.id, ...paybackFor({ lease, category: r.category, months, asOfKey }) };
+  });
+
   const filled = (arr) => (arr.length ? "present" : "missing");
   return {
     version: CONTRACT_VERSION,
@@ -455,8 +503,10 @@ export function fleetContract(store, nowMs, config = {}) {
     safety,
     contracts,
     tickets,
+    // Stops in the closed periods shown, each tagged with its period's start.
+    pastDowntime,
     // What the owner typed on the dashboard, restored into the page on load.
-    inputs: loadInputs(store),
+    inputs,
     // When each alert rule last actually emailed the owner (alerts.mjs).
     alertLog: (() => {
       try {
@@ -465,6 +515,7 @@ export function fleetContract(store, nowMs, config = {}) {
         return {};
       }
     })(),
+    payback,
     // Every rate the figures have used, newest first, and who set it.
     rateHistory: store.listRateChanges().map((r) => ({ work: r.work, cents: r.cents, unit: r.unit, own: Boolean(r.own), by: r.by_email, at: r.at })),
     // Where each table came from, so the page can say "from the robot" or
@@ -481,6 +532,42 @@ export function fleetContract(store, nowMs, config = {}) {
       economics: robots.some((r) => r.configured) ? "owner" : "benchmark",
     },
   };
+}
+
+/** Whole months from one date key to another (Jan 15 to Mar 14 is 1). */
+export function monthsBetween(fromKey, toKey) {
+  const [y1, m1, d1] = fromKey.split("-").map(Number);
+  const [y2, m2, d2] = toKey.split("-").map(Number);
+  return Math.max(0, (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0));
+}
+
+/** One robot's payback from measured months. Statuses:
+ *  - paid: what it earned in measured months alone has crossed its price
+ *  - on track / behind / missed: every month since the lease began is
+ *    measured, so the pace is known (missed = past the promised month and
+ *    not paid)
+ *  - partly measured: months before the data began are unknown, so no
+ *    verdict; the measured pace is still given
+ *  - no lease / no price: nothing to measure against */
+export function paybackFor({ lease, category, months, asOfKey }) {
+  const priceCents = lease?.equip_cost_cents ?? EQUIP_COST_CENTS[category] ?? null;
+  const priceSource = lease?.equip_cost_cents != null ? "owner" : priceCents != null ? "benchmark" : null;
+  const earnedCents = months.reduce((a, m) => a + (m.workCents ?? 0), 0);
+  const base = { priceCents, priceSource, leaseStart: lease?.start_date ?? null, promisedMonths: lease?.payback_months ?? null, months, earnedCents };
+  if (!lease?.start_date) return { ...base, status: "no lease", monthsSinceStart: null, monthsUnmeasured: null, paceMonths: null };
+  if (!priceCents) return { ...base, status: "no price", monthsSinceStart: null, monthsUnmeasured: null, paceMonths: null };
+  const since = monthsBetween(lease.start_date, asOfKey);
+  // A period that began before the lease still counts: the robot was working.
+  const unmeasured = Math.max(0, since - months.length);
+  const recent = months.slice(-3);
+  const perMonth = recent.length ? recent.reduce((a, m) => a + (m.workCents ?? 0), 0) / recent.length : 0;
+  const paceMonths = earnedCents >= priceCents ? null : perMonth > 0 ? since + Math.ceil((priceCents - earnedCents) / perMonth) : null;
+  let status;
+  if (earnedCents >= priceCents) status = "paid";
+  else if (unmeasured > 0) status = "partly measured";
+  else if (lease.payback_months != null && since >= lease.payback_months) status = "missed";
+  else status = paceMonths !== null && lease.payback_months != null && paceMonths <= lease.payback_months ? "on track" : "behind";
+  return { ...base, status, monthsSinceStart: since, monthsUnmeasured: unmeasured, paceMonths };
 }
 
 /** Fleet totals for one period from its robots' figures. A credit total is

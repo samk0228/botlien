@@ -742,7 +742,22 @@ function liveTables(c) {
     if (d.pose) return 'stuck · near ' + Math.round(d.pose.x / 2) * 2 + ', ' + Math.round(d.pose.y / 2) * 2 + ' m';
     return 'stuck';
   }
-  T.DOWNTIME = byRobot(c.downtime, function (d) { return { date: d.date, start: d.start, minutes: d.minutes, cause: cause(d) }; });
+  // spot: the 2 m grid key a place name is saved under (S.placeNames).
+  T.DOWNTIME = byRobot(c.downtime, function (d) { return { date: d.date, start: d.start, minutes: d.minutes, cause: cause(d), spot: d.spot || null }; });
+  // Stops in the closed periods shown, with the period each belongs to.
+  T.DOWNTIME_PAST = byRobot(c.pastDowntime || [], function (d) { return { period: d.period, date: d.date, start: d.start, minutes: d.minutes, cause: cause(d), spot: d.spot || null }; });
+  // Payback from measured months (server): status, what was earned in the
+  // months with data, and how many months since the lease began have none.
+  T.PAYBACK = robots.map(function (r) {
+    var p = (c.payback || []).filter(function (x) { return x.robotId === r.id; })[0];
+    if (!p) return null;
+    return {
+      status: p.status, price: p.priceCents == null ? null : p.priceCents / 100, priceSource: p.priceSource,
+      earned: p.earnedCents / 100, monthsSinceStart: p.monthsSinceStart, monthsUnmeasured: p.monthsUnmeasured,
+      paceMonths: p.paceMonths, promisedMonths: p.promisedMonths,
+      months: p.months.map(function (m) { return { start: m.start, end: m.end, work: m.workCents / 100, frozen: m.frozen }; })
+    };
+  });
   T.SAFETY = byRobot(c.safety, function (s) { return { date: s.date, time: s.time, kind: s.kind, note: s.note || '' }; });
   // Undefined where the owner has not entered the lease: contractFor() then
   // uses its stated default and the page marks the robot's contract as not set.
@@ -828,7 +843,7 @@ var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'c
 var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
   'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
   'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
-  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon'];
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames'];
 
 /* The changes between two snapshots of the page state, in the shape
    POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner
@@ -1020,8 +1035,7 @@ const ALERT_RULES = [
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
 // A live account's alerts go to the owner; "last sent" is the server's log.
-// The payback rule is not sent yet (payback is only worked out on this page).
-if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = a.name === 'A promise is missed' ? 'Not sent yet' : (LIVE.ALERT_LOG[a.name] || 'Never sent'); });
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = LIVE.ALERT_LOG[a.name] || 'Never sent'; });
 
 const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },
@@ -2396,7 +2410,7 @@ const S = {
   // The tab strip: Level 3 pages and pinned Level 4 records, opened inside
   // the dashboard. activeTab -1 is the section tab.
   tabs: [], activeTab: -1, tabScroll: {}, tabSeen: 0, tabToast: null, tabSheet: false,
-  claims: {}, draftOpen: '', draftCopied: false, briefPlan: '',
+  claims: {}, placeNames: {}, draftOpen: '', draftCopied: false, briefPlan: '',
   incidentSub: 'all', fixHighlight: '',
   fixes: { 'airport:aisle 7': { status:'done', note:'Taped a no-parking zone at the aisle end', owner:'', date:'2026-08-29' } },
   briefForm: { to:[''], time:'5:30 AM', days:[1,1,1,1,1,0,0], sites:[1,1,1] }, briefSettings: null,
