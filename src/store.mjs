@@ -249,6 +249,23 @@ export const MIGRATIONS = [
      at INTEGER NOT NULL
    );
    CREATE INDEX IF NOT EXISTS rate_changes_work ON rate_changes(work, at);`,
+  // 4. Closed periods. When a billing period ends its figures are frozen here
+  //    and read back ever after, so a rate or invoice changed today never
+  //    rewrites a statement already sent. Keyed by the period's start date;
+  //    sites by name, because the contract's site ids are not stable.
+  `CREATE TABLE IF NOT EXISTS period_closes (
+     start TEXT PRIMARY KEY,
+     end TEXT NOT NULL,
+     closed_at INTEGER NOT NULL,
+     sites TEXT NOT NULL,
+     totals TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS period_robot_figures (
+     start TEXT NOT NULL,
+     robot_id INTEGER NOT NULL,
+     figures TEXT NOT NULL,
+     PRIMARY KEY (start, robot_id)
+   );`,
 ];
 
 export function migrate(db) {
@@ -831,6 +848,38 @@ export class Store {
       .prepare(`INSERT INTO owner_inputs (key, value, updated_at) VALUES (?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`)
       .run(key, value, nowMs);
+  }
+
+  // ---- closed periods (migration 4) ----
+  listPeriodCloses() {
+    const closes = this.db.prepare(`SELECT start, end, closed_at, sites, totals FROM period_closes ORDER BY start DESC`).all();
+    const figures = this.db.prepare(`SELECT start, robot_id, figures FROM period_robot_figures`).all();
+    const byStart = new Map();
+    for (const f of figures) {
+      if (!byStart.has(f.start)) byStart.set(f.start, {});
+      byStart.get(f.start)[f.robot_id] = JSON.parse(f.figures);
+    }
+    return closes.map((c) => ({
+      start: c.start,
+      end: c.end,
+      closedAt: c.closed_at,
+      sites: JSON.parse(c.sites),
+      totals: JSON.parse(c.totals),
+      robots: byStart.get(c.start) ?? {},
+    }));
+  }
+
+  /** Freeze one period. A period already closed is left exactly as it was. */
+  closePeriod({ start, end, sites, totals, robots }, nowMs) {
+    return this.transaction(() => {
+      const res = this.db
+        .prepare(`INSERT OR IGNORE INTO period_closes (start, end, closed_at, sites, totals) VALUES (?, ?, ?, ?, ?)`)
+        .run(start, end, nowMs, JSON.stringify(sites), JSON.stringify(totals));
+      if (res.changes === 0) return false;
+      const put = this.db.prepare(`INSERT OR IGNORE INTO period_robot_figures (start, robot_id, figures) VALUES (?, ?, ?)`);
+      for (const [robotId, f] of Object.entries(robots)) put.run(start, Number(robotId), JSON.stringify(f));
+      return true;
+    });
   }
 
   // ---- rate history (migration 3) ----

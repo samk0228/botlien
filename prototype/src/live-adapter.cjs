@@ -67,12 +67,22 @@ function liveTables(c) {
     return {
       label: short(p.start) + ' – ' + short(p.end) + ', ' + p.end.slice(0, 4),
       status: p.status,
-      closed: p.status === 'closed' ? 'Closed ' + short(dayAfter(p.end)) : '',
+      // Closed on the day the server froze it. A period that has ended but
+      // not frozen yet (its grace day, or waiting for newer data) is closing.
+      closed: p.status !== 'closed' ? '' : p.frozen ? 'Closed ' + short(localStamp(p.closedAt, tz).slice(0, 10)) : 'Closing',
+      locked: p.status === 'closed' ? Boolean(p.frozen) : false,
       siteCov: c.sites.map(function (s) { var v = p.siteCoverage[s.id]; return v == null ? null : Math.round(v * 100) / 100; }),
       siteUtil: c.sites.map(function (s) { var v = p.siteUtilization[s.id]; return v == null ? null : Math.round(v); })
     };
   });
   T.PERIOD_BOUNDS = periods.map(function (p) { return [p.start, p.end]; });
+  // What each period came to, per robot row and in total, as it closed (or as
+  // it stands, for the open one): uptime, downtime, credit, work and invoice.
+  T.PERIOD_FIGURES = periods.map(function (p) {
+    var byIndex = {};
+    (p.robots || []).forEach(function (f) { var i = indexOf[f.robotId]; if (i !== undefined) byIndex[i] = f; });
+    return { frozen: Boolean(p.frozen), closedAt: p.closedAt || null, totals: p.totals || null, robots: byIndex };
+  });
 
   T.ROBOTS = robots.map(function (r) {
     // brandOf() reads the first word, so the brand leads unless the model

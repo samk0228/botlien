@@ -669,12 +669,22 @@ function liveTables(c) {
     return {
       label: short(p.start) + ' – ' + short(p.end) + ', ' + p.end.slice(0, 4),
       status: p.status,
-      closed: p.status === 'closed' ? 'Closed ' + short(dayAfter(p.end)) : '',
+      // Closed on the day the server froze it. A period that has ended but
+      // not frozen yet (its grace day, or waiting for newer data) is closing.
+      closed: p.status !== 'closed' ? '' : p.frozen ? 'Closed ' + short(localStamp(p.closedAt, tz).slice(0, 10)) : 'Closing',
+      locked: p.status === 'closed' ? Boolean(p.frozen) : false,
       siteCov: c.sites.map(function (s) { var v = p.siteCoverage[s.id]; return v == null ? null : Math.round(v * 100) / 100; }),
       siteUtil: c.sites.map(function (s) { var v = p.siteUtilization[s.id]; return v == null ? null : Math.round(v); })
     };
   });
   T.PERIOD_BOUNDS = periods.map(function (p) { return [p.start, p.end]; });
+  // What each period came to, per robot row and in total, as it closed (or as
+  // it stands, for the open one): uptime, downtime, credit, work and invoice.
+  T.PERIOD_FIGURES = periods.map(function (p) {
+    var byIndex = {};
+    (p.robots || []).forEach(function (f) { var i = indexOf[f.robotId]; if (i !== undefined) byIndex[i] = f; });
+    return { frozen: Boolean(p.frozen), closedAt: p.closedAt || null, totals: p.totals || null, robots: byIndex };
+  });
 
   T.ROBOTS = robots.map(function (r) {
     // brandOf() reads the first word, so the brand leads unless the model
@@ -2999,7 +3009,7 @@ function effectivePeriod(){
     };
   }
   const p = PERIODS[S.period];
-  return { label:p.label, status:p.status, closed:p.closed, days:daysBetweenInclusive(p.start,p.end), isCustom:false };
+  return { label:p.label, status:p.status, closed:p.closed, locked:p.locked, days:daysBetweenInclusive(p.start,p.end), isCustom:false };
 }
 
 // The calendar dropdown: a real month grid you can drag a range across,
@@ -3102,7 +3112,9 @@ function periodFacts(p){
         ? (p.isCustom
             ? 'This range is still running. Numbers keep moving until it ends.'
             : 'This period runs to '+PERIODS[0].label.split(' – ')[1]+'. Numbers keep moving until then, and lock when it closes.')
-        : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</span>'
+        : p.locked === false
+          ? 'Closing. This period has ended; its numbers lock once a day has passed and the next period&#39;s data has arrived.'
+          : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</span>'
     + '</div>'
     + (p.isCustom ? '' : '<div '+openAttrs('period', String(S.period), 'statement')+' role="link" tabindex="0" style="display:inline-block;margin-top:12px;font-size:12.5px;font-weight:500;'+linkStyle()+'">Open this period as a tab</div>')
   + '</div>';

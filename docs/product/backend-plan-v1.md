@@ -128,7 +128,32 @@ API (a Claude Design job), and a real Gausium account to try it on.
    their own keys. Bear second (wire the gRPC stream). Every connector logs
    to Genesis (`genesis-log botlien-sync ...`, `needs_user` on failure).
 
-**Phase 3. The derivations (about 1 week)**
+**Phase 3. The derivations (about 1 week)**. Period close, per-period uptime and credit built 2026-09-23.
+
+Status: closed periods are now really closed. Migration 4 adds
+`period_closes` and `period_robot_figures`. `closePeriods()` in
+`src/contract.mjs` freezes every period that has ended, is a grace day past
+its end, and whose telemetry has moved past it (so an export that stops
+mid-month does not freeze half a month). It stores each site's coverage and
+utilization and each robot's units, work value, invoice, hours, incidents,
+downtime, delivered uptime, promised uptime and credit. From then on the
+contract reads those figures for that period, so changing a rate or invoice
+never rewrites a statement. It runs before `/api/v1/fleet` and `/app` are
+served (only once the account's fleet is confirmed, so benchmark invoices are
+never frozen) and after each connector sync. Uptime and credit are worked
+out for every period, not just the open one; credit needs a lease with a
+stated uptime promise and is null (not zero) without one. The page shows
+"Closed <day it froze>" and "Numbers are locked" only for frozen periods,
+and "Closing" in the grace day. The adapter passes `PERIOD_FIGURES` (per
+robot row and totals) for the Period and Contract pages to use. 305 tests.
+
+Not done yet from this phase: naming places from robot positions (stalls
+still read "near x, y m"), a payback series from real history before the six
+periods (the page still back-projects), and a Downtime table for closed
+periods (their episodes feed uptime and credit but are not listed). If the
+owner changes the billing anchor day, periods frozen on the old boundaries
+stop matching and the new ones compute fresh.
+
 Incidents from snapshots, pose to place, billing periods and nightly close,
 contract and credit, payback series, safety events. Each one replaces a
 hard-coded Demo table with a computed one, with a test that runs the sim

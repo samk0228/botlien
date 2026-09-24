@@ -8,9 +8,9 @@ import { openStore } from "./store.mjs";
 import { createEngine, createClock } from "./engine.mjs";
 import { createSimConnector } from "./connectors/sim.mjs";
 import { boardModel, startBoard, readBody } from "./board.mjs";
-import { ownerModel, parseSetupForm, confirmModel, parseConfirmForm, applyConfirm, recordImport, businessType, setBusinessType } from "./owner.mjs";
+import { ownerModel, parseSetupForm, confirmModel, parseConfirmForm, applyConfirm, recordImport, businessType, setBusinessType, onboardingStep } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
-import { fleetContract } from "./contract.mjs";
+import { fleetContract, closePeriods } from "./contract.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor } from "./rates.mjs";
 import { ROOT, resolvePath } from "./infra.mjs";
@@ -151,7 +151,16 @@ async function main() {
     // Every account that connected a vendor syncs on its own loop, apart from
     // the ops engine above, so one customer's slow vendor never delays the
     // ops board and never overlaps its own previous sweep.
-    tenantSync = createTenantSync({ control, tenants, vault, config, log: genesisLog });
+    tenantSync = createTenantSync({
+      control, tenants, vault, config, log: genesisLog,
+      // A fleet still being set up would freeze benchmark invoices, so only
+      // a confirmed account closes periods.
+      afterSync: (accountId, tStore, nowMs) => {
+        if (onboardingStep(tStore) !== "done") return;
+        const closed = closePeriods(tStore, nowMs, config);
+        if (closed.length) genesisLog(`account ${accountId} closed period(s) ${closed.join(", ")}`);
+      },
+    });
     let syncing = false;
     syncInterval = setInterval(async () => {
       if (syncing) return;
@@ -183,7 +192,12 @@ async function main() {
     tenancy,
     getState: () => boardModel(store, clock.now()),
     getOwnerState: () => ownerModel(store, clock.now(), config),
-    getFleetContract: () => fleetContract(store, clock.now(), config),
+    getFleetContract: () => {
+      // The single-fleet server has no setup gate: its fleet is the operator's.
+      const closed = closePeriods(store, clock.now(), config);
+      if (closed.length) genesisLog(`closed period(s) ${closed.join(", ")}`);
+      return fleetContract(store, clock.now(), config);
+    },
     saveOwnerInputs: (changes) => saveInputs(store, changes, clock.now()),
     saveEconomics: (params) => {
       const { updates, errors } = parseSetupForm(params, store.listRobots());

@@ -22,6 +22,10 @@ export const CONTRACT_VERSION = 1;
 const DEFAULT_SITE = "Main site";
 const DEFAULT_TZ = "America/Los_Angeles";
 const PERIODS_BACK = 6;
+const DAY_MS = 86_400_000;
+// A period closes a day after it ends, so a late sync or an export that lands
+// the next morning is still counted before the figures freeze.
+export const CLOSE_GRACE_MS = DAY_MS;
 // Two abnormal samples further apart than this are two episodes, not one,
 // unless the robot only reports every few minutes: then the gap is one and a
 // half of its own sample intervals, so an export sampled every 10 minutes does
@@ -177,6 +181,12 @@ export function fleetContract(store, nowMs, config = {}) {
   const econRows = new Map(store.listRobotEconomics().map((r) => [r.robot_id, r]));
   const contractRows = new Map(store.listRobotContracts().map((r) => [r.robot_id, r]));
   const fleetsById = new Map(store.listFleets().map((f) => [f.id, f]));
+  // Periods already closed read their frozen figures, never today's math.
+  const frozenByStart = new Map(store.listPeriodCloses().map((c) => [c.start, c]));
+  const frozenFor = (p) => {
+    const f = frozenByStart.get(p.start);
+    return f && f.end === p.end ? f : null;
+  };
 
   // Sites: the owner's own list first, then any older fleet names, then one
   // default. Ids are strings so the frontend never confuses them with indexes.
@@ -208,6 +218,7 @@ export function fleetContract(store, nowMs, config = {}) {
   const safety = [];
   const contracts = [];
   const coverageByPeriod = periods.map(() => new Map()); // siteId -> {work, invoice, active, cap}
+  const robotsByPeriod = periods.map(() => ({})); // robotId -> the figures a close freezes
 
   for (const r of store.listRobots()) {
     if (excluded.has(r.id)) continue;
@@ -255,10 +266,56 @@ export function fleetContract(store, nowMs, config = {}) {
 
     const samples = openRows.reduce((n, x) => n + (x.sample_count ?? 0), 0);
     const sampleMs = samples > 0 ? openRows.reduce((n, x) => n + (x.bucket_ms ?? 0), 0) / samples : undefined;
-    for (const ep of downtimeEpisodes(store.abnormalSnapshots(r.id, open.fromMs, open.toMs), { tz, sampleMs })) {
+    const openEpisodes = downtimeEpisodes(store.abnormalSnapshots(r.id, open.fromMs, open.toMs), { tz, sampleMs });
+    for (const ep of openEpisodes) {
       downtime.push({ robotId: r.id, ...ep });
       if (ep.kind === "e-stop") safety.push({ robotId: r.id, date: ep.date, time: ep.start, kind: "e-stop", note: null });
     }
+    // Earlier periods' episodes feed their uptime and credit only. The
+    // downtime table stays the open period's, which is what the page reads.
+    const samplesAll = all.reduce((n, x) => n + (x.sample_count ?? 0), 0);
+    const pastEpisodes = periods.length > 1
+      ? downtimeEpisodes(store.abnormalSnapshots(r.id, oldestFrom, open.fromMs), {
+          tz,
+          sampleMs: samplesAll > 0 ? all.reduce((n, x) => n + (x.bucket_ms ?? 0), 0) / samplesAll : sampleMs,
+        })
+      : [];
+
+    // What each period comes to for this robot: the figures a close freezes.
+    // Uptime is against the hours scheduled on the days telemetry covers, and
+    // a credit is only worked out where the owner stated a lease with an
+    // uptime promise; none is assumed.
+    const lease = contractRows.get(r.id);
+    periods.forEach((p, i) => {
+      const f = perPeriod[i];
+      if (!f) return;
+      const eps = i === 0 ? openEpisodes : pastEpisodes.filter((e) => e.at >= p.fromMs && e.at < p.toMs);
+      const downMin = eps.reduce((a, e) => a + e.minutes, 0);
+      const seenDays = Math.max(0, (Math.min(p.toMs, range.maxAt) - Math.max(p.fromMs, range.minAt)) / DAY_MS);
+      const hoursDay = econ?.operatingHoursDay ?? null;
+      const scheduledMin = hoursDay ? Math.round(hoursDay * seenDays * 60) : null;
+      const delivered = scheduledMin > 0 ? Math.max(0, (1 - downMin / scheduledMin) * 100) : null;
+      const promised = lease?.uptime_pct ?? null;
+      const gap = delivered !== null && promised !== null ? Math.max(0, Math.round((promised - delivered) * 100) / 100) : null;
+      const invoice = f.invoiceProratedCents ?? null;
+      robotsByPeriod[i][r.id] = {
+        name: r.display_name ?? r.robot_key,
+        site: siteName,
+        work: bench?.label ?? r.category,
+        units: Math.round(f.tasks * 10) / 10,
+        workCents: Math.round(f.workServicedCents),
+        invoiceCents: invoice === null ? null : Math.round(invoice),
+        coverage: f.coverage ?? null,
+        activeHours: Math.round((f.activeMs / 3_600_000) * 10) / 10,
+        dutyPct: f.utilizationPct ?? null,
+        incidents: eps.length,
+        downtimeMinutes: downMin,
+        scheduledMinutes: scheduledMin,
+        deliveredUptimePct: delivered === null ? null : Math.round(delivered * 100) / 100,
+        promisedUptimePct: promised,
+        creditCents: gap !== null && invoice !== null ? Math.round(gap * 0.01 * invoice) : null,
+      };
+    });
 
     if (fin) {
       const samples = store.stuckSampleCount(r.id, open.fromMs, open.toMs);
@@ -322,7 +379,11 @@ export function fleetContract(store, nowMs, config = {}) {
       capacityHours: fin?.capacityMs ? Math.round((fin.capacityMs / 3_600_000) * 10) / 10 : null,
       dutyPct: fin?.utilizationPct ?? null,
       coverage: fin?.coverage ?? null,
-      coverageDelta: fin?.coverage != null && prev?.coverage != null ? fin.coverage - prev.coverage : null,
+      coverageDelta: (() => {
+        // Against last period as it closed, when it has.
+        const was = periods[1] && frozenFor(periods[1]) ? frozenFor(periods[1]).robots[r.id]?.coverage ?? null : prev?.coverage ?? null;
+        return fin?.coverage != null && was != null ? fin.coverage - was : null;
+      })(),
       parts: wear.map((w) => ({
         name: w.component,
         remainingPct: w.remaining_pct,
@@ -333,21 +394,37 @@ export function fleetContract(store, nowMs, config = {}) {
   }
 
   const periodsOut = periods.map((p, i) => {
+    const frozen = frozenFor(p);
     const siteCoverage = {};
     const siteUtilization = {};
     for (const s of siteList) {
+      if (frozen) {
+        // A site added since the close had nothing in that period.
+        siteCoverage[s.id] = frozen.sites[s.name]?.coverage ?? null;
+        siteUtilization[s.id] = frozen.sites[s.name]?.utilization ?? null;
+        continue;
+      }
       const a = coverageByPeriod[i].get(s.id);
       siteCoverage[s.id] = a && a.invoice > 0 ? a.work / a.invoice : null;
       siteUtilization[s.id] = a && a.cap > 0 ? (a.active / a.cap) * 100 : null;
     }
+    const robotFigures = frozen ? frozen.robots : robotsByPeriod[i];
     const seenFrom = range ? Math.max(p.fromMs, range.minAt) : p.fromMs;
     const seenTo = range ? Math.min(p.toMs, range.maxAt) : p.fromMs;
     const observedDays = Math.max(0, Math.round(((seenTo - seenFrom) / 86_400_000) * 10) / 10);
     const days = Math.round((p.toMs - p.fromMs) / 86_400_000);
     return {
-      start: p.start, end: p.end, label: p.label, status: p.status,
+      start: p.start, end: p.end, label: p.label,
+      // A period the close has frozen is closed whatever the calendar says.
+      status: frozen ? "closed" : p.status,
       days, observedDays, partial: observedDays < days,
       siteCoverage, siteUtilization,
+      frozen: Boolean(frozen),
+      closedAt: frozen ? frozen.closedAt : null,
+      closeable: !frozen && range !== null && range.maxAt >= p.toMs,
+      endsAtMs: p.toMs,
+      totals: frozen ? frozen.totals : periodTotals(robotFigures),
+      robots: Object.entries(robotFigures).map(([robotId, f]) => ({ robotId: Number(robotId), ...f })),
     };
   });
 
@@ -396,6 +473,51 @@ export function fleetContract(store, nowMs, config = {}) {
       economics: robots.some((r) => r.configured) ? "owner" : "benchmark",
     },
   };
+}
+
+/** Fleet totals for one period from its robots' figures. A credit total is
+ *  null when no robot has a stated uptime promise, not zero. */
+function periodTotals(robots) {
+  const list = Object.values(robots);
+  const sum = (k) => list.reduce((a, f) => a + (f[k] ?? 0), 0);
+  const work = sum("workCents");
+  const invoice = sum("invoiceCents");
+  const credits = list.filter((f) => f.creditCents !== null);
+  return {
+    robots: list.length,
+    units: Math.round(sum("units") * 10) / 10,
+    workCents: work,
+    invoiceCents: invoice,
+    coverage: invoice > 0 ? work / invoice : null,
+    downtimeMinutes: sum("downtimeMinutes"),
+    incidents: sum("incidents"),
+    creditCents: credits.length ? credits.reduce((a, f) => a + f.creditCents, 0) : null,
+  };
+}
+
+/** Freeze every period that has ended, is a grace day past its end, and whose
+ *  telemetry has moved past it (so an export that stops mid-period does not
+ *  freeze a half-counted month). Idempotent: a closed period is never
+ *  rewritten. The caller decides whether this account may close yet (a fleet
+ *  still being set up would freeze benchmark invoices). Returns the starts
+ *  of the periods it closed. */
+export function closePeriods(store, nowMs, config = {}) {
+  const c = fleetContract(store, nowMs, config);
+  const nameById = new Map(c.sites.map((s) => [s.id, s.name]));
+  const closed = [];
+  for (const p of c.periods) {
+    if (p.frozen || !p.closeable || !p.robots.length) continue;
+    if (nowMs < p.endsAtMs + CLOSE_GRACE_MS) continue;
+    const sites = {};
+    for (const [id, cov] of Object.entries(p.siteCoverage)) {
+      if (cov === null && p.siteUtilization[id] === null) continue;
+      sites[nameById.get(id)] = { coverage: cov, utilization: p.siteUtilization[id] };
+    }
+    const robots = {};
+    for (const { robotId, ...f } of p.robots) robots[robotId] = f;
+    if (store.closePeriod({ start: p.start, end: p.end, sites, totals: p.totals, robots }, nowMs)) closed.push(p.start);
+  }
+  return closed;
 }
 
 // Exported for tests.

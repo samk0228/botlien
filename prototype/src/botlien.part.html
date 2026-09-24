@@ -2763,7 +2763,7 @@ function effectivePeriod(){
     };
   }
   const p = PERIODS[S.period];
-  return { label:p.label, status:p.status, closed:p.closed, days:daysBetweenInclusive(p.start,p.end), isCustom:false };
+  return { label:p.label, status:p.status, closed:p.closed, locked:p.locked, days:daysBetweenInclusive(p.start,p.end), isCustom:false };
 }
 
 // The calendar dropdown: a real month grid you can drag a range across,
@@ -2866,7 +2866,9 @@ function periodFacts(p){
         ? (p.isCustom
             ? 'This range is still running. Numbers keep moving until it ends.'
             : 'This period runs to '+PERIODS[0].label.split(' – ')[1]+'. Numbers keep moving until then, and lock when it closes.')
-        : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</span>'
+        : p.locked === false
+          ? 'Closing. This period has ended; its numbers lock once a day has passed and the next period&#39;s data has arrived.'
+          : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</span>'
     + '</div>'
     + (p.isCustom ? '' : '<div '+openAttrs('period', String(S.period), 'statement')+' role="link" tabindex="0" style="display:inline-block;margin-top:12px;font-size:12.5px;font-weight:500;'+linkStyle()+'">Open this period as a tab</div>')
   + '</div>';

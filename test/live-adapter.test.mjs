@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { openStore } from "../src/store.mjs";
 import { rebuildRollupsForRobot } from "../src/rollup.mjs";
-import { fleetContract, KV_BILLING_DAY } from "../src/contract.mjs";
+import { fleetContract, closePeriods, KV_BILLING_DAY } from "../src/contract.mjs";
 import { renderAppHTML, scriptJSON, APP_HTML_PATH } from "../src/app.mjs";
 import { requiresSession } from "../src/gate.mjs";
 
@@ -15,7 +15,7 @@ const TZ = "America/Los_Angeles";
 const MIN = 60_000;
 const at = (iso) => Date.parse(iso);
 
-function contract() {
+function contract({ close = false } = {}) {
   const s = openStore(":memory:");
   s.setKV(KV_BILLING_DAY, "4");
   s.setKV("owner.tz", TZ);
@@ -47,6 +47,7 @@ function contract() {
   s.upsertRobotEconomics(a, { taskType: "order_pick", taskBasis: "mission", rateCents: 42, invoiceCentsMonth: 150_000, wageCentsHour: 2400, operatingHoursDay: 12 }, 1);
   s.upsertRobotContract(a, { startDate: "2025-07-01", termMonths: 36, paybackMonths: 14, uptimePct: 95 }, 1);
   s.insertTicket({ ref: "T-1041", brand: "Locus", robotId: a, title: "Repeat stalls", openedAt: at("2026-08-15T23:10:00Z") });
+  if (close) closePeriods(s, at("2026-09-01T00:00:00Z"));
   return fleetContract(s, at("2026-09-01T00:00:00Z"));
 }
 
@@ -78,7 +79,14 @@ test("periods read like the demo's and bound the same days", () => {
   const T = liveTables(contract());
   assert.equal(T.PERIODS[0].label, "Aug 4 – Sep 3, 2026");
   assert.equal(T.PERIODS[0].status, "open");
-  assert.equal(T.PERIODS[1].closed, "Closed Aug 4");
+  // July has ended but has not been frozen yet: closing, not locked.
+  assert.equal(T.PERIODS[1].closed, "Closing");
+  assert.equal(T.PERIODS[1].locked, false);
+  const frozen = liveTables(contract({ close: true }));
+  assert.equal(frozen.PERIODS[1].closed, "Closed Aug 31", "the day it froze, in the fleet's time zone");
+  assert.equal(frozen.PERIODS[1].locked, true);
+  assert.equal(frozen.PERIOD_FIGURES[1].frozen, true);
+  assert.ok(Object.keys(frozen.PERIOD_FIGURES[1].robots).length > 0, "July's per-robot figures come through by row");
   assert.deepEqual(T.PERIOD_BOUNDS[0], ["2026-08-04", "2026-09-03"]);
   assert.equal(T.PERIODS[0].siteCov.length, 2);
 });

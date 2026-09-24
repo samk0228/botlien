@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { openStore, migrate, MIGRATIONS } from "../src/store.mjs";
 import { rebuildRollupsForRobot } from "../src/rollup.mjs";
-import { billingPeriods, downtimeEpisodes, fleetContract, dateKey, KV_BILLING_DAY } from "../src/contract.mjs";
+import { billingPeriods, downtimeEpisodes, fleetContract, closePeriods, dateKey, KV_BILLING_DAY, CLOSE_GRACE_MS } from "../src/contract.mjs";
 import { requiresSession } from "../src/gate.mjs";
 
 const TZ = "America/Los_Angeles";
@@ -177,4 +177,80 @@ test("excluded robots leave the contract", () => {
 
 test("the contract API sits behind a session", () => {
   assert.equal(requiresSession("/api/v1/fleet"), true);
+});
+
+// ---- closing periods ----
+
+/** One picker with a day of work in July (with a stall) and one in August,
+ *  a $1,000 lease, 12 scheduled hours a day. */
+function twoPeriodStore({ lease = true, days = ["2026-07-10T15:00:00Z", "2026-08-05T15:00:00Z"] } = {}) {
+  const s = openStore(":memory:");
+  s.setKV(KV_BILLING_DAY, "4");
+  s.setKV("owner.tz", TZ);
+  const id = s.upsertRobot({ connector: "import", externalId: "p1", displayName: "Picker 1", brand: "Locus", model: "LocusBot", category: "picking" }, at("2026-07-01T12:00:00Z"));
+  s.setRobotSite(id, s.upsertSite("Pier 4", at("2026-07-01T12:00:00Z")));
+  for (const day of days) {
+    const t0 = at(day);
+    for (let i = 0; i < 48; i++) {
+      const t = t0 + i * 10 * MIN;
+      const stuck = day.startsWith("2026-07") && i >= 20 && i < 30;
+      s.insertSnapshot({ robotId: id, at: t, receivedAt: t, connector: "import", source: "import", connectionState: "online", missionState: "active", missionId: `${day}-${i}`, moving: !stuck, stuck, pose: { x: 3, y: 4 } });
+    }
+  }
+  rebuildRollupsForRobot(s, id);
+  s.upsertRobotEconomics(id, { taskType: "picking", taskBasis: "mission", rateCents: 40, invoiceCentsMonth: 100_000, wageCentsHour: null, operatingHoursDay: 12 }, at("2026-07-01T12:00:00Z"));
+  if (lease) s.upsertRobotContract(id, { startDate: "2026-07-04", termMonths: 36, paybackMonths: 14, uptimePct: 99.9 }, at("2026-07-01T12:00:00Z"));
+  return { s, id };
+}
+const AUG_6 = at("2026-08-06T18:00:00Z");
+
+test("an ended period closes once its data has moved past it, and only once", () => {
+  const { s } = twoPeriodStore();
+  assert.deepEqual(closePeriods(s, AUG_6), ["2026-07-04"]);
+  assert.deepEqual(closePeriods(s, AUG_6 + 3_600_000), []);
+  const c = fleetContract(s, AUG_6);
+  assert.equal(c.periods[0].frozen, false);
+  assert.equal(c.periods[1].frozen, true);
+  assert.equal(c.periods[1].status, "closed");
+  assert.equal(c.periods[1].closedAt, AUG_6);
+});
+
+test("a closed period keeps its figures when the invoice changes afterwards", () => {
+  const { s, id } = twoPeriodStore();
+  closePeriods(s, AUG_6);
+  const before = fleetContract(s, AUG_6);
+  s.upsertRobotEconomics(id, { taskType: "picking", taskBasis: "mission", rateCents: 40, invoiceCentsMonth: 200_000, wageCentsHour: null, operatingHoursDay: 12 }, AUG_6);
+  const after = fleetContract(s, AUG_6);
+  const cov = (c, i) => Object.values(c.periods[i].siteCoverage)[0];
+  assert.equal(cov(after, 1), cov(before, 1), "July as it closed");
+  assert.deepEqual(after.periods[1].robots, before.periods[1].robots);
+  assert.ok(cov(after, 0) < cov(before, 0), "the open period moves with the new invoice");
+  // Last period's delta is against July as it closed.
+  assert.equal(after.robots[0].coverageDelta, after.robots[0].coverage - before.periods[1].robots[0].coverage);
+});
+
+test("a period does not close inside the grace day or before newer data arrives", () => {
+  // Data only in July: July is still the open period, whatever the date.
+  assert.deepEqual(closePeriods(twoPeriodStore({ days: ["2026-07-10T15:00:00Z"] }).s, at("2026-09-20T00:00:00Z")), []);
+  // August data exists, but it is not yet a day past July's end (Aug 4, local midnight).
+  const { s } = twoPeriodStore({ days: ["2026-07-10T15:00:00Z", "2026-08-04T08:00:00Z"] });
+  const julyEnd = fleetContract(s, at("2026-08-04T12:00:00Z")).periods[1].endsAtMs;
+  assert.deepEqual(closePeriods(s, julyEnd + CLOSE_GRACE_MS - 1), []);
+  assert.deepEqual(closePeriods(s, julyEnd + CLOSE_GRACE_MS), ["2026-07-04"]);
+});
+
+test("each period carries uptime and credit, and credit needs a stated promise", () => {
+  const { s } = twoPeriodStore();
+  const july = fleetContract(s, AUG_6).periods[1];
+  const r = july.robots[0];
+  assert.equal(r.incidents, 1);
+  assert.ok(r.downtimeMinutes >= 90, `the July stall is counted (${r.downtimeMinutes} min)`);
+  assert.equal(r.promisedUptimePct, 99.9);
+  assert.ok(r.deliveredUptimePct < 99.9);
+  assert.ok(r.creditCents > 0);
+  assert.equal(july.totals.creditCents, r.creditCents);
+
+  const noLease = fleetContract(twoPeriodStore({ lease: false }).s, AUG_6).periods[1];
+  assert.equal(noLease.robots[0].creditCents, null);
+  assert.equal(noLease.totals.creditCents, null, "no promise, no credit total, not zero");
 });

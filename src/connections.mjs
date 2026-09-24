@@ -142,7 +142,7 @@ export function describeConnections(control, accountId, store = null) {
 /** Every connected account, synced in turn. One slow or broken vendor never
  *  holds up the rest: each account runs under its own timeout, a failure is
  *  recorded on that connection, and the loop moves on. */
-export function createTenantSync({ control, tenants, vault, config = {}, log = () => {}, fetchImpl = fetch, perAccountTimeoutMs = 30_000, historyDays = DEFAULT_HISTORY_DAYS }) {
+export function createTenantSync({ control, tenants, vault, config = {}, log = () => {}, fetchImpl = fetch, perAccountTimeoutMs = 30_000, historyDays = DEFAULT_HISTORY_DAYS, afterSync = null }) {
   const runtimes = new Map(); // connection id -> { updatedAt, store, connector, engine, lastState }
 
   async function stopRuntime(id) {
@@ -219,6 +219,15 @@ export function createTenantSync({ control, tenants, vault, config = {}, log = (
         );
       }
       rt.lastState = state;
+      // Housekeeping on fresh data (closing ended periods). Its failure is
+      // logged, never counted as the sync failing.
+      if (afterSync) {
+        try {
+          afterSync(c.account_id, rt.store, nowMs);
+        } catch (err) {
+          log(`account ${c.account_id} after-sync failed: ${String(err?.message ?? err).slice(0, 200)}`, "warning");
+        }
+      }
     } catch (err) {
       detail = String(err?.message ?? err).slice(0, 200);
       await stopRuntime(c.id);

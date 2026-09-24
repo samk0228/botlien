@@ -22,7 +22,7 @@ import {
   onboardingStep,
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
-import { fleetContract } from "./contract.mjs";
+import { fleetContract, closePeriods } from "./contract.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -184,6 +184,13 @@ export function createTenancy({
     // The account's data sources ride along with its data, so the page can
     // say where every figure came from and whether the feed is healthy.
     const getFleetContract = () => {
+      // Close any period that has ended before serving it, so a file-import
+      // account with no sync loop still gets its statements frozen. Not
+      // while the fleet is being set up: that would freeze benchmark invoices.
+      if (onboardingStep(store) === "done") {
+        const closed = closePeriods(store, now(), config);
+        if (closed.length) log(`account ${account.id}: closed period(s) ${closed.join(", ")}`);
+      }
       const contract = {
         ...fleetContract(store, now(), config),
         sources: describeConnections(control, account.id, store),
