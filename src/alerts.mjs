@@ -135,8 +135,10 @@ export function dailyFindings(store, contract, { nowMs, tz, sent }) {
     // Duty collapse: every one of the last seven days under a fifth of the
     // scheduled hours. Only when the feed itself is fresh, so a vendor outage
     // is not read as seven idle robots.
+    // And only once the robot has its two-week baseline: before that a slow
+    // first week reads as a collapse.
     const hoursDay = r.scheduledHoursDay;
-    if (fresh && hoursDay > 0) {
+    if (fresh && hoursDay > 0 && r.baselineReady) {
       let collapsed = true;
       for (let k = 1; k <= 7 && collapsed; k++) {
         const to = nowMs - (k - 1) * DAY_MS, from = to - DAY_MS;

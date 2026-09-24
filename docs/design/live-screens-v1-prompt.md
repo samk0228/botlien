@@ -7,9 +7,18 @@ rebuilds the page, `ACTIONS` keyed by `data-act`. Build inside it.
 Run this after the first-run prompt (`DESIGN_PROMPT_first_run_live_v1.md`).
 If that one has already added the live hook below, skip section 0.
 
-**The demo does not change.** Everything below appears only in a real
-account (and in the preview described in 0). With `?demo=1`, every screen,
-mock and number stays exactly as it is today.
+**The demo does not change,** with one exception in section 7 (two
+sentences that claim more than the research supports). Everything else
+below appears only in a real account (and in the preview described in 0).
+With `?demo=1`, every other screen, mock and number stays exactly as it is
+today.
+
+This pass follows Botlien's robot API research (Sep 2026). Three findings
+shape it: almost no vendor exposes uptime or cycle count as a field, so
+Botlien computes them from raw state, faults and task status; shop-floor
+robots are not internet-facing, so many connect through a small on-site
+gateway that pushes data to Botlien; and a robot needs one to two weeks of
+its own data before anything that compares it with itself should alert.
 
 ## Why
 
@@ -108,6 +117,12 @@ PAYBACK[i] = {                         // null for a robot with no figures
   months: [{ start, end, work, frozen }]   // oldest first, dollars
 }
 
+NOW[i] = {                             // the latest sample, live
+  at, atMs, connection:'online'|'offline'|null, mission, battery, charging,
+  stuck, eStop, faults:[{ code, severity, description? }],
+  baselineDays, baselineReady            // 0..14, true once 14 days exist
+}
+
 SOURCES   // the dashboard's existing sources line, now including pushed data
 ```
 
@@ -143,7 +158,11 @@ history:{ state, days, jobs, robots, failed, error }|null }`.
 
 ### 2.2 Push from your own system
 
-For fleet software, an integrator, or a make Botlien cannot connect yet.
+For an on-site gateway, fleet software, an integrator, or a make Botlien
+cannot connect yet. Say it in the owner's words: `Most shop-floor robots
+are not on the internet. A small gateway on your network reads them and
+sends their status here.` Arms and cells can send `cycle_count` and
+`program` instead of mission ids, and alarms with a `description`.
 
 - `GET /api/v1/keys` returns `{ keys:[{ id, prefix, label, createdAt,
   lastUsedAt }] }`. One row per key: `blk_7Hq2…` in a mono chip, the label,
@@ -184,6 +203,29 @@ the 400 reply carries `headers`: the file's own column names.
   category, x, y`.
 - Keep the file in memory between the two tries so the owner does not pick
   it again.
+
+---
+
+## 2.4 Right now, and the baseline
+
+The research is clear on what is live the moment a feed connects: state,
+active faults and position. Usage, efficiency and anything predictive take
+days to weeks.
+
+- **Right now** on each robot drawer's Summary and the robot page's
+  Verdict, one line from `NOW[i]`: a state pill (`running`, `idle`,
+  `charging`, `stuck` tone `bad`, `e-stop` tone `bad`, `offline`) and
+  `as of 2:14 PM`. When `atMs` is more than 15 minutes old, the pill is
+  neutral and the line reads `Last heard 3 h ago`. Active `faults` list
+  under it with code and description. Nothing here when `NOW[i]` is empty.
+- **Fleet table**: a narrow `Now` column with the same pill, sortable, so
+  an owner can see which robots are down this minute.
+- **Baseline**: until `baselineReady`, the robot page shows one quiet line
+  under the headline, `Building this robot's baseline: 6 of 14 days. Trends
+  and alerts that compare it with itself start after that.` No trend
+  arrow, `vs last period` delta or `watch` flag for that robot before then.
+  The dashboard's Needs attention list leaves such a robot out of anything
+  based on its own trend and says `3 robots still building a baseline`.
 
 ---
 
@@ -280,7 +322,27 @@ account, so leave `briefSave` as it is. In a live account:
 
 ---
 
-## 7. Check before you call it done
+## 7. Say only what the research supports (demo included)
+
+The research found that Locus Robotics has no confirmed public API and that
+Zebra is winding down Fetch Robotics. Two demo sentences promise more than
+we know:
+
+- `A Locus Portal or Fetch Portal CSV is enough.` becomes `An export from
+  your fleet software is enough.`
+- `…from Locus Portal or Fetch Portal without renaming the columns.`
+  becomes `…from your fleet software. If we do not recognise a column, you
+  tell us which one it is.`
+
+Search the whole page for `Locus Portal` and `Fetch Portal` and reword any
+other claim the same way. Locus, Gausium and Fetch stay as the demo's
+robot makes; only the promises about their exports change. In a live
+account, never say a make has live sync unless it is in the connected
+vendors list (2.1).
+
+---
+
+## 8. Check before you call it done
 
 - `?demo=1`: every screen looks and behaves exactly as before. No request
   goes to a server.
@@ -291,5 +353,8 @@ account, so leave `briefSave` as it is. In a live account:
 - In a live account, the full API key appears once and nowhere after
   closing the panel, not in the URL, not in `S`.
 - A robot with no stated promise never shows `$0.00` credit.
+- `?livepreview=1`: a robot's drawer shows the Right now line; a robot with
+  under 14 days shows the baseline line and no trend arrow.
+- No page says `Locus Portal` or `Fetch Portal`.
 - No demo figure anywhere in a live account. No em dash. No text under
   11.5px. 390px works on every new screen.

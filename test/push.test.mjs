@@ -35,7 +35,7 @@ test("a pushed event is checked the way a vendor's status is", () => {
   assert.equal(full.event.status.connectionState, "online");
   assert.equal(full.event.status.stuck, true);
   assert.deepEqual(full.event.status.pose, { x: 3, y: 4.5 });
-  assert.deepEqual(JSON.parse(full.event.status.errors), [{ code: "E-217", severity: "ERROR" }, { code: "E9", severity: null }]);
+  assert.deepEqual(full.event.status.errors, [{ code: "E-217", severity: "ERROR" }, { code: "E9", severity: null }]);
   assert.equal(full.robot.category, "picking");
   assert.equal(normalizePushEvent({ robot_id: "x", at: 1_790_000_000_000, category: "juggling" }).robot.category, null, "an unknown kind of work is left for the confirm step");
 });
@@ -198,4 +198,58 @@ test("an export with headers we do not know imports once its columns are named",
   const mapped = importTelemetryFromText(s, csv, "odd.csv", { nowMs: NOW, columns: { robot_id: "Serial No", at: "Logged", mission_id: "Job", nonsense: "Job" } });
   assert.equal(mapped.imported, 2);
   assert.equal(s.listRobots()[0].external_id, "X9");
+});
+
+// ---- from an on-site gateway (Sep 2026 robot API research) ----
+
+test("a gateway's cycle counter counts as work, and everything it sent is kept", () => {
+  const s = openStore(":memory:");
+  const t0 = Date.parse("2026-09-23T15:00:00Z");
+  const events = Array.from({ length: 12 }, (_, i) => ({
+    robot_id: "UR10-1", at: t0 + i * MIN, program: "tend_cnc", cycle_count: 500 + Math.floor(i / 2),
+    alarms: i === 5 ? [{ code: "C204A3", severity: "ERROR", description: "Protective stop: joint 3 deviation" }] : [],
+    joint_position_deviation_ratio: [0.01, 0.02, 0.11], name: "Cell 4 arm", brand: "Universal Robots",
+  }));
+  assert.equal(pushEvents(s, { events }, NOW).accepted, 12);
+  const c = fleetContract(s, NOW);
+  assert.equal(c.daily[0].units, 6, "six distinct cycles");
+  const raw = s.db.prepare("SELECT payload FROM raw_events ORDER BY id").all().map((r) => JSON.parse(r.payload));
+  assert.equal(raw.length, 12);
+  assert.deepEqual(raw[0].joint_position_deviation_ratio, [0.01, 0.02, 0.11], "fields we do not read yet are archived");
+  const snap = s.db.prepare("SELECT errors FROM status_snapshots WHERE errors LIKE '%C204A3%'").get();
+  assert.match(snap.errors, /Protective stop: joint 3 deviation/);
+});
+
+test("the contract says what each robot is doing right now", () => {
+  const s = openStore(":memory:");
+  pushEvents(s, { events: [
+    { robot_id: "AMR-1", at: Date.parse("2026-09-23T15:00:00Z"), connection_state: "online", mission_state: "active", battery_pct: 64 },
+    { robot_id: "AMR-1", at: Date.parse("2026-09-23T15:05:00Z"), connection_state: "online", mission_state: "idle", battery_pct: 61, charging: true, pose: { x: 4, y: 9 }, errors: [{ code: "E1", severity: "WARNING" }] },
+  ] }, NOW);
+  const now = fleetContract(s, NOW).robots[0].now;
+  assert.deepEqual([now.at, now.missionState, now.batteryPct, now.charging], [Date.parse("2026-09-23T15:05:00Z"), "idle", 61, true]);
+  assert.deepEqual(now.pose, { x: 4, y: 9 });
+  assert.equal(now.errors[0].code, "E1");
+});
+
+test("a robot builds a two-week baseline before it counts as ready", () => {
+  const s = openStore(":memory:");
+  pushEvents(s, { events: pickerEvents("AMR-7", 30) }, NOW);
+  const r = fleetContract(s, NOW).robots[0];
+  assert.equal(r.baselineReady, false);
+  assert.equal(r.baselineDays, 0);
+  assert.ok(r.firstDataAt > 0);
+});
+
+test("a pushed fault reads as downtime", () => {
+  const s = openStore(":memory:");
+  const t0 = Date.parse("2026-09-23T15:00:00Z");
+  pushEvents(s, { events: [
+    { robot_id: "AMR-1", at: t0, mission_state: "active", mission_id: "m1" },
+    { robot_id: "AMR-1", at: t0 + MIN, mission_state: "active", mission_id: "m1", errors: [{ code: "E-217", severity: "ERROR" }] },
+    { robot_id: "AMR-1", at: t0 + 2 * MIN, mission_state: "active", mission_id: "m1" },
+  ] }, NOW);
+  const d = fleetContract(s, NOW).downtime;
+  assert.equal(d.length, 1);
+  assert.equal(d[0].cause, "error E-217");
 });

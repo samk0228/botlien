@@ -12,6 +12,16 @@
 //     "name": "Picker 7", "brand": "Locus", "model": "LocusBot", "category": "picking" }
 // Only robot_id and at are required. name/brand/model/category are read the
 // first time a robot is seen.
+//
+// Built for an on-site gateway as much as for fleet software: shop-floor
+// controllers are not internet-facing, so a small gateway reads the robot on
+// the local network and pushes here (see the Sep 2026 robot API research).
+// For arms and cells, `cycle_count` (the controller's counter) stands in for
+// a mission id so each cycle counts as a unit of work, `program` names the
+// running job, and alarms may carry a `description`. Everything sent,
+// including fields we do not read yet (joint drift, motor current, operating
+// time), is archived raw so later derivations can use it without asking the
+// gateway to send the history again.
 import { createHash, randomBytes } from "node:crypto";
 import { createEngine } from "./engine.mjs";
 import { toEpochMs } from "./normalize.mjs";
@@ -50,7 +60,9 @@ export function normalizePushEvent(e) {
   const at = toEpochMs(e.at ?? e.timestamp ?? e.time);
   const conn = str(e.connection_state)?.toLowerCase() ?? (bool(e.online) === null ? null : bool(e.online) ? "online" : "offline");
   let errors = null;
-  if (Array.isArray(e.errors)) errors = e.errors.slice(0, 20).map((x) => (typeof x === "object" && x ? { code: str(x.code, 60), severity: str(x.severity, 20) } : { code: str(x, 60), severity: null }));
+  const alarmList = Array.isArray(e.errors) ? e.errors : Array.isArray(e.alarms) ? e.alarms : null;
+  if (alarmList) errors = alarmList.slice(0, 20).map((x) => (typeof x === "object" && x ? { code: str(x.code, 60), severity: str(x.severity, 20), ...(x.description ? { description: str(x.description, 200) } : {}) } : { code: str(x, 60), severity: null }));
+  const cycle = num(e.cycle_count);
   const pose = e.pose && typeof e.pose === "object" && num(e.pose.x) !== null && num(e.pose.y) !== null ? { x: num(e.pose.x), y: num(e.pose.y) } : null;
   const status = {
     externalId,
@@ -59,11 +71,16 @@ export function normalizePushEvent(e) {
     batteryPct: num(e.battery_pct ?? e.battery),
     charging: bool(e.charging),
     eStop: bool(e.e_stop),
-    missionState: str(e.mission_state ?? e.state, 40),
-    missionId: str(e.mission_id, 120),
+    missionState: str(e.mission_state ?? e.state ?? (cycle !== null ? "active" : null), 40),
+    // One unit of work per distinct cycle number, for a controller that counts
+    // cycles rather than missions. Send an event at least once per cycle for
+    // an exact count.
+    missionId: str(e.mission_id, 120) ?? (cycle !== null ? `cycle:${str(e.program, 60) ?? ""}:${cycle}` : null),
     stuck: bool(e.stuck),
     moving: bool(e.moving),
-    errors: errors ? JSON.stringify(errors) : null,
+    // A list: the store encodes it (encoding here too stored a string, so
+    // pushed faults never read as downtime).
+    errors,
     pose,
   };
   const problems = [];
@@ -75,7 +92,7 @@ export function normalizePushEvent(e) {
   if (problems.length) return { problems };
   const category = str(e.category, 40);
   return {
-    event: { externalId, at, status },
+    event: { externalId, at, status, raw: e },
     robot: { displayName: str(e.name, 80), brand: str(e.brand, 40), model: str(e.model, 80), category: category && BENCHMARKS[category] ? category : null },
   };
 }
@@ -101,7 +118,8 @@ export function pushEvents(store, body, nowMs, config = {}) {
       touched.set(id, [Math.min(span[0], event.at), Math.max(span[1], event.at)]);
     }
     const engine = createEngine({ store, connectors: [], config });
-    engine.ingest(PUSH_CONNECTOR, good.map((g) => ({ ...g.event, raw: null })), nowMs);
+    // raw: the event as sent, archived so fields not read yet are kept.
+    engine.ingest(PUSH_CONNECTOR, good.map((g) => g.event), nowMs);
     // Refresh only the hourly buckets these events fall in, aligned to the
     // bucket so a bucket is never overwritten from part of its samples.
     const bucketMs = config.engine?.rollup_bucket_ms ?? 3_600_000;

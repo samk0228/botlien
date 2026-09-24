@@ -251,6 +251,37 @@ computed on the server.
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.
 
+## What the robot API research changed (Sep 24, 2026)
+
+`botlien_robot_api_research.pdf` (30 vendors, field level, in Sam's Drive)
+checked against what is built:
+
+- **Confirmed direction.** No vendor exposes uptime or cycle count as a
+  field, so computing them from raw state, faults and task status is the
+  product, which is what the contract does. The client's own inputs should
+  shrink to value per unit and labor cost per hour, pre-filled; ours are
+  wage and throughput per kind of work from benchmarks, plus the lease
+  terms that only the customer has.
+- **Push API is the gateway's target.** Shop-floor controllers are not
+  internet-facing, so an on-site gateway reads robots locally and pushes to
+  `POST /api/v1/events`. Pushed events are now archived raw (joint drift,
+  motor current, operating time kept for later), `cycle_count` + `program`
+  count cycles as units, alarms keep a `description`. Fixed a bug where
+  pushed faults were stored double-encoded and never read as downtime.
+- **Live now vs later.** Each robot carries `now` (latest state, faults,
+  position). Anything comparing a robot with itself waits for a 14-day
+  baseline (`baselineReady`); the duty-collapse alert now does.
+- **Vendor corrections.** Locus has no confirmed public API (the docs we
+  had were a different company); Zebra is winding down Fetch; AutoStore is
+  NDA-gated; Global AGV and MiR are the most open; MiR or Universal Robots
+  are the best live demo. The Demo's "Locus Portal or Fetch Portal CSV"
+  promises are removed in the Claude Design prompt.
+- **Not decided.** The research's leads are mostly manufacturers (arms,
+  AMRs, cells) while the business types are restaurant, warehouse, hotel,
+  facilities. A manufacturing business type needs real benchmarks (value
+  per cycle, operator wage) before it is added. The gateway itself (MiR REST,
+  UR RTDE) is not built.
+
 ## Risks worth saying out loud
 
 - **We have no vendor credentials for any real customer yet.** Bear's were

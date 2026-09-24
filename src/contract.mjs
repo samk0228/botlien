@@ -23,6 +23,10 @@ const DEFAULT_SITE = "Main site";
 const DEFAULT_TZ = "America/Los_Angeles";
 const PERIODS_BACK = 6;
 const DAY_MS = 86_400_000;
+// A robot's own baseline takes two weeks of data before anything that
+// compares it with itself (a collapse, a drift, a failure risk) may alert:
+// sooner, alerts are mostly false positives (Sep 2026 robot API research).
+export const BASELINE_DAYS = 14;
 // A period closes a day after it ends, so a late sync or an export that lands
 // the next morning is still counted before the figures freeze.
 export const CLOSE_GRACE_MS = DAY_MS;
@@ -404,6 +408,32 @@ export function fleetContract(store, nowMs, config = {}) {
         const was = periods[1] && frozenFor(periods[1]) ? frozenFor(periods[1]).robots[r.id]?.coverage ?? null : prev?.coverage ?? null;
         return fin?.coverage != null && was != null ? fin.coverage - was : null;
       })(),
+      // What is true right now, from the latest sample: the part of the data
+      // that is live seconds after a feed connects.
+      now: latest
+        ? {
+            at: latest.at,
+            connectionState: latest.connection_state ?? null,
+            missionState: latest.mission_state ?? null,
+            batteryPct: latest.battery_pct ?? null,
+            charging: latest.charging == null ? null : Boolean(latest.charging),
+            stuck: latest.stuck == null ? null : Boolean(latest.stuck),
+            eStop: latest.e_stop == null ? null : Boolean(latest.e_stop),
+            errors: (() => {
+              try {
+                const e = JSON.parse(latest.errors ?? "null");
+                return Array.isArray(e) ? e : [];
+              } catch {
+                return [];
+              }
+            })(),
+            pose: latest.pose_x == null ? null : { x: latest.pose_x, y: latest.pose_y },
+          }
+        : null,
+      // How much of its own history this robot has, for the two-week baseline.
+      firstDataAt: all.length ? all[0].bucket_start_at : null,
+      baselineDays: all.length ? Math.min(BASELINE_DAYS, Math.floor((range.maxAt - all[0].bucket_start_at) / DAY_MS)) : 0,
+      baselineReady: all.length > 0 && range.maxAt - all[0].bucket_start_at >= BASELINE_DAYS * DAY_MS,
       parts: wear.map((w) => ({
         name: w.component,
         remainingPct: w.remaining_pct,
