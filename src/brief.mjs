@@ -208,20 +208,18 @@ export function buildBrief(contract, { inputs = { account: {}, robots: {} }, sit
 
 const escHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 
-/** Subject, plain text and HTML for one recipient. */
-export function briefEmail(brief, { appUrl, unsubscribeUrl, business = "" }) {
-  const subject = `${business ? `${business}: ` : ""}before the floor opens, ${brief.dateLabel.split(",").slice(0, 2).join(",")}`;
-  const through = `Built from your robots' data through ${shortDate(brief.throughKey)}.`;
-  const nothing = "Nothing to flag. No robot is under its lease with time down this week, and no stall spot, part or vendor needs you.";
+/** One Botlien email: a title, a subtitle, titled blocks of items, a button
+ *  to the dashboard and a stop link. Text and HTML from the same content. */
+export function renderEmail({ title, subtitle = "", blocks = [], empty = "", appUrl, stopUrl, stopLabel = "Stop these emails", footer = "", cta = "Open the dashboard" }) {
   const text = [
-    `Botlien, ${brief.dateLabel}`,
+    `Botlien: ${title}${subtitle ? `, ${subtitle}` : ""}`,
     "",
-    ...(brief.blocks.length
-      ? brief.blocks.flatMap((b) => [b.title.toUpperCase(), ...b.items.map((i) => `- ${i.text}${i.sub ? ` (${i.sub})` : ""}`), ""])
-      : [nothing, ""]),
-    `Open the dashboard: ${appUrl}`,
-    through,
-    `Stop these emails: ${unsubscribeUrl}`,
+    ...(blocks.length
+      ? blocks.flatMap((b) => [b.title.toUpperCase(), ...b.items.map((i) => `- ${i.text}${i.sub ? ` (${i.sub})` : ""}`), ""])
+      : [empty, ""]),
+    `${cta}: ${appUrl}`,
+    ...(footer ? [footer] : []),
+    `${stopLabel}: ${stopUrl}`,
   ].join("\n");
   const block = (b) =>
     `<div style="margin:18px 0 0"><div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#6b6b6b">${escHtml(b.title)}</div>` +
@@ -230,11 +228,26 @@ export function briefEmail(brief, { appUrl, unsubscribeUrl, business = "" }) {
   const html =
     `<!doctype html><html><body style="margin:0;padding:24px;background:#faf9f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">` +
     `<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e6e4dc;border-radius:8px;padding:24px 28px">` +
-    `<div style="font-size:17px;font-weight:600;color:#111">Before the floor opens</div>` +
-    `<div style="font-size:13px;color:#6b6b6b;margin-top:4px">${escHtml(brief.dateLabel)}${brief.sites.length > 1 ? ` · ${escHtml(brief.sites.join(", "))}` : ""}</div>` +
-    (brief.blocks.length ? brief.blocks.map(block).join("") : `<p style="font-size:14px;color:#333;margin:18px 0 0">${escHtml(nothing)}</p>`) +
-    `<div style="margin-top:22px"><a href="${escHtml(appUrl)}" style="display:inline-block;background:#3760C9;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 16px;border-radius:6px">Open the dashboard</a></div>` +
-    `<div style="font-size:12px;color:#888;margin-top:18px;line-height:1.6">${escHtml(through)} <a href="${escHtml(unsubscribeUrl)}" style="color:#888">Stop these emails</a>.</div>` +
+    `<div style="font-size:17px;font-weight:600;color:#111">${escHtml(title)}</div>` +
+    (subtitle ? `<div style="font-size:13px;color:#6b6b6b;margin-top:4px">${escHtml(subtitle)}</div>` : "") +
+    (blocks.length ? blocks.map(block).join("") : `<p style="font-size:14px;color:#333;margin:18px 0 0">${escHtml(empty)}</p>`) +
+    `<div style="margin-top:22px"><a href="${escHtml(appUrl)}" style="display:inline-block;background:#3760C9;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 16px;border-radius:6px">${escHtml(cta)}</a></div>` +
+    `<div style="font-size:12px;color:#888;margin-top:18px;line-height:1.6">${footer ? `${escHtml(footer)} ` : ""}<a href="${escHtml(stopUrl)}" style="color:#888">${escHtml(stopLabel)}</a>.</div>` +
     `</div></body></html>`;
-  return { subject, text, html };
+  return { text, html };
+}
+
+/** Subject, plain text and HTML for one recipient. */
+export function briefEmail(brief, { appUrl, unsubscribeUrl, business = "" }) {
+  const subject = `${business ? `${business}: ` : ""}before the floor opens, ${brief.dateLabel.split(",").slice(0, 2).join(",")}`;
+  const body = renderEmail({
+    title: "Before the floor opens",
+    subtitle: `${brief.dateLabel}${brief.sites.length > 1 ? ` · ${brief.sites.join(", ")}` : ""}`,
+    blocks: brief.blocks,
+    empty: "Nothing to flag. No robot is under its lease with time down this week, and no stall spot, part or vendor needs you.",
+    appUrl,
+    stopUrl: unsubscribeUrl,
+    footer: `Built from your robots' data through ${shortDate(brief.throughKey)}.`,
+  });
+  return { subject, ...body };
 }

@@ -123,7 +123,7 @@ test("no brief on stale data or for a fleet still being set up", () => {
 
 function jobFixture({ send = true, withVault = true } = {}) {
   const control = openControl(":memory:");
-  const acct = control.upsertAccount("owner@fleet.co", 1);
+  const { account: acct } = control.upsertAccount("owner@fleet.co", 1);
   const { s } = account();
   const tenants = { get: () => s };
   const sent = [];

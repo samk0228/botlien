@@ -797,6 +797,12 @@ function liveTables(c) {
   });
   // Every rate the figures have used, newest first (Numbers > Rate history).
   T.RATE_LOG = c.rateHistory || [];
+  // When each alert rule last emailed the owner, by the page's rule name.
+  T.ALERT_LOG = {};
+  Object.keys(c.alertLog || {}).forEach(function (rule) {
+    var e = c.alertLog[rule];
+    T.ALERT_LOG[rule] = 'Sent ' + short(localStamp(e.at, tz).slice(0, 10)) + (e.summary ? ' · ' + e.summary : '');
+  });
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.
@@ -1012,9 +1018,9 @@ const ALERT_RULES = [
   { name:'Statement ready', trigger:'A period closes and figures are frozen', to:'Sam, Priya', when:'On the 1st', last:'Sent Aug 4' },
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
-// A live account has no alert history yet: rules go to the owner, and the
-// sending job (backend plan Phase 5) is what will fill in "last sent".
-if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = 'Never sent'; });
+// A live account's alerts go to the owner; "last sent" is the server's log.
+// The payback rule is not sent yet (payback is only worked out on this page).
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = a.name === 'A promise is missed' ? 'Not sent yet' : (LIVE.ALERT_LOG[a.name] || 'Never sent'); });
 
 const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },

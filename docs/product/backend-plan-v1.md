@@ -185,8 +185,20 @@ unsubscribe anyone) and a List-Unsubscribe header. With no signing key it
 sends nothing. **It only really sends with `BOTLIEN_BRIEF_SEND=1`**; without
 it the job logs what it would have sent. 317 tests.
 
-Still to do in this phase: alert emails (the rules on the Alerts page),
-emailing a statement when a period closes, the backups check.
+Alert emails built the same day (`src/alerts.mjs`, `BOTLIEN_ALERTS_SEND=1`
+to send). One event is one email: a period closing sends one "statement
+ready" email that also names robots under their lease and credit owed; a
+daily check (from 7 AM local) bundles parts at or under 15%, parts past their
+rating on a robot still running, and duty time under a fifth of the schedule
+for seven days (only when the feed is fresh); a vendor sync down for 30
+minutes is one email until it recovers. Every finding is remembered so it
+does not repeat (a low part until replaced, weekly for the rest). The first
+run marks periods already closed as told, so switching alerts on sends no
+backlog. Alerts go to the account's email with a signed stop link. The page's
+Alerts table now shows when each rule last sent. "A promise is missed"
+(payback) is not sent: payback is only worked out in the browser.
+
+Still to do in this phase: the backups check.
 
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.

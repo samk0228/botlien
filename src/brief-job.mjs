@@ -25,7 +25,10 @@ export const KV_BRIEF_STOPPED = "brief.unsubscribed";
 const LATE_LIMIT_MIN = 180;
 const STALE_DAYS = 2;
 const DEFAULT_TZ = "America/Los_Angeles";
-const STOP_PURPOSE = "brief-stop";
+// What a stop link can stop. The kind is part of what is signed, so a brief
+// link cannot be edited into one that stops alerts.
+export const STOP_KINDS = { brief: "brief-stop", alerts: "alerts-stop" };
+export const KV_ALERTS_STOPPED = "alerts.stopped";
 
 /** "5:30 AM" -> 330. Null for anything else. */
 export function parseBriefTime(s) {
@@ -60,13 +63,14 @@ export function stopBriefFor(store, email) {
   if (!list.includes(e)) store.setKV(KV_BRIEF_STOPPED, JSON.stringify([...list, e]));
 }
 
-export function stopLink(baseUrl, vault, accountId, email) {
-  const q = new URLSearchParams({ a: String(accountId), e: email, s: vault.sign(STOP_PURPOSE, `${accountId}:${email}`) });
+export function stopLink(baseUrl, vault, accountId, email, kind = "brief") {
+  const q = new URLSearchParams({ a: String(accountId), e: email, ...(kind === "brief" ? {} : { k: kind }), s: vault.sign(STOP_KINDS[kind], `${accountId}:${email}`) });
   return `${baseUrl}/brief/stop?${q}`;
 }
 
-export function verifyStop(vault, { a, e, s }) {
-  return Boolean(vault?.ready && a && e && vault.verify(STOP_PURPOSE, `${a}:${e}`, s));
+export function verifyStop(vault, { a, e, s, k }) {
+  const purpose = STOP_KINDS[k || "brief"];
+  return Boolean(vault?.ready && purpose && a && e && vault.verify(purpose, `${a}:${e}`, s));
 }
 
 /** What one account should get right now, or why it gets nothing. */

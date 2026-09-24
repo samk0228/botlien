@@ -68,19 +68,20 @@ export async function handlePublicRoute(req, res, path, ctx) {
   // (a POST) stops the brief, so a mail scanner that follows links cannot
   // unsubscribe anyone.
   if (path === "/brief/stop" && ctx.stopBrief) {
-    const q = { a: query.get("a"), e: query.get("e"), s: query.get("s") };
+    const q = { a: query.get("a"), e: query.get("e"), s: query.get("s"), k: query.get("k") || "" };
+    const what = q.k === "alerts" ? "alert emails" : "the morning brief";
     const page = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>` +
       `<body style="margin:0;padding:48px 16px;background:#faf9f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#111"><div style="max-width:440px;margin:0 auto">${body}</div></body></html>`;
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
     if (req.method === "GET") {
-      send(res, 200, page("Stop the morning brief", `<h1 style="font-size:20px">Stop the morning brief?</h1><p style="font-size:15px;line-height:1.6">${esc(q.e)} will stop getting Botlien's morning brief for this account.</p>` +
+      send(res, 200, page(`Stop ${what}`, `<h1 style="font-size:20px">Stop ${what}?</h1><p style="font-size:15px;line-height:1.6">${esc(q.e)} will stop getting ${what} from Botlien for this account.</p>` +
         `<form method="post"><button type="submit" style="font-size:15px;font-weight:600;padding:10px 16px;border-radius:6px;border:0;background:#3760C9;color:#fff;cursor:pointer">Stop these emails</button></form>`));
       return true;
     }
     if (req.method === "POST") {
       const ok = ctx.stopBrief(q);
       send(res, ok ? 200 : 400, page(ok ? "Stopped" : "Link not valid", ok
-        ? `<h1 style="font-size:20px">Done</h1><p style="font-size:15px;line-height:1.6">${esc(q.e)} will not get the morning brief any more. The account owner can add you back from their dashboard.</p>`
+        ? `<h1 style="font-size:20px">Done</h1><p style="font-size:15px;line-height:1.6">${esc(q.e)} will not get ${what} any more. Reply to any Botlien email to turn them back on.</p>`
         : `<h1 style="font-size:20px">That link is not valid</h1><p style="font-size:15px;line-height:1.6">Use the link at the bottom of a morning brief email, or reply to it and we will take you off.</p>`));
       return true;
     }

@@ -118,6 +118,7 @@ async function main() {
   let tenantSync = null;
   let syncInterval = null;
   let briefInterval = null;
+  let alertsInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
       import("./control.mjs"),
@@ -192,6 +193,24 @@ async function main() {
       }
     }, 60_000);
     if (!briefSend) console.log("morning briefs are logged, not sent (set BOTLIEN_BRIEF_SEND=1 to send)");
+    // Alert emails (the Alerts page's rules), checked every minute. Only
+    // really sent with BOTLIEN_ALERTS_SEND=1.
+    const { createAlertsJob } = await import("./alerts.mjs");
+    const alertsSend = process.env.BOTLIEN_ALERTS_SEND === "1";
+    const alertsJob = createAlertsJob({ control, tenants, mailer, vault, config, baseUrl, send: alertsSend, log: genesisLog });
+    let alerting = false;
+    alertsInterval = setInterval(async () => {
+      if (alerting) return;
+      alerting = true;
+      try {
+        await alertsJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`alerts job error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        alerting = false;
+      }
+    }, 60_000);
+    if (!alertsSend) console.log("alert emails are logged, not sent (set BOTLIEN_ALERTS_SEND=1 to send)");
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {
@@ -293,6 +312,7 @@ async function main() {
     clearInterval(interval);
     if (syncInterval) clearInterval(syncInterval);
     if (briefInterval) clearInterval(briefInterval);
+    if (alertsInterval) clearInterval(alertsInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
     await engine.stop();

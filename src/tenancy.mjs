@@ -23,7 +23,7 @@ import {
 } from "./owner.mjs";
 import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract, closePeriods } from "./contract.mjs";
-import { verifyStop, stopBriefFor } from "./brief-job.mjs";
+import { verifyStop, stopBriefFor, KV_ALERTS_STOPPED } from "./brief-job.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -103,8 +103,9 @@ export function createTenancy({
       if (!verifyStop(vault, q)) return false;
       const account = control.accountById(Number(q.a));
       if (!account) return false;
-      stopBriefFor(tenants.get(account.id), q.e);
-      log(`account ${account.id}: ${q.e} stopped the morning brief`);
+      if (q.k === "alerts") tenants.get(account.id).setKV(KV_ALERTS_STOPPED, "1");
+      else stopBriefFor(tenants.get(account.id), q.e);
+      log(`account ${account.id}: ${q.e} stopped ${q.k === "alerts" ? "alert emails" : "the morning brief"}`);
       return true;
     },
   };

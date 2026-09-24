@@ -766,9 +766,9 @@ const ALERT_RULES = [
   { name:'Statement ready', trigger:'A period closes and figures are frozen', to:'Sam, Priya', when:'On the 1st', last:'Sent Aug 4' },
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
-// A live account has no alert history yet: rules go to the owner, and the
-// sending job (backend plan Phase 5) is what will fill in "last sent".
-if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = 'Never sent'; });
+// A live account's alerts go to the owner; "last sent" is the server's log.
+// The payback rule is not sent yet (payback is only worked out on this page).
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = a.name === 'A promise is missed' ? 'Not sent yet' : (LIVE.ALERT_LOG[a.name] || 'Never sent'); });
 
 const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },
