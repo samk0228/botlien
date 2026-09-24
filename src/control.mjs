@@ -10,6 +10,10 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const SCHEMA = `
+-- Small facts about the service itself, such as when production was last
+-- backed up and verified (written by scripts/backup-mark.mjs).
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
@@ -142,6 +146,14 @@ export class Control {
 
   touchAccount(id, nowMs) {
     this.db.prepare(`UPDATE accounts SET last_seen_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  getMeta(key) {
+    return this.db.prepare(`SELECT value FROM meta WHERE key=?`).get(key)?.value ?? null;
+  }
+
+  setMeta(key, value) {
+    this.db.prepare(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key, String(value));
   }
 
   listAccounts() {

@@ -198,7 +198,20 @@ backlog. Alerts go to the account's email with a signed stop link. The page's
 Alerts table now shows when each rule last sent. "A promise is missed"
 (payback) is not sent: payback is only worked out in the browser.
 
-Still to do in this phase: the backups check.
+Backups check built the same day. The nightly offsite backup
+(`scripts/backup-offsite.sh`, launchd on the Mac mini) had failed every night
+from Sep 10 to Sep 23 because the Fly CLI on the mini lost its login, and its
+failures only reached the local Genesis dashboard. Now each verified backup
+is marked inside production (`scripts/backup-mark.mjs`, control DB `meta`),
+and the app (`src/backup-check.mjs`) emails ops (`BOTLIEN_OPS_EMAILS`) once a
+day while that mark is more than 36 hours old, or when the server has been up
+two days with no mark. The script's failure message now says to run
+`fly auth login` when that is the cause. A backup was taken and verified by
+hand on Sep 23 (3 databases). Worth doing: give the backup job a long-lived
+Fly token so it does not depend on an interactive login.
+
+Phase 5 is done apart from the payback alert, which waits for payback to be
+computed on the server.
 
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.

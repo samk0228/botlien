@@ -119,6 +119,7 @@ async function main() {
   let syncInterval = null;
   let briefInterval = null;
   let alertsInterval = null;
+  let backupInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
       import("./control.mjs"),
@@ -211,6 +212,14 @@ async function main() {
       }
     }, 60_000);
     if (!alertsSend) console.log("alert emails are logged, not sent (set BOTLIEN_ALERTS_SEND=1 to send)");
+    // The backups check: emails ops (BOTLIEN_OPS_EMAILS) once a day while the
+    // last verified offsite backup is more than 36 hours old.
+    const { createBackupCheck } = await import("./backup-check.mjs");
+    const { parseOpsEmails } = await import("./tenancy.mjs");
+    const backupCheck = createBackupCheck({ control, mailer, opsEmails: [...parseOpsEmails(process.env.BOTLIEN_OPS_EMAILS ?? "")], bootMs: Date.now(), log: genesisLog });
+    backupInterval = setInterval(() => {
+      backupCheck.tick(Date.now()).catch((err) => genesisLog(`backups check error: ${String(err).slice(0, 200)}`, "warning"));
+    }, 3_600_000);
     if (mailer.kind === "console") {
       console.log("no RESEND_API_KEY — sign-in links print to the console and data/sent-mail.log");
     } else if (isLoopback(baseUrl)) {
@@ -313,6 +322,7 @@ async function main() {
     if (syncInterval) clearInterval(syncInterval);
     if (briefInterval) clearInterval(briefInterval);
     if (alertsInterval) clearInterval(alertsInterval);
+    if (backupInterval) clearInterval(backupInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
     await engine.stop();
