@@ -179,6 +179,7 @@ function liveTables(c) {
   T.SOURCES = connected.length
     ? connected.map(function (x) {
         var word = { ok: 'syncing', degraded: 'syncing with problems', down: 'not syncing' }[x.state] || 'waiting for first sync';
+        if (x.push) return { line: 'pushed from your system with an API key · ' + (x.robotCount || 0) + ' robots · last push ' + ago(x.lastOkAt), status: x.state === 'ok' ? 'receiving' : 'quiet for over an hour' };
         return { line: x.label.toLowerCase() + ' api · live sync · ' + (x.robotCount || 0) + ' robots · last good sync ' + ago(x.lastOkAt), status: word };
       })
     : [{ line: 'no live connection yet · connect a vendor under Data sources, or import an export', status: 'not connected' }];
