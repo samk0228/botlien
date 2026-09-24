@@ -11,6 +11,8 @@
 // many consecutive failed sweeps.
 import { normalizeGausiumStatus } from "../normalize.mjs";
 
+const HISTORY_MAX_PAGES = 200; // a vendor that never advances a page must not spin forever
+
 const MIN = 60_000;
 const MAX_FAILURES_BEFORE_DOWN = 5;
 const BACKOFF_BASE_MS = 10_000;
@@ -88,6 +90,56 @@ export function createGausiumConnector(cfg, secrets, deps = {}) {
 
   return {
     name: "gausium",
+
+    /** Check a set of keys before they are saved: authenticate and list the
+     *  robots on the account. Unlike init(), which logs and carries on so a
+     *  running process survives a vendor outage, this throws, because the
+     *  owner is standing at the form waiting to hear whether the keys work. */
+    async probe(nowMs = Date.now()) {
+      await authenticate(nowMs);
+      robots = await listRobots();
+      return {
+        robotCount: robots.length,
+        robots: robots.slice(0, 50).map((r) => ({ externalId: r.serialNumber, displayName: r.displayName ?? r.serialNumber, model: r.modelTypeCode ?? null })),
+      };
+    },
+
+    /** Every finished job between fromMs and toMs, per robot, from the task
+     *  report history. Pages until the vendor runs out; a robot whose history
+     *  fails is reported in `failed` and the rest still come back, so one bad
+     *  robot never costs an account its whole past. */
+    async history(fromMs, toMs) {
+      await ensureToken(Date.now());
+      if (robots.length === 0) robots = await listRobots();
+      const reports = {};
+      const failed = [];
+      for (const r of robots) {
+        const sn = r.serialNumber;
+        const all = [];
+        try {
+          for (let page = 1; page <= HISTORY_MAX_PAGES; page++) {
+            const body = await apiGet(`/openapi/v2alpha1/robots/${encodeURIComponent(sn)}/taskReports`, {
+              startTimeUtcFloor: new Date(fromMs).toISOString(),
+              startTimeUtcUpper: new Date(toMs).toISOString(),
+              page,
+              pageSize: PAGE_SIZE,
+            });
+            const batch = body.robotTaskReports ?? [];
+            all.push(...batch);
+            const total = Number(body.total ?? 0);
+            if (batch.length < PAGE_SIZE || (total && all.length >= total)) break;
+          }
+          reports[sn] = all;
+        } catch (err) {
+          failed.push({ serialNumber: sn, error: String(err?.message ?? err).slice(0, 160) });
+        }
+      }
+      return {
+        robots: robots.map((r) => ({ externalId: r.serialNumber, displayName: r.displayName ?? r.serialNumber, brand: "Gausium", model: r.modelTypeCode ?? r.modelFamilyCode ?? null, category: "cleaning" })),
+        reports,
+        failed,
+      };
+    },
 
     async init() {
       try {

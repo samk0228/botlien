@@ -145,7 +145,8 @@ CREATE TABLE IF NOT EXISTS robot_economics (
 
 -- Robots the owner says they no longer lease. A separate table because robots
 -- cannot take new columns: CREATE TABLE IF NOT EXISTS will not add one to an
--- existing database, and there is no migration system. Renames and category
+-- existing database, and this table predates MIGRATIONS below. New columns
+-- now go through a migration instead. Renames and category
 -- corrections need no storage here, since display_name and category already
 -- exist on robots and are updated in place.
 CREATE TABLE IF NOT EXISTS robot_exclusions (
@@ -192,11 +193,103 @@ CREATE INDEX IF NOT EXISTS idx_wear_robot_at ON component_wear(robot_id, at);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 `;
 
+// Ordered, append-only. Each entry runs once per database, tracked by
+// PRAGMA user_version, so a tenant file opened by a newer build picks up the
+// tables and columns it is missing. Never edit or reorder a shipped entry:
+// add a new one. SCHEMA above stays the version-0 baseline.
+export const MIGRATIONS = [
+  // 1. What the owner tells us that no robot reports: which site a robot
+  //    works at, what its lease promised, and the tickets they opened with
+  //    the vendor. These fill the Demo's SITES, CONTRACT and TICKETS tables.
+  `CREATE TABLE IF NOT EXISTS sites (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE,
+     created_at INTEGER NOT NULL
+   );
+   ALTER TABLE robots ADD COLUMN site_id INTEGER;
+   CREATE TABLE IF NOT EXISTS robot_contracts (
+     robot_id INTEGER PRIMARY KEY,
+     start_date TEXT,
+     term_months INTEGER,
+     payback_months INTEGER,
+     uptime_pct REAL,
+     equip_cost_cents INTEGER,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS vendor_tickets (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     ref TEXT,
+     brand TEXT,
+     robot_id INTEGER,
+     title TEXT NOT NULL,
+     opened_at INTEGER NOT NULL,
+     responded_at INTEGER,
+     status TEXT NOT NULL DEFAULT 'open'
+   );`,
+  // 2. Everything else the owner types on the dashboard: wages and the
+  //    roster, custom work, fixes, what-if plans, brief settings, per-robot
+  //    overrides. One JSON value per key; src/inputs.mjs owns the list of
+  //    keys and what each may hold.
+  `CREATE TABLE IF NOT EXISTS owner_inputs (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at INTEGER NOT NULL
+   );`,
+  // 3. Rate history: the rate each kind of work was valued at, one row each
+  //    time it changed, and who changed it. The page works the rate out from
+  //    wage, throughput and roster and sends it with the save; a row is only
+  //    added when it differs from the last one for that work.
+  `CREATE TABLE IF NOT EXISTS rate_changes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     work TEXT NOT NULL,
+     cents INTEGER,
+     unit TEXT NOT NULL,
+     own INTEGER NOT NULL,
+     by_email TEXT,
+     at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS rate_changes_work ON rate_changes(work, at);`,
+  // 4. Closed periods. When a billing period ends its figures are frozen here
+  //    and read back ever after, so a rate or invoice changed today never
+  //    rewrites a statement already sent. Keyed by the period's start date;
+  //    sites by name, because the contract's site ids are not stable.
+  `CREATE TABLE IF NOT EXISTS period_closes (
+     start TEXT PRIMARY KEY,
+     end TEXT NOT NULL,
+     closed_at INTEGER NOT NULL,
+     sites TEXT NOT NULL,
+     totals TEXT NOT NULL
+   );
+   CREATE TABLE IF NOT EXISTS period_robot_figures (
+     start TEXT NOT NULL,
+     robot_id INTEGER NOT NULL,
+     figures TEXT NOT NULL,
+     PRIMARY KEY (start, robot_id)
+   );`,
+];
+
+export function migrate(db) {
+  const current = Number(db.prepare("PRAGMA user_version").get().user_version ?? 0);
+  for (let v = current; v < MIGRATIONS.length; v++) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.exec(MIGRATIONS[v]);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      db.exec("COMMIT");
+    } catch (err) {
+      db.exec("ROLLBACK");
+      throw new Error(`migration ${v + 1} failed: ${err.message}`);
+    }
+  }
+  return MIGRATIONS.length;
+}
+
 export function openStore(path) {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(SCHEMA);
+  migrate(db);
   return new Store(db);
 }
 
@@ -409,6 +502,81 @@ export class Store {
     );
   }
 
+  /** Stuck samples against all samples, with NO pose requirement.
+   *  stallSampleCount() above answers a map question and therefore throws away
+   *  rows with no coordinates. This answers a labour question: a robot that
+   *  stalls without reporting where it stood still had a person walk over to
+   *  it, and dropping those rows would under-count the cost by exactly the
+   *  fleets whose vendor sends no pose. */
+  stuckSampleCount(robotId, sinceMs, untilMs) {
+    const r = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total, SUM(CASE WHEN stuck=1 THEN 1 ELSE 0 END) AS stuck
+         FROM status_snapshots WHERE robot_id=? AND at>=? AND at<=?`
+      )
+      .get(robotId, sinceMs, untilMs);
+    return { total: r?.total ?? 0, stuck: r?.stuck ?? 0 };
+  }
+
+  /** Hands-on-controls samples, split by whether the robot was working.
+   *
+   *  Reads snapshot_conditions, which most feeds never populate: Bear sends no
+   *  such field and an imported CSV carries none. A zero `total` therefore
+   *  means "not reported", and the caller renders that differently from
+   *  "reported, and it was none".
+   *
+   *  The active split exists because a share has to be converted back into
+   *  hours against the right clock. A vendor that reports manual_controlling on
+   *  every heartbeat, parked or not, would otherwise turn a 45% flag into 45%
+   *  of the wall clock, which is more hours than the machine even ran. The
+   *  predicate here (mission_state='active') is deliberately the SAME one
+   *  rollup.mjs uses to accumulate active_ms, so the share and the time it is
+   *  multiplied by are defined identically and the result cannot exceed the
+   *  hours the robot actually worked. */
+  manualControlSamples(robotId, sinceMs, untilMs) {
+    const r = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN sc.manual_controlling=1 THEN 1 ELSE 0 END) AS manual,
+                SUM(CASE WHEN ss.mission_state='active' THEN 1 ELSE 0 END) AS active_total,
+                SUM(CASE WHEN ss.mission_state='active' AND sc.manual_controlling=1 THEN 1 ELSE 0 END) AS active_manual
+         FROM snapshot_conditions sc
+         JOIN status_snapshots ss ON ss.id = sc.snapshot_id
+         WHERE sc.robot_id=? AND sc.at>=? AND sc.at<=?`
+      )
+      .get(robotId, sinceMs, untilMs);
+    return {
+      total: r?.total ?? 0,
+      manual: r?.manual ?? 0,
+      activeTotal: r?.active_total ?? 0,
+      activeManual: r?.active_manual ?? 0,
+    };
+  }
+
+  /** The floor, as a grid, for a set of robots at once.
+   *  One query per SITE rather than per robot, because the map is a picture of
+   *  a building and a building is shared: two robots stalling either side of
+   *  the same doorway are one bad doorway, and per-robot queries would draw it
+   *  as two unrelated smudges.
+   *
+   *  Same ROUND-based snapping as stallHotspots so both read the same grid. */
+  poseGrid(robotIds, sinceMs, untilMs, { gridMeters = 2, limit = 4000 } = {}) {
+    const ids = (robotIds ?? []).filter((n) => Number.isInteger(n));
+    if (ids.length === 0) return [];
+    const holes = ids.map(() => "?").join(",");
+    return this.db
+      .prepare(
+        `SELECT ROUND(pose_x / ?) * ? AS gx, ROUND(pose_y / ?) * ? AS gy,
+                COUNT(*) AS samples,
+                SUM(CASE WHEN stuck=1 THEN 1 ELSE 0 END) AS stuck_samples
+         FROM status_snapshots
+         WHERE robot_id IN (${holes}) AND at>=? AND at<=?
+           AND pose_x IS NOT NULL AND pose_y IS NOT NULL
+         GROUP BY gx, gy ORDER BY samples DESC LIMIT ?`
+      )
+      .all(gridMeters, gridMeters, gridMeters, gridMeters, ...ids, sinceMs, untilMs, limit);
+  }
+
   // ---- economics ----
   upsertRobotEconomics(robotId, e, nowMs) {
     this.db
@@ -614,6 +782,121 @@ export class Store {
   }
 
   // ---- kv ----
+  // ---- sites, contracts, tickets (migration 1) ----
+  upsertSite(name, nowMs) {
+    const found = this.db.prepare(`SELECT id FROM sites WHERE name=?`).get(name);
+    if (found) return Number(found.id);
+    return Number(this.db.prepare(`INSERT INTO sites (name, created_at) VALUES (?, ?)`).run(name, nowMs).lastInsertRowid);
+  }
+
+  listSites() {
+    return this.db.prepare(`SELECT * FROM sites ORDER BY id`).all();
+  }
+
+  setRobotSite(robotId, siteId) {
+    this.db.prepare(`UPDATE robots SET site_id=? WHERE id=?`).run(siteId, robotId);
+  }
+
+  upsertRobotContract(robotId, c, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO robot_contracts (robot_id, start_date, term_months, payback_months, uptime_pct, equip_cost_cents, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(robot_id) DO UPDATE SET start_date=excluded.start_date, term_months=excluded.term_months,
+           payback_months=excluded.payback_months, uptime_pct=excluded.uptime_pct,
+           equip_cost_cents=excluded.equip_cost_cents, updated_at=excluded.updated_at`
+      )
+      .run(robotId, c.startDate ?? null, c.termMonths ?? null, c.paybackMonths ?? null, c.uptimePct ?? null, c.equipCostCents ?? null, nowMs);
+  }
+
+  listRobotContracts() {
+    return this.db.prepare(`SELECT * FROM robot_contracts`).all();
+  }
+
+  insertTicket({ ref = null, brand = null, robotId = null, title, openedAt, respondedAt = null, status = "open" }) {
+    return Number(
+      this.db
+        .prepare(`INSERT INTO vendor_tickets (ref, brand, robot_id, title, opened_at, responded_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(ref, brand, robotId, title, openedAt, respondedAt, status).lastInsertRowid
+    );
+  }
+
+  listTickets() {
+    return this.db.prepare(`SELECT * FROM vendor_tickets ORDER BY opened_at`).all();
+  }
+
+  /** Only the samples where something was wrong. Downtime episodes are built
+   *  from these alone: a healthy robot at 15-second sampling writes ~180k rows
+   *  a month, and none of them change the answer. */
+  abnormalSnapshots(robotId, sinceMs, untilMs) {
+    return this.db
+      .prepare(
+        `SELECT at, stuck, e_stop, errors, connection_state, pose_x, pose_y FROM status_snapshots
+         WHERE robot_id=? AND at>=? AND at<=? AND (stuck=1 OR e_stop=1 OR (errors IS NOT NULL AND errors != '[]'))
+         ORDER BY at`
+      )
+      .all(robotId, sinceMs, untilMs);
+  }
+
+  // ---- owner inputs (migration 2) ----
+  listInputs() {
+    return this.db.prepare(`SELECT key, value, updated_at FROM owner_inputs ORDER BY key`).all();
+  }
+
+  setInput(key, value, nowMs) {
+    this.db
+      .prepare(`INSERT INTO owner_inputs (key, value, updated_at) VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`)
+      .run(key, value, nowMs);
+  }
+
+  // ---- closed periods (migration 4) ----
+  listPeriodCloses() {
+    const closes = this.db.prepare(`SELECT start, end, closed_at, sites, totals FROM period_closes ORDER BY start DESC`).all();
+    const figures = this.db.prepare(`SELECT start, robot_id, figures FROM period_robot_figures`).all();
+    const byStart = new Map();
+    for (const f of figures) {
+      if (!byStart.has(f.start)) byStart.set(f.start, {});
+      byStart.get(f.start)[f.robot_id] = JSON.parse(f.figures);
+    }
+    return closes.map((c) => ({
+      start: c.start,
+      end: c.end,
+      closedAt: c.closed_at,
+      sites: JSON.parse(c.sites),
+      totals: JSON.parse(c.totals),
+      robots: byStart.get(c.start) ?? {},
+    }));
+  }
+
+  /** Freeze one period. A period already closed is left exactly as it was. */
+  closePeriod({ start, end, sites, totals, robots }, nowMs) {
+    return this.transaction(() => {
+      const res = this.db
+        .prepare(`INSERT OR IGNORE INTO period_closes (start, end, closed_at, sites, totals) VALUES (?, ?, ?, ?, ?)`)
+        .run(start, end, nowMs, JSON.stringify(sites), JSON.stringify(totals));
+      if (res.changes === 0) return false;
+      const put = this.db.prepare(`INSERT OR IGNORE INTO period_robot_figures (start, robot_id, figures) VALUES (?, ?, ?)`);
+      for (const [robotId, f] of Object.entries(robots)) put.run(start, Number(robotId), JSON.stringify(f));
+      return true;
+    });
+  }
+
+  // ---- rate history (migration 3) ----
+  listRateChanges() {
+    return this.db.prepare(`SELECT work, cents, unit, own, by_email, at FROM rate_changes ORDER BY at DESC, id DESC`).all();
+  }
+
+  lastRateChange(work) {
+    return this.db.prepare(`SELECT work, cents, unit, own, at FROM rate_changes WHERE work=? ORDER BY at DESC, id DESC LIMIT 1`).get(work) ?? null;
+  }
+
+  addRateChange({ work, cents, unit, own, by }, nowMs) {
+    this.db
+      .prepare(`INSERT INTO rate_changes (work, cents, unit, own, by_email, at) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(work, cents, unit, own ? 1 : 0, by ?? null, nowMs);
+  }
+
   getKV(key) {
     return this.db.prepare(`SELECT value FROM kv WHERE key=?`).get(key)?.value ?? null;
   }

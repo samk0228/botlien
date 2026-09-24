@@ -78,7 +78,8 @@ async function boot({ opsEmails = ["sam@harborgrill.com"] } = {}) {
 
     const red = await fetch(`${base}/signin/${token}`, { redirect: "manual" });
     assert.equal(red.status, 303);
-    assert.equal(red.headers.get("location"), "/owner");
+    // The dashboard is home after sign-in.
+    assert.equal(red.headers.get("location"), "/app");
     const cookie = red.headers.get("set-cookie");
     assert.ok(cookie?.startsWith(SESSION_COOKIE), "a session cookie was set");
     return cookie.split(";")[0];
@@ -132,7 +133,7 @@ test("owner routes redirect to sign-in when there is no session", async () => {
   try {
     // /ops and /api/state are in this list on purpose: they read the operator's
     // own connector-fed fleet, so an anonymous request must not reach them.
-    for (const path of ["/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/api/owner", "/ops", "/api/state"]) {
+    for (const path of ["/app", "/owner", "/owner/setup", "/owner/import", "/owner/confirm", "/owner/sources", "/api/owner", "/api/v1/fleet", "/api/v1/connections", "/ops", "/api/state"]) {
       const res = await app.get(path);
       assert.equal(res.status, 303, `${path} is gated`);
       assert.equal(res.headers.get("location"), "/signin");
@@ -239,7 +240,7 @@ test("a signed-in owner is taken to their statement instead of the sales page", 
     const cookie = await app.signIn("sam@harborgrill.com");
     const res = await app.get("/", cookie);
     assert.equal(res.status, 303);
-    assert.equal(res.headers.get("location"), "/owner");
+    assert.equal(res.headers.get("location"), "/app");
   } finally {
     await app.close();
   }
@@ -357,9 +358,15 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
 
     assert.equal(app.control.funnel().counts.numbers_saved, 1);
 
-    // the statement itself is what activates
-    const stmt = await app.get("/owner", cookie);
-    assert.equal(stmt.status, 200, "statement renders rather than redirecting back");
+    // The old statement page now forwards to the dashboard, which is home.
+    const old = await app.get("/owner", cookie);
+    assert.equal(old.status, 303);
+    assert.equal(old.headers.get("location"), "/app?view=dashv2");
+    assert.equal(app.control.funnel().counts.activated ?? 0, 0, "a redirect is not activation");
+
+    // the dashboard itself is what activates
+    const home = await app.get("/app", cookie);
+    assert.equal(home.status, 200, "the dashboard renders rather than redirecting back");
 
     const f = app.control.funnel();
     assert.equal(f.counts.activated, 1, "activated fired");
@@ -367,9 +374,86 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
     assert.notEqual(f.medianTimeToActivateMs, null, "time to activate is measurable");
 
     // reloading must not inflate it
-    await app.get("/owner", cookie);
-    await app.get("/owner", cookie);
+    await app.get("/app", cookie);
+    await app.get("/app", cookie);
     assert.equal(app.control.funnel().counts.activated, 1, "a reload is not a second activation");
+  } finally {
+    await app.close();
+  }
+});
+
+test("/app sends a brand-new account to first run, and old pages forward once it has a fleet", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("new@example.com");
+    const first = await app.get("/app", cookie);
+    assert.equal(first.status, 303);
+    assert.equal(first.headers.get("location"), "/owner/business", "no business chosen yet");
+    const demo = await app.get("/app?demo=1", cookie);
+    assert.equal(demo.status, 200, "the demo is always reachable");
+  } finally {
+    await app.close();
+  }
+});
+
+test("first run works as JSON for the dashboard's own screens", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("json@example.com");
+    const call = async (method, path, body, type = "application/json") => {
+      const res = await fetch(`${app.base}${path}`, { method, headers: { Cookie: cookie, "Content-Type": type }, body });
+      return { status: res.status, body: await res.json() };
+    };
+    let r = await call("GET", "/api/v1/setup");
+    assert.equal(r.body.step, "business");
+    assert.ok(r.body.businessTypes.length >= 4, "every business type is offered");
+
+    r = await call("POST", "/api/v1/setup/business", JSON.stringify({ business: "nope" }));
+    assert.equal(r.status, 400);
+    r = await call("POST", "/api/v1/setup/business", JSON.stringify({ business: "restaurant" }));
+    assert.equal(r.body.step, "import");
+
+    r = await call("POST", "/api/v1/setup/import?name=usage.csv", "name,qty\n", "text/csv");
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /No usable rows|could not be parsed/);
+    r = await call("POST", "/api/v1/setup/import?name=usage.csv", csv("json", 5), "text/csv");
+    assert.equal(r.body.step, "confirm");
+    assert.equal(r.body.robots.length, 1);
+
+    const robot = r.body.robots[0];
+    r = await call("POST", "/api/v1/setup/confirm", JSON.stringify({ robots: [{ id: robot.id, name: "Servi 1 (front)", category: robot.category, excluded: false }] }));
+    assert.equal(r.body.step, "setup", "numbers are next, and /app handles them");
+    assert.equal(r.body.robots[0].name, "Servi 1 (front)");
+
+    r = await call("POST", "/api/v1/setup/sites", JSON.stringify({ sites: ["Pier 4"], robots: { [robot.id]: "Marina" } }));
+    assert.equal(r.status, 400, "a robot cannot go to a site that was not named");
+    r = await call("POST", "/api/v1/setup/sites", JSON.stringify({ sites: ["Pier 4", "Marina"], robots: { [robot.id]: "Marina" } }));
+    assert.deepEqual(r.body.sites, ["Pier 4", "Marina"]);
+    assert.equal(r.body.robots[0].site, "Marina");
+    assert.equal(app.control.funnel().counts.data_connected, 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("an account's contract names its owner, and rate changes are signed with that owner", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("dana@fleetco.com");
+    const before = await (await app.get("/api/v1/fleet", cookie)).json();
+    assert.deepEqual(before.people.map((p) => [p.email, p.role]), [["dana@fleetco.com", "Owner"]]);
+    assert.deepEqual(before.rateHistory, []);
+    const res = await fetch(`${app.base}/api/v1/inputs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ rates: { "Order picking": { cents: 42, unit: "pick", own: true } } }),
+    });
+    assert.equal(res.status, 200);
+    const after = await (await app.get("/api/v1/fleet", cookie)).json();
+    assert.deepEqual(after.rateHistory.map((r) => [r.work, r.cents, r.by]), [["Order picking", 42, "dana@fleetco.com"]]);
+    // Another account sees none of it.
+    const other = await app.signIn("sam@harborgrill.com");
+    assert.deepEqual((await (await app.get("/api/v1/fleet", other)).json()).rateHistory, []);
   } finally {
     await app.close();
   }
