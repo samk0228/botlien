@@ -7,6 +7,27 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { toEpochMs } from "./normalize.mjs";
 import { rebuildRollupsForRobot } from "./rollup.mjs";
+import { BENCHMARKS } from "./rates.mjs";
+
+/** Copy each mapped header onto our field name. Unknown fields are ignored;
+ *  a mapped header the file lacks just reads as missing. */
+export const IMPORT_FIELDS = ["robot_id", "at", "connection_state", "online", "battery_pct", "charging", "e_stop", "mission_state", "mission_id", "stuck", "moving", "errors", "name", "brand", "model", "category", "x", "y"];
+function mapColumns(rows, columns) {
+  if (!columns || typeof columns !== "object") return rows;
+  const pairs = Object.entries(columns).filter(([k, v]) => IMPORT_FIELDS.includes(k) && typeof v === "string" && v);
+  if (!pairs.length) return rows;
+  return rows.map((row) => {
+    const out = { ...row };
+    // CSV headers are read lower-cased; the owner types them as they appear.
+    for (const [field, header] of pairs) out[field] = row[header] ?? row[header.trim().toLowerCase()];
+    return out;
+  });
+}
+
+function poseOf(row) {
+  const x = toNum(pick(row, "x", "pose_x", "pos_x")), y = toNum(pick(row, "y", "pose_y", "pos_y"));
+  return x === null || y === null ? null : { x, y };
+}
 
 /** Minimal CSV parser with quoted-field support. Returns array of objects. */
 export function parseCSV(text) {
@@ -106,8 +127,10 @@ export function importTelemetry(store, filePath, opts) {
  * why the confirm-fleet step exists: correcting the kind of work is what makes
  * the arithmetic downstream correct, not a nicety.
  */
-export function importTelemetryFromText(store, text, filename, { connector = "import", brand = null, category = "delivery", nowMs, rebuild = true, bucketMs = 3_600_000 } = {}) {
-  const rows = rowsFromText(text, filename);
+export function importTelemetryFromText(store, text, filename, { connector = "import", brand = null, category = "delivery", nowMs, rebuild = true, bucketMs = 3_600_000, columns = null } = {}) {
+  // `columns` maps our field names to the file's own headers, for an export
+  // whose headers we do not recognise: { robot_id: "Serial No", at: "Time" }.
+  const rows = mapColumns(rowsFromText(text, filename), columns);
   let imported = 0;
   const skipReasons = { total: 0, noRobotId: 0, noTimestamp: 0 };
   const robots = new Set();
@@ -124,7 +147,17 @@ export function importTelemetryFromText(store, text, filename, { connector = "im
       else skipReasons.noTimestamp += 1;
       continue;
     }
-    const robotId = store.upsertRobot({ connector, externalId: String(externalId), brand, category }, nowMs);
+    // A mixed export names each robot's make, model and work on its own row.
+    // Read the first time a robot is seen, like a connected vendor's details.
+    const rowCategory = pick(row, "category", "work", "task_type");
+    const robotId = store.upsertRobot({
+      connector,
+      externalId: String(externalId),
+      displayName: pick(row, "name", "robot_name", "display_name") ?? null,
+      brand: pick(row, "brand", "make", "manufacturer") ?? brand,
+      model: pick(row, "model") ?? null,
+      category: rowCategory && BENCHMARKS[String(rowCategory).toLowerCase()] ? String(rowCategory).toLowerCase() : category,
+    }, nowMs);
     robots.add(String(externalId));
     robotIds.add(robotId);
     const rawEventId = store.insertRawEvent({
@@ -155,7 +188,7 @@ export function importTelemetryFromText(store, text, filename, { connector = "im
       stuck: toBool(pick(row, "stuck")),
       moving: toBool(pick(row, "moving")),
       errors: parseRowErrors(pick(row, "errors", "error_codes")),
-      pose: null,
+      pose: poseOf(row),
     });
     imported += 1;
   }
@@ -172,6 +205,9 @@ export function importTelemetryFromText(store, text, filename, { connector = "im
 
   return {
     rows: rows.length,
+    // The file's own headers, so a screen can ask which one is the robot id
+    // and which the time when nothing could be read.
+    headers: Object.keys(rows[0] ?? {}),
     imported,
     skipped: skipReasons.total,
     skipReasons,

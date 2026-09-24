@@ -3,7 +3,10 @@
 // Kept out of board.mjs so the ops board stays what it is, and so the rules
 // about who may see what live in one readable file rather than scattered
 // through a router. Everything here is either unauthenticated by design (the
-// landing page, the sign-in form) or the act of becoming authenticated.
+// landing page, the sign-in form) or the act of becoming authenticated, plus
+// the two routes that authenticate some other way: robot status pushed with an
+// API key, and the signed stop link in an email.
+import { bearerKey } from "./push.mjs";
 import {
   requestLink,
   redeemLink,
@@ -60,6 +63,25 @@ export async function handlePublicRoute(req, res, path, ctx) {
     }
     onEvent("landed", {});
     send(res, 200, renderLandingHTML());
+    return true;
+  }
+
+  // ---- robot status pushed with an API key (no session) ----
+  if (path === "/api/v1/events" && ctx.pushEvents) {
+    const json = (code, body) => {
+      res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method !== "POST") return json(405, { error: "POST events here." }), true;
+    let body;
+    try {
+      body = JSON.parse(await readBody(req, 2 * 1024 * 1024));
+    } catch {
+      json(400, { error: "Send JSON: { \"events\": [ ... ] }, up to 2 MB." });
+      return true;
+    }
+    const out = ctx.pushEvents(bearerKey(req.headers.authorization), body);
+    json(out.code, out.body);
     return true;
   }
 
@@ -181,7 +203,7 @@ export function requiresSession(path) {
     path === "/owner" ||
     path.startsWith("/owner/") ||
     path === "/api/owner" ||
-    path.startsWith("/api/v1/") ||
+    (path.startsWith("/api/v1/") && path !== "/api/v1/events") ||
     path === "/app" ||
     path === "/ops" ||
     path === "/api/state"

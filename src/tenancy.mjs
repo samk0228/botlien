@@ -25,6 +25,7 @@ import { importTelemetryFromText } from "./importer.mjs";
 import { fleetContract, closePeriods } from "./contract.mjs";
 import { verifyStop, stopBriefFor, KV_ALERTS_STOPPED } from "./brief-job.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
+import { newApiKey, hashApiKey, pushEvents, MAX_KEYS } from "./push.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
@@ -49,6 +50,9 @@ function longDate(ms) {
   return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+export class KeyError extends Error {}
+const PUSH_PER_MINUTE = 120;
+
 export function createTenancy({
   control,
   mailer,
@@ -64,6 +68,7 @@ export function createTenancy({
   fetchImpl = fetch,
 }) {
   const opsSet = parseOpsEmails(opsEmails);
+  const pushHits = new Map(); // key id -> recent request times
   /** Events with no account attached (`landed`) still belong in the funnel. */
   const onEvent = (name, { accountId = null, detail = null } = {}) => {
     try {
@@ -97,6 +102,21 @@ export function createTenancy({
     // the landed-to-activated ratio read as zero while every individual count
     // looked correct. Asserted by a test.
     onEvent,
+    /** Robot status pushed with an API key. Returns { code, body }. */
+    pushEvents: (key, body) => {
+      if (!key) return { code: 401, body: { error: "Send your API key as: Authorization: Bearer blk_..." } };
+      const found = control.apiKeyByHash(hashApiKey(key));
+      if (!found) return { code: 401, body: { error: "That API key is not valid or was revoked." } };
+      const nowMs = now();
+      const recent = (pushHits.get(found.id) ?? []).filter((t) => nowMs - t < 60_000);
+      if (recent.length >= PUSH_PER_MINUTE) return { code: 429, body: { error: `At most ${PUSH_PER_MINUTE} requests a minute per key. Batch up to 1000 events per request.` } };
+      pushHits.set(found.id, [...recent, nowMs]);
+      control.touchApiKey(found.id, nowMs);
+      const out = pushEvents(tenants.get(found.account_id), body, nowMs, config);
+      if (out.error) return { code: 400, body: out };
+      if (out.accepted) onceEvent(found.account_id, "data_connected", { vendor: "push", robots: out.robots });
+      return { code: 200, body: out };
+    },
     /** Take one address off an account's morning brief, from the signed link
      *  in the email. False for a link this server did not sign. */
     stopBrief: (q) => {
@@ -148,7 +168,7 @@ export function createTenancy({
 
       saveBusiness: (type) => setBusinessType(store, type),
 
-      importText: (text, filename) => {
+      importText: (text, filename, { columns = null } = {}) => {
         const nowMs = now();
         let result;
         try {
@@ -156,6 +176,7 @@ export function createTenancy({
             nowMs,
             bucketMs,
             category: defaultWorkFor(businessType(store)),
+            columns,
           });
         } catch (err) {
           return { ok: false, message: `That file could not be parsed: ${String(err).slice(0, 120)}` };
@@ -163,7 +184,8 @@ export function createTenancy({
         if (result.imported === 0) {
           return {
             ok: false,
-            message: "No usable rows. Every row needs a robot id and a timestamp.",
+            message: "No usable rows. Every row needs a robot id and a timestamp. If your file names them differently, say which columns they are.",
+            headers: result.headers,
           };
         }
         const range = store.snapshotTimeRange();
@@ -205,7 +227,17 @@ export function createTenancy({
       }
       const contract = {
         ...fleetContract(store, now(), config),
-        sources: describeConnections(control, account.id, store),
+        sources: [
+          ...describeConnections(control, account.id, store),
+          // Status pushed with an API key reads as a source once a key has been used.
+          ...(() => {
+            const used = control.apiKeysForAccount(account.id).filter((k) => k.last_used_at);
+            if (!used.length) return [];
+            const last = Math.max(...used.map((k) => k.last_used_at));
+            const robots = store.listRobots().filter((r) => r.connector === "push").length;
+            return [{ vendor: "push", label: "Your system", connected: true, status: "active", robotCount: robots, lastSyncAt: last, lastOkAt: last, state: now() - last < 3_600_000 ? "ok" : "down", error: null, push: true }];
+          })(),
+        ],
         setup: setupState(),
         // One sign-in per account today, so the account's own email is its
         // only person. Team invites add rows here when they exist.
@@ -232,6 +264,22 @@ export function createTenancy({
       disconnect(vendor) {
         const gone = control.deleteConnection(account.id, vendor);
         if (gone) log(`account ${account.id} disconnected ${vendor}`);
+        return gone;
+      },
+      // API keys for pushing robot status in (POST /api/v1/events).
+      listKeys: () =>
+        control.apiKeysForAccount(account.id).filter((k) => !k.revoked_at).map((k) => ({ id: k.id, prefix: k.prefix, label: k.label, createdAt: k.created_at, lastUsedAt: k.last_used_at })),
+      /** A new key, returned in full this once and never again. */
+      createKey(label) {
+        if (connections.listKeys().length >= MAX_KEYS) throw new KeyError(`An account can have ${MAX_KEYS} keys. Revoke one first.`);
+        const { key, prefix, keyHash } = newApiKey();
+        const id = control.insertApiKey({ accountId: account.id, prefix, keyHash, label: String(label ?? "").trim().slice(0, 60) || null }, now());
+        log(`account ${account.id} made API key ${prefix}…`);
+        return { id, key, prefix };
+      },
+      revokeKey(id) {
+        const gone = control.revokeApiKey(account.id, Number(id), now());
+        if (gone) log(`account ${account.id} revoked API key ${id}`);
         return gone;
       },
     };
