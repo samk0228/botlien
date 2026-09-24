@@ -184,7 +184,14 @@ export function createTenancy({
     // The account's data sources ride along with its data, so the page can
     // say where every figure came from and whether the feed is healthy.
     const getFleetContract = () => {
-      const contract = { ...fleetContract(store, now(), config), sources: describeConnections(control, account.id, store), setup: setupState() };
+      const contract = {
+        ...fleetContract(store, now(), config),
+        sources: describeConnections(control, account.id, store),
+        setup: setupState(),
+        // One sign-in per account today, so the account's own email is its
+        // only person. Team invites add rows here when they exist.
+        people: [{ email: account.email, role: "Owner", since: account.created_at }],
+      };
       // The activation moment, now that /app is home: the same rule the old
       // statement page used (numbers saved, a real ratio behind them), fired
       // once when the dashboard's data is first served with it.
@@ -209,7 +216,7 @@ export function createTenancy({
         return gone;
       },
     };
-    const saveOwnerInputs = (changes) => saveInputs(store, changes, now());
+    const saveOwnerInputs = (changes) => saveInputs(store, changes, now(), account.email);
     // Where this account is in first run, read from its data. /app sends an
     // account that has no fleet yet to the step that gets it one.
     const step = () => onboardingStep(store);

@@ -235,6 +235,20 @@ export const MIGRATIONS = [
      value TEXT NOT NULL,
      updated_at INTEGER NOT NULL
    );`,
+  // 3. Rate history: the rate each kind of work was valued at, one row each
+  //    time it changed, and who changed it. The page works the rate out from
+  //    wage, throughput and roster and sends it with the save; a row is only
+  //    added when it differs from the last one for that work.
+  `CREATE TABLE IF NOT EXISTS rate_changes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     work TEXT NOT NULL,
+     cents INTEGER,
+     unit TEXT NOT NULL,
+     own INTEGER NOT NULL,
+     by_email TEXT,
+     at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS rate_changes_work ON rate_changes(work, at);`,
 ];
 
 export function migrate(db) {
@@ -817,6 +831,21 @@ export class Store {
       .prepare(`INSERT INTO owner_inputs (key, value, updated_at) VALUES (?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`)
       .run(key, value, nowMs);
+  }
+
+  // ---- rate history (migration 3) ----
+  listRateChanges() {
+    return this.db.prepare(`SELECT work, cents, unit, own, by_email, at FROM rate_changes ORDER BY at DESC, id DESC`).all();
+  }
+
+  lastRateChange(work) {
+    return this.db.prepare(`SELECT work, cents, unit, own, at FROM rate_changes WHERE work=? ORDER BY at DESC, id DESC LIMIT 1`).get(work) ?? null;
+  }
+
+  addRateChange({ work, cents, unit, own, by }, nowMs) {
+    this.db
+      .prepare(`INSERT INTO rate_changes (work, cents, unit, own, by_email, at) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(work, cents, unit, own ? 1 : 0, by ?? null, nowMs);
   }
 
   getKV(key) {

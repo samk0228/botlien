@@ -176,6 +176,15 @@ function liveTables(c) {
   // confirm and the vendors it can connect (GET /api/v1/setup, same shape).
   // FIRST_RUN, not SETUP: SETUP is already the page's per-robot hours table.
   T.FIRST_RUN = c.setup || null;
+  T.TZ = tz;
+  // People on the account. One sign-in per account today; a contract without
+  // people (the single-fleet server) still shows the owner as "You".
+  var can = { Owner: 'Edits rates and invoices, closes periods', Manager: 'Imports usage, cannot change rates', Accountant: 'Reads and exports closed statements' };
+  T.PEOPLE = (c.people && c.people.length ? c.people : [{ email: '', role: 'Owner' }]).map(function (p) {
+    return { name: p.email ? p.email.split('@')[0] : 'You', email: p.email || '', role: p.role, scope: 'Every site', can: can[p.role] || '' };
+  });
+  // Every rate the figures have used, newest first (Numbers > Rate history).
+  T.RATE_LOG = c.rateHistory || [];
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.

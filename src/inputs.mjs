@@ -59,14 +59,35 @@ export function loadInputs(store) {
   return out;
 }
 
+/** The rate each kind of work is valued at, as the page worked it out:
+ *  { work: { cents, unit, own } }. cents is null while a throughput is blank. */
+function validRates(rates) {
+  if (rates === undefined || rates === null) return {};
+  if (typeof rates !== "object" || Array.isArray(rates)) throw new InputError("rates must map work to a rate");
+  const entries = Object.entries(rates);
+  if (entries.length > 100) throw new InputError("rates has too many kinds of work");
+  for (const [work, r] of entries) {
+    const ok =
+      work.length > 0 && work.length <= 80 &&
+      r !== null && typeof r === "object" &&
+      (r.cents === null || (Number.isInteger(r.cents) && r.cents >= 0 && r.cents <= 100_000_000)) &&
+      str(20)(r.unit) && typeof r.own === "boolean";
+    if (!ok) throw new InputError(`the rate for ${work} is not a value it can take`);
+  }
+  return rates;
+}
+
 /** Save a batch of changes. `changes.account` is { key: value }; `changes.robots`
- *  is { key: { robotId: value | null } }, null meaning "back to the default".
+ *  is { key: { robotId: value | null } }, null meaning "back to the default";
+ *  `changes.rates` is the rate per kind of work the page is now using, logged
+ *  to rate history (with `by`, who saved it) only where it changed.
  *  Rejects the whole batch if any part is unknown or out of range, so a page
  *  bug can never half-save. Returns the keys written. */
-export function saveInputs(store, changes, nowMs) {
+export function saveInputs(store, changes, nowMs, by = null) {
   const robotsById = new Map(store.listRobots().map((r) => [String(r.id), r]));
   const account = changes?.account ?? {};
   const robots = changes?.robots ?? {};
+  const rates = validRates(changes?.rates);
   const writes = [];
 
   for (const [key, value] of Object.entries(account)) {
@@ -93,11 +114,18 @@ export function saveInputs(store, changes, nowMs) {
     writes.push([`robot.${key}`, JSON.stringify(next)]);
   }
 
+  const rateKeys = [];
   store.transaction(() => {
     for (const [k, v] of writes) store.setInput(k, v, nowMs);
     writeThrough(store, robotsById, merged, robots, nowMs);
+    for (const [work, r] of Object.entries(rates)) {
+      const last = store.lastRateChange(work);
+      if (last && last.cents === r.cents && last.unit === r.unit && Boolean(last.own) === r.own) continue;
+      store.addRateChange({ work, cents: r.cents, unit: r.unit, own: r.own, by }, nowMs);
+      rateKeys.push(`rate.${work}`);
+    }
   });
-  return writes.map(([k]) => k);
+  return writes.map(([k]) => k).concat(rateKeys);
 }
 
 /** Invoice and hours into robot_economics, lease terms into robot_contracts,

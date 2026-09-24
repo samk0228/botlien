@@ -778,6 +778,15 @@ function liveTables(c) {
   // confirm and the vendors it can connect (GET /api/v1/setup, same shape).
   // FIRST_RUN, not SETUP: SETUP is already the page's per-robot hours table.
   T.FIRST_RUN = c.setup || null;
+  T.TZ = tz;
+  // People on the account. One sign-in per account today; a contract without
+  // people (the single-fleet server) still shows the owner as "You".
+  var can = { Owner: 'Edits rates and invoices, closes periods', Manager: 'Imports usage, cannot change rates', Accountant: 'Reads and exports closed statements' };
+  T.PEOPLE = (c.people && c.people.length ? c.people : [{ email: '', role: 'Owner' }]).map(function (p) {
+    return { name: p.email ? p.email.split('@')[0] : 'You', email: p.email || '', role: p.role, scope: 'Every site', can: can[p.role] || '' };
+  });
+  // Every rate the figures have used, newest first (Numbers > Rate history).
+  T.RATE_LOG = c.rateHistory || [];
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.
@@ -993,8 +1002,11 @@ const ALERT_RULES = [
   { name:'Statement ready', trigger:'A period closes and figures are frozen', to:'Sam, Priya', when:'On the 1st', last:'Sent Aug 4' },
   { name:'An import fails', trigger:'A file is unreadable or a sync errors', to:'Sam', when:'Immediately', last:'Never sent' }
 ];
+// A live account has no alert history yet: rules go to the owner, and the
+// sending job (backend plan Phase 5) is what will fill in "last sent".
+if (LIVE) ALERT_RULES.forEach(a => { a.to = 'You'; a.last = 'Never sent'; });
 
-const PEOPLE = [
+const PEOPLE = LIVE ? LIVE.PEOPLE : [
   { name:'Sam Ortega', email:'sam@harborgrill.com', role:'Owner', scope:'All 3 sites', can:'Edits rates and invoices, closes periods' },
   { name:'Dana Reyes', email:'dana@harborgrill.com', role:'Manager', scope:'Pier 4', can:'Imports usage, cannot change rates' },
   { name:'Priya Shah', email:'priya@bayledger.com', role:'Accountant', scope:'All 3 sites, view only', can:'Reads and exports closed statements' }
@@ -1771,12 +1783,14 @@ const TICKETS = LIVE ? LIVE.TICKETS : [
 ];
 const VENDOR_RESPONSE_HOURS = { Locus:24, Gausium:48, Fetch:24 };
 const NOW_STAMP = LIVE ? LIVE.NOW_STAMP : '2026-09-03T18:00';
-const VENDOR_TICKETS = {
+const VENDOR_TICKETS = LIVE ? liveVendorTickets() : {
   Locus:   { open: TICKETS.filter(t => t.brand === 'Locus' && t.status === 'open').length, medianDays:3.4 },
   Gausium: { open: TICKETS.filter(t => t.brand === 'Gausium' && t.status === 'open').length, medianDays:9 },
   Fetch:   { open: TICKETS.filter(t => t.brand === 'Fetch' && t.status === 'open').length, medianDays:null }
 };
-const VENDOR_CONTACTS = {
+// A live account has no vendor support addresses on file yet, so the email
+// buttons open a blank draft rather than a made-up address.
+const VENDOR_CONTACTS = LIVE ? {} : {
   Locus:   'support@locusrobotics.example',
   Gausium: 'service@gausium.example',
   Fetch:   'fleet@fetchrobotics.example'
@@ -2951,8 +2965,11 @@ function appTopbar(){
 // all than one that promises more than a demo download.
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 // The calendar can't navigate past what DAILY actually has data for.
-const CAL_MIN = { y:2026, m:2 }; // March 2026, PERIODS[5].start
-const CAL_MAX = { y:2026, m:8 }; // September 2026, PERIODS[0].end
+// The months the period picker can page through: the oldest period's start
+// to the newest one's end. Six periods in the demo, March to September 2026.
+function calMonthOf(key){ const d = String(key || '').split('-'); return { y:Number(d[0]), m:Number(d[1]) - 1 }; }
+const CAL_MIN = LIVE ? calMonthOf(PERIODS[PERIODS.length - 1].start) : { y:2026, m:2 }; // March 2026, PERIODS[5].start
+const CAL_MAX = LIVE ? calMonthOf(PERIODS[0].end) : { y:2026, m:8 }; // September 2026, PERIODS[0].end
 
 function fmtDateShort(key){
   const d = new Date(key+'T00:00:00Z');
@@ -4985,7 +5002,7 @@ function viewSetup(){
       + (S.rateHistory
         ? '<div style="overflow-x:auto;min-width:0"><div style="min-width:700px">'
           + '<div style="display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1.4fr;gap:20px;padding:0 4px 12px;font-size:11.5px;font-weight:600;color:var(--fg3)"><div>Work</div><div>Rate</div><div>In effect</div><div>Set by</div></div>'
-          + RATE_HISTORY.map(r => '<div style="display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1.4fr;gap:20px;padding:16px 4px;border-top:1px solid var(--hair);align-items:baseline">'
+          + (LIVE ? liveRateHistory() : RATE_HISTORY).map(r => '<div style="display:grid;grid-template-columns:1.1fr 1fr 1.2fr 1.4fr;gap:20px;padding:16px 4px;border-top:1px solid var(--hair);align-items:baseline">'
             + '<div style="font-size:13.5px;font-weight:500;color:'+(r.current?'var(--fg1)':'var(--fg2)')+'">'+r.work+'</div>'
             + '<div style="font-size:13.5px;color:var(--fg1);font-variant-numeric:tabular-nums">'+r.rate+'</div>'
             + '<div style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.span+'</div>'
@@ -9267,12 +9284,63 @@ document.addEventListener('change', (e) => {
 
 /* ─────────────────────────  RENDER  ───────────────────────── */
 
+/* ── live tables the demo spells out by hand ── */
+// Open tickets and the median days to a first reply, per vendor, from the
+// account's own tickets. A vendor with no replies yet reads "not reported".
+function liveVendorTickets(){
+  const out = {};
+  const brands = new Set(TICKETS.map(t => t.brand).concat(ROBOTS.map(r => brandOf(r.model))).filter(Boolean));
+  brands.forEach(b => {
+    const ts = TICKETS.filter(t => t.brand === b);
+    const days = ts.filter(t => t.responded).map(t => (Date.parse(t.responded) - Date.parse(t.opened)) / 864e5).filter(d => isFinite(d) && d >= 0).sort((x, y) => x - y);
+    const mid = days.length ? (days.length % 2 ? days[(days.length - 1) / 2] : (days[days.length / 2 - 1] + days[days.length / 2]) / 2) : null;
+    out[b] = { open: ts.filter(t => t.status === 'open').length, medianDays: mid === null ? null : Math.round(mid * 10) / 10 };
+  });
+  return out;
+}
+// The rate each kind of work is valued at right now, as the figures use it.
+function liveRates(){
+  const out = {};
+  [...new Set(computeStatement(true, null).rows.map(r => r.work))].forEach(w => {
+    out[w] = { cents: rateCentsFor(w), unit: String(workDef(w).unit || 'unit').slice(0, 20), own: wageIsOwnSet(w) || throughputIsOwnSet(w) };
+  });
+  return out;
+}
+// Rate history rows from the server's log (newest first), plus any rate in
+// use that has not reached the log yet.
+function liveRateHistory(){
+  const fmt = (ms) => new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', timeZone: LIVE.TZ || undefined });
+  const rateText = (c, unit) => c == null ? 'not set' : money(c / 100)+' per '+unit;
+  const me = (LIVE.PEOPLE[0] || {}).email;
+  const who = (by) => !by || by === me ? 'You' : by;
+  const byWork = {};
+  LIVE.RATE_LOG.forEach(r => { (byWork[r.work] = byWork[r.work] || []).push(r); });
+  const current = [], older = [];
+  let now = {};
+  try { now = liveRates(); } catch(e){}
+  Object.keys(now).forEach(w => { if (!byWork[w]) current.push({ work:w, rate: rateText(now[w].cents, now[w].unit), span:'In effect now', by: now[w].own ? 'You, not saved yet' : 'Not set by you', current:true }); });
+  Object.keys(byWork).forEach(w => byWork[w].forEach((r, k) => {
+    const row = { work:w, rate: rateText(r.cents, r.unit), span: k === 0 ? 'In effect since '+fmt(r.at) : fmt(r.at)+' – '+fmt(byWork[w][k - 1].at), by: r.own ? who(r.by)+', '+fmt(r.at) : 'Not set by you', current: k === 0 };
+    (k === 0 ? current : older).push(row);
+  }));
+  return current.concat(older);
+}
+
 /* ───── SAVING ─────
    Live accounts only. After every redraw, the owner's inputs (the two lists
    in live-adapter.cjs) are compared with what the server last accepted, and
    any difference is sent 600 ms later as one small batch. The demo never
    saves: S.demoMode and a missing LIVE both stop it here. */
-let persistBase = null, persistTimer = null, persistInFlight = false;
+let persistBase = null, persistTimer = null, persistInFlight = false, rateBase = null;
+// Rates that differ from the last one the server logged for that work.
+function rateChanges(){
+  if (!rateBase){ rateBase = {}; (LIVE.RATE_LOG || []).forEach(r => { if (!rateBase[r.work]) rateBase[r.work] = r; }); }
+  let now;
+  try { now = liveRates(); } catch(e){ return null; }
+  const out = {};
+  Object.keys(now).forEach(w => { const b = rateBase[w]; if (!b || b.cents !== now[w].cents || b.unit !== now[w].unit || Boolean(b.own) !== now[w].own) out[w] = now[w]; });
+  return Object.keys(out).length ? out : null;
+}
 function persistSnapshot(){
   const o = {};
   PERSIST_ACCOUNT.concat(PERSIST_ROBOT).forEach(k => { o[k] = S[k] === undefined ? undefined : JSON.parse(JSON.stringify(S[k])); });
@@ -9286,13 +9354,16 @@ function persistSoon(){
 async function persistNow(){
   if (persistInFlight){ persistSoon(); return; }
   const next = persistSnapshot();
-  const changes = inputChanges(persistBase, next, LIVE.ROBOT_IDS);
-  if (!changes) return;
+  let changes = inputChanges(persistBase, next, LIVE.ROBOT_IDS);
+  const rates = rateChanges();
+  if (!changes && !rates) return;
+  if (rates) changes = Object.assign(changes || { account:{}, robots:{} }, { rates });
   persistInFlight = true;
   try {
     const r = await fetch('/api/v1/inputs', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify(changes) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     persistBase = next;
+    if (rates) Object.keys(rates).forEach(w => { rateBase[w] = rates[w]; });
     saveNote('');
   } catch(e){
     saveNote('Your last change was not saved. It will try again with your next one.');
@@ -9316,7 +9387,9 @@ function saveNote(text){
 // Leaving the page mid-edit still sends the last change.
 window.addEventListener('pagehide', () => {
   if (!LIVE || S.demoMode || !persistBase) return;
-  const changes = inputChanges(persistBase, persistSnapshot(), LIVE.ROBOT_IDS);
+  let changes = inputChanges(persistBase, persistSnapshot(), LIVE.ROBOT_IDS);
+  const rates = rateChanges();
+  if (rates) changes = Object.assign(changes || { account:{}, robots:{} }, { rates });
   if (changes && navigator.sendBeacon) navigator.sendBeacon('/api/v1/inputs', new Blob([JSON.stringify(changes)], { type:'application/json' }));
 });
 
@@ -10531,6 +10604,8 @@ function bootScreen(){
     const acct = window.BOTLIEN_ACCOUNT;
     if (acct && acct.email){ S.accountEmail = acct.email; S.ownerName = acct.email.split('@')[0]; }
     if (SITES.length === 1) S.siteName = SITES[0].name;
+    const cur = calMonthOf(PERIODS[0].start);
+    S.calYear = cur.y; S.calMonth = cur.m;
   }
 
   if (!S.demoMode && !LIVE){

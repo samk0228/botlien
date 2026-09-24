@@ -435,3 +435,26 @@ test("first run works as JSON for the dashboard's own screens", async () => {
     await app.close();
   }
 });
+
+test("an account's contract names its owner, and rate changes are signed with that owner", async () => {
+  const app = await boot();
+  try {
+    const cookie = await app.signIn("dana@fleetco.com");
+    const before = await (await app.get("/api/v1/fleet", cookie)).json();
+    assert.deepEqual(before.people.map((p) => [p.email, p.role]), [["dana@fleetco.com", "Owner"]]);
+    assert.deepEqual(before.rateHistory, []);
+    const res = await fetch(`${app.base}/api/v1/inputs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ rates: { "Order picking": { cents: 42, unit: "pick", own: true } } }),
+    });
+    assert.equal(res.status, 200);
+    const after = await (await app.get("/api/v1/fleet", cookie)).json();
+    assert.deepEqual(after.rateHistory.map((r) => [r.work, r.cents, r.by]), [["Order picking", 42, "dana@fleetco.com"]]);
+    // Another account sees none of it.
+    const other = await app.signIn("sam@harborgrill.com");
+    assert.deepEqual((await (await app.get("/api/v1/fleet", other)).json()).rateHistory, []);
+  } finally {
+    await app.close();
+  }
+});

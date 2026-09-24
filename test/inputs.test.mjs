@@ -85,3 +85,34 @@ test("saved inputs come back to the page in row order", () => {
   assert.deepEqual(T.SAVED.robots.robotInvoice, { 1: 800 });
   assert.equal(T.SAVED.account.taxRate, 0.21);
 });
+
+test("rate history logs a rate only when it changes, with who saved it", () => {
+  const { s } = store2();
+  const pick = (cents, own) => ({ rates: { "Order picking": { cents, unit: "pick", own } } });
+  saveInputs(s, pick(42, false), T0, "owner@example.com");
+  saveInputs(s, pick(42, false), T0 + 1, "owner@example.com"); // unchanged: no row
+  const keys = saveInputs(s, { account: { workWage: { "Order picking": 26 } }, ...pick(44, true) }, T0 + 2, "owner@example.com");
+  assert.ok(keys.includes("rate.Order picking"));
+  const hist = fleetContract(s, T0 + 3).rateHistory;
+  assert.equal(hist.length, 2);
+  assert.deepEqual(hist.map((r) => [r.cents, r.own, r.by, r.at]), [[44, true, "owner@example.com", T0 + 2], [42, false, "owner@example.com", T0]]);
+});
+
+test("a bad rate rejects the whole batch", () => {
+  const { s, a } = store2();
+  for (const rates of [[], { "": { cents: 1, unit: "pick", own: true } }, { x: { cents: -1, unit: "pick", own: true } }, { x: { cents: 1.5, unit: "pick", own: true } }, { x: { cents: 1, unit: "pick" } }]) {
+    assert.throws(() => saveInputs(s, { robots: { robotHours: { [a]: 9 } }, rates }, T0), InputError);
+  }
+  assert.equal(loadInputs(s).robots.robotHours, undefined);
+  assert.equal(fleetContract(s, T0).rateHistory.length, 0);
+});
+
+test("the adapter carries people and the rate log, with a fallback owner", () => {
+  const { s } = store2();
+  const c = fleetContract(s, T0);
+  const bare = adapter.liveTables(c);
+  assert.deepEqual(bare.PEOPLE.map((p) => [p.name, p.role]), [["You", "Owner"]]);
+  assert.deepEqual(bare.RATE_LOG, []);
+  const withPeople = adapter.liveTables({ ...c, people: [{ email: "dana@fleet.co", role: "Owner", since: T0 }] });
+  assert.deepEqual(withPeople.PEOPLE.map((p) => [p.name, p.email, p.role]), [["dana", "dana@fleet.co", "Owner"]]);
+});

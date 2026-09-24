@@ -191,3 +191,29 @@ connect with history, confirm, dashboard. 296 tests pass.
 
 Still to design: the Demo's own first-run screens wired to these endpoints,
 so first run happens inside /app rather than on the plain server pages.
+
+## Live tables that were still demo data (built 2026-09-23)
+
+A scan of the page for tables a live account still filled from the demo
+found six that showed wrong data to a real customer. Now:
+
+- **Calendar range** (`CAL_MIN`/`CAL_MAX`, and the month it opens on) comes
+  from the account's own periods, not March to September 2026.
+- **People** comes from the contract's `people` (the signed-in account's
+  email as Owner; one sign-in per account until team invites exist).
+- **Rate history** is a real log. Migration 3 adds `rate_changes`. The page
+  sends the rate it is using per kind of work (`rates` on
+  `POST /api/v1/inputs`, worked out from wage, throughput and roster), and
+  the server adds a row only when it differs from the last one, signed with
+  the account's email. The contract carries it as `rateHistory`.
+- **Alert rules** keep their definitions but go to "You" and read "Never
+  sent" until the Phase 5 sending job exists.
+- **Vendor tickets**: open count and median days to first reply are worked
+  out from the account's own tickets.
+- **Vendor contacts** are empty on a live account (the demo's addresses are
+  made up), so email buttons open a blank draft.
+
+Still demo defaults on purpose: shifts (day/swing/night), vendor response
+hours (24 h unless a contract says otherwise), part prices, equipment costs,
+and the aisle grid a site uses until it names its places. 301 tests pass;
+browser sweep clean on demo (1,078 combos) and the live sim (1,217).
