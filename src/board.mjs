@@ -310,6 +310,8 @@ export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export function startBoard(port, {
   getState,
   getOwnerState: baseGetOwnerState = null,
+  getFleetContract: baseGetFleetContract = null,
+  saveOwnerInputs: baseSaveOwnerInputs = null,
   saveEconomics: baseSaveEconomics = null,
   onboarding: baseOnboarding = null,
   tenancy = null,
@@ -332,6 +334,13 @@ export function startBoard(port, {
       // Per-request bindings. Without tenancy these are the single store the
       // process was started with; with it, they are the account's own.
       let getOwnerState = baseGetOwnerState;
+      let getFleetContract = baseGetFleetContract;
+      let signedIn = null;
+      let saveOwnerInputs = baseSaveOwnerInputs;
+      let setupStep = null;
+      let setupState = null;
+      let saveSites = null;
+      let connections = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -359,6 +368,13 @@ export function startBoard(port, {
           }
           const bound = tenancy.forAccount(account);
           getOwnerState = bound.getOwnerState;
+          getFleetContract = bound.getFleetContract;
+          signedIn = account;
+          saveOwnerInputs = bound.saveOwnerInputs ?? null;
+          setupStep = bound.step ?? null;
+          setupState = bound.setupState ?? null;
+          saveSites = bound.saveSites ?? null;
+          connections = bound.connections ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -377,6 +393,155 @@ export function startBoard(port, {
         const model = await getState();
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(model));
+        return;
+      }
+
+      // ---- the data contract: every table the dashboard reads, as JSON ----
+      if (getFleetContract && req.method === "GET" && path === "/api/v1/fleet") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(await getFleetContract()));
+        return;
+      }
+
+      // ---- first run, as JSON for the dashboard's own screens ----
+      if (setupState && onboarding && path.startsWith("/api/v1/setup")) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET" && path === "/api/v1/setup") return reply(200, setupState());
+        if (req.method === "POST" && path === "/api/v1/setup/business") {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 4096)); } catch { return reply(400, { error: "Send JSON: { business }." }); }
+          if (!onboarding.saveBusiness(String(body.business ?? ""))) {
+            return reply(400, { error: body.business ? "That is not one of the options. Pick the closest match, you can change it later." : "Choose the kind of business this is so we know what your robots' work is worth." });
+          }
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/import") {
+          let text;
+          try { text = await readBody(req, MAX_UPLOAD_BYTES); } catch { return reply(413, { error: "That file is larger than 25MB." }); }
+          const name = new URL(req.url, "http://127.0.0.1").searchParams.get("name") ?? "upload.csv";
+          const result = onboarding.importText(text, name);
+          if (!result.ok) return reply(400, { error: result.message });
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/confirm") {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 256 * 1024)); } catch { return reply(400, { error: "Send JSON: { robots: [{ id, name, category, excluded }] }." }); }
+          // The same form the server page posts, so both paths share one parser.
+          const form = new URLSearchParams();
+          for (const r of Array.isArray(body.robots) ? body.robots : []) {
+            if (r?.id == null) continue;
+            form.set(`name_${r.id}`, String(r.name ?? ""));
+            form.set(`category_${r.id}`, String(r.category ?? ""));
+            if (r.excluded) form.set(`excluded_${r.id}`, "1");
+          }
+          onboarding.saveConfirm(form);
+          return reply(200, setupState());
+        }
+        if (req.method === "POST" && path === "/api/v1/setup/sites" && saveSites) {
+          let body = {};
+          try { body = JSON.parse(await readBody(req, 64 * 1024)); } catch { return reply(400, { error: "Send JSON: { sites: [names], robots: { id: site } }." }); }
+          try {
+            return reply(200, saveSites(body));
+          } catch (err) {
+            return reply(400, { error: String(err?.message ?? err) });
+          }
+        }
+        return reply(404, { error: "not a setup step" });
+      }
+
+      // ---- what the owner types on the dashboard ----
+      if (saveOwnerInputs && req.method === "POST" && path === "/api/v1/inputs") {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        let body;
+        try {
+          body = JSON.parse(await readBody(req, 512 * 1024));
+        } catch {
+          return reply(400, { error: "Send JSON: { account, robots }." });
+        }
+        try {
+          return reply(200, { ok: true, saved: saveOwnerInputs(body) });
+        } catch (err) {
+          return reply(err?.constructor?.name === "InputError" ? 400 : 500, { error: String(err?.message ?? err) });
+        }
+      }
+
+      // ---- data sources: an account's own vendor connections ----
+      if (connections) {
+        const sendJSON = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET" && path === "/api/v1/connections") return sendJSON(200, connections.list());
+        if (req.method === "POST" && path === "/api/v1/connections") {
+          let body;
+          try {
+            body = JSON.parse(await readBody(req, 16_384));
+          } catch {
+            return sendJSON(400, { error: "Send JSON: { vendor, credentials }." });
+          }
+          try {
+            const out = await connections.connect(String(body?.vendor ?? ""), body?.credentials ?? {});
+            return sendJSON(200, { ok: true, robotCount: out.robotCount, robots: out.robots, sources: connections.list() });
+          } catch (err) {
+            return sendJSON(err?.name === "ConnectionError" || err?.constructor?.name === "ConnectionError" ? 400 : 500, { error: String(err?.message ?? err) });
+          }
+        }
+        const del = path.match(/^\/api\/v1\/connections\/([a-z0-9_-]+)$/);
+        if (req.method === "DELETE" && del) return sendJSON(connections.disconnect(del[1]) ? 200 : 404, { sources: connections.list() });
+
+        if (path === "/owner/sources") {
+          const owner = await import("./owner.mjs");
+          const page = (code, opts) => {
+            res.writeHead(code, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+            res.end(owner.renderSourcesHTML(connections.list(), opts));
+          };
+          if (req.method === "GET") {
+            const q = new URLSearchParams((req.url ?? "").split("?")[1] ?? "");
+            return page(200, { connected: q.get("connected"), disconnected: q.get("disconnected") });
+          }
+          if (req.method === "POST") {
+            const form = new URLSearchParams(await readBody(req, 16_384));
+            const vendor = form.get("vendor") ?? "";
+            if (form.get("action") === "disconnect") {
+              connections.disconnect(vendor);
+              res.writeHead(303, { Location: `/owner/sources?disconnected=${encodeURIComponent(vendor)}` });
+              res.end();
+              return;
+            }
+            try {
+              await connections.connect(vendor, Object.fromEntries(form));
+              res.writeHead(303, { Location: `/owner/sources?connected=${encodeURIComponent(vendor)}` });
+              res.end();
+            } catch (err) {
+              page(400, { error: String(err?.message ?? err), errorVendor: vendor });
+            }
+            return;
+          }
+        }
+      }
+
+      // ---- the dashboard: the Demo's screens on this account's data ----
+      if (getFleetContract && req.method === "GET" && path === "/app") {
+        const { renderAppHTML } = await import("./app.mjs");
+        const demo = /[?&]demo=1(&|$)/.test(req.url ?? "");
+        // An account with no fleet yet has nothing to show here: send it to
+        // the first-run step that gets it one (business, then connect or
+        // upload, then confirm). Numbers is not a gate; /app has its own.
+        const step = !demo && setupStep ? setupStep() : "done";
+        const { pageRunsFirstRun } = await import("./app.mjs");
+        if ((step === "business" || step === "import" || step === "confirm") && !pageRunsFirstRun()) {
+          res.writeHead(303, { Location: `/owner/${step}` });
+          res.end();
+          return;
+        }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderAppHTML({ contract: demo ? null : await getFleetContract(), account: signedIn }));
         return;
       }
 
@@ -458,12 +623,25 @@ export function startBoard(port, {
               return;
             }
             onboarding.saveConfirm(new URLSearchParams(body));
-            res.writeHead(303, { Location: "/owner/setup" });
+            // Confirmed: the fleet exists, so the dashboard is home from here.
+            res.writeHead(303, { Location: "/app" });
             res.end();
             return;
           }
         }
 
+        // The old statement pages are now screens in /app. A signed-in owner
+        // with a fleet is forwarded to the same screen there; ?demo=1 and a
+        // process without accounts keep the old pages as they were.
+        const OLD_PAGES = { "/owner": "dashv2", "/owner/fleet": "robots", "/owner/costs": "costs" };
+        if (req.method === "GET" && setupStep && OLD_PAGES[path] && !(req.url ?? "").includes("demo=1")) {
+          const step = setupStep();
+          if (step === "setup" || step === "done") {
+            res.writeHead(303, { Location: `/app?view=${OLD_PAGES[path]}` });
+            res.end();
+            return;
+          }
+        }
         if (req.method === "GET" && path === "/owner") {
           const model = await getOwnerState();
           // Never render a zeroed statement: send the owner to the step that
@@ -494,6 +672,19 @@ export function startBoard(port, {
           }
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(owner.renderFleetHTML(model));
+          return;
+        }
+        if (req.method === "GET" && path === "/owner/costs") {
+          const model = await getOwnerState();
+          // Same first-run guard as /owner and /owner/fleet: a costs page before
+          // anything is imported is an empty page reachable from the rail.
+          if (onboarding && model.step !== "done" && !(req.url ?? "").includes("demo=1")) {
+            res.writeHead(303, { Location: `/owner/${model.step}` });
+            res.end();
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(owner.renderCostsHTML(model));
           return;
         }
         if (req.method === "GET" && path === "/owner/setup") {

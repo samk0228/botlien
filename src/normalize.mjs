@@ -279,3 +279,44 @@ export function validateStatus(s) {
   }
   return problems;
 }
+
+/** One Gausium task report (a finished cleaning job, from the taskReports
+ *  history endpoint) as the status samples the live poll would have written
+ *  while it ran: active every `stepMs` from its start to its end, then idle.
+ *  Landing history this way means rollups, duty, coverage and every screen
+ *  read a connected account's past exactly as they read its present, with no
+ *  second path through the math. Returns [] for a report with no usable
+ *  start or duration rather than guessing one. */
+export function gausiumTaskReportToEvents(serialNumber, report, { stepMs = 60_000 } = {}) {
+  const start = toEpochMs(report?.startTime ?? report?.start_time);
+  const seconds = Number(report?.durationSeconds ?? report?.duration_seconds);
+  const endRaw = toEpochMs(report?.endTime ?? report?.end_time);
+  if (start === null || !serialNumber) return [];
+  const end = endRaw !== null && endRaw > start ? endRaw : Number.isFinite(seconds) && seconds > 0 ? start + seconds * 1000 : null;
+  if (end === null) return [];
+  const missionId = String(report.taskInstanceId ?? report.task_instance_id ?? report.id ?? `${serialNumber}:${start}`);
+  const sample = (at, active) => ({
+    externalId: serialNumber,
+    at,
+    raw: null,
+    status: {
+      externalId: serialNumber,
+      at,
+      seq: null,
+      connectionState: "online",
+      batteryPct: null,
+      charging: active ? false : null,
+      eStop: null,
+      missionState: active ? "active" : "idle",
+      missionId: active ? missionId : null,
+      stuck: null,
+      moving: active ? true : null,
+      errors: null,
+      pose: null,
+    },
+  });
+  const out = [];
+  for (let t = start; t < end; t += stepMs) out.push(sample(t, true));
+  out.push(sample(end, false));
+  return out;
+}

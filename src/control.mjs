@@ -52,6 +52,26 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_events_name_at ON events(name, at);
 CREATE INDEX IF NOT EXISTS idx_events_account ON events(account_id, at);
+
+-- One row per account per vendor: the account's own API keys for that
+-- vendor, sealed by vault.mjs, and how the last sync went. Here and not in
+-- the tenant file so the scheduler can find every active connection with one
+-- query instead of opening every account's database each tick.
+CREATE TABLE IF NOT EXISTS connections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  vendor TEXT NOT NULL,
+  secret_sealed TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  robot_count INTEGER,
+  last_sync_at INTEGER,
+  last_ok_at INTEGER,
+  last_state TEXT,
+  last_error TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE(account_id, vendor)
+);
 `;
 
 /** The six events onboarding is judged on. Anything outside this set is a typo,
@@ -242,6 +262,61 @@ export class Control {
   /** The only number that matters, per the spec: landed -> activated, and the
    * median time between them. Median rather than mean because one owner who
    * leaves a tab open for a week would otherwise move the average on its own. */
+  // ---- vendor connections ----
+  // Every read here leaves secret_sealed out except sealedSecret(), so a
+  // listing can never carry a credential to a page or a log by accident.
+  upsertConnection({ accountId, vendor, secretSealed, robotCount = null }, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO connections (account_id, vendor, secret_sealed, status, robot_count, created_at, updated_at)
+         VALUES (?, ?, ?, 'active', ?, ?, ?)
+         ON CONFLICT(account_id, vendor) DO UPDATE SET secret_sealed=excluded.secret_sealed, status='active',
+           robot_count=excluded.robot_count, last_error=NULL, updated_at=excluded.updated_at`
+      )
+      .run(accountId, vendor, secretSealed, robotCount, nowMs, nowMs);
+    return this.connection(accountId, vendor);
+  }
+
+  connection(accountId, vendor) {
+    return (
+      this.db
+        .prepare(`SELECT id, account_id, vendor, status, robot_count, last_sync_at, last_ok_at, last_state, last_error, created_at, updated_at
+                  FROM connections WHERE account_id=? AND vendor=?`)
+        .get(accountId, vendor) ?? null
+    );
+  }
+
+  connectionsForAccount(accountId) {
+    return this.db
+      .prepare(`SELECT id, account_id, vendor, status, robot_count, last_sync_at, last_ok_at, last_state, last_error, created_at, updated_at
+                FROM connections WHERE account_id=? ORDER BY vendor`)
+      .all(accountId);
+  }
+
+  activeConnections() {
+    return this.db
+      .prepare(`SELECT id, account_id, vendor, status, updated_at FROM connections WHERE status='active' ORDER BY id`)
+      .all();
+  }
+
+  sealedSecret(connectionId) {
+    return this.db.prepare(`SELECT secret_sealed FROM connections WHERE id=?`).get(connectionId)?.secret_sealed ?? null;
+  }
+
+  recordSync(connectionId, { at, state, detail = null, robotCount = null }) {
+    this.db
+      .prepare(
+        `UPDATE connections SET last_sync_at=?, last_state=?, last_error=?,
+           last_ok_at=CASE WHEN ?='ok' THEN ? ELSE last_ok_at END,
+           robot_count=COALESCE(?, robot_count) WHERE id=?`
+      )
+      .run(at, state, state === "ok" ? null : detail, state, at, robotCount, connectionId);
+  }
+
+  deleteConnection(accountId, vendor) {
+    return this.db.prepare(`DELETE FROM connections WHERE account_id=? AND vendor=?`).run(accountId, vendor).changes > 0;
+  }
+
   funnel() {
     const counts = {};
     for (const name of EVENTS) counts[name] = this.countEvents(name);

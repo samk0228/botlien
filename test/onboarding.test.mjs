@@ -230,8 +230,10 @@ test("the import screen names the columns it accepts and never claims outcomes",
   assert.match(idle, /Drop your usage export here/);
   assert.match(idle, /external_id/);
   assert.match(idle, /timestamp/);
-  // API second, deliberately
-  assert.match(idle, /this comes second/);
+  // The file drop first and the API second, deliberately: a CSV works today,
+  // vendor keys can take weeks. Now the second option is a real link.
+  assert.ok(idle.indexOf("Drop your usage export here") < idle.indexOf("Or connect your robots directly"));
+  assert.match(idle, /href="\/owner\/sources"/);
 
   const rejected = renderImportHTML({ error: "No usable rows.", sample: "name,qty" });
   assert.match(rejected, /No usable rows/);

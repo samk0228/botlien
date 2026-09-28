@@ -55,7 +55,7 @@ export async function handlePublicRoute(req, res, path, ctx) {
   if (req.method === "GET" && (path === "/" || path === "/index.html")) {
     // An owner who already has a session should not be sold to again.
     if (currentAccount(control, req.headers.cookie, now())) {
-      redirect(res, "/owner");
+      redirect(res, "/app");
       return true;
     }
     onEvent("landed", {});
@@ -124,7 +124,7 @@ export async function handlePublicRoute(req, res, path, ctx) {
       return true;
     }
     if (out.created) onEvent("account_created", { accountId: out.account.id });
-    redirect(res, "/owner", {
+    redirect(res, "/app", {
       "Set-Cookie": sessionCookie(out.sessionToken, { secure: secureCookies }),
     });
     return true;
@@ -157,6 +157,8 @@ export function requiresSession(path) {
     path === "/owner" ||
     path.startsWith("/owner/") ||
     path === "/api/owner" ||
+    path.startsWith("/api/v1/") ||
+    path === "/app" ||
     path === "/ops" ||
     path === "/api/state"
   );
