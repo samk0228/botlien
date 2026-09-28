@@ -16,7 +16,7 @@
 import { robotFinancials, taskCount } from "./finance.mjs";
 import { BENCHMARKS, EQUIP_COST_CENTS, economicsFor, taskLabelFor } from "./rates.mjs";
 import { robotInterventions, MINUTES_PER_CLEAR } from "./interventions.mjs";
-import { loadInputs } from "./inputs.mjs";
+import { loadInputs, KV_TZ, KV_BILLING_DAY } from "./inputs.mjs";
 
 export const CONTRACT_VERSION = 1;
 const DEFAULT_SITE = "Main site";
@@ -39,8 +39,9 @@ const EPISODE_GAP_MS = 3 * 60_000;
 // robot stuck across 4 samples at 15s reads as a minute, not 45 seconds.
 const DEFAULT_SAMPLE_MS = 15_000;
 
-export const KV_BILLING_DAY = "billing.anchor_day";
-export const KV_TZ = "owner.tz";
+// Both are set on the dashboard (inputs.mjs owns them); re-exported for the
+// jobs that read the same keys.
+export { KV_TZ, KV_BILLING_DAY };
 
 /** YYYY-MM-DD in the customer's time zone. Days, periods and shifts are the
  *  floor's local days: a stall at 11pm Pacific belongs to that night, not to
@@ -184,7 +185,8 @@ export function fleetContract(store, nowMs, config = {}) {
   // As of the end of the telemetry, never past it: an export from July must
   // open on July, not on an empty September.
   const asOfMs = range ? Math.min(nowMs, range.maxAt) : nowMs;
-  const periods = billingPeriods(asOfMs, { anchorDay: anchorDayFor(store, tz), tz });
+  const anchorDay = anchorDayFor(store, tz);
+  const periods = billingPeriods(asOfMs, { anchorDay, tz });
   const open = periods[0];
   const oldestFrom = periods[periods.length - 1].fromMs;
 
@@ -522,6 +524,9 @@ export function fleetContract(store, nowMs, config = {}) {
     version: CONTRACT_VERSION,
     asOf: asOfMs,
     tz,
+    // The day of the month each billing period starts on: the owner's, or
+    // the day the first telemetry was seen.
+    billingDay: anchorDay,
     hasTelemetry: range !== null,
     minutesPerClear: MINUTES_PER_CLEAR,
     sites: siteList,

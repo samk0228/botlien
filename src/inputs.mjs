@@ -14,6 +14,14 @@
 // sends the morning brief from those. Everything else is page state only.
 import { economicsFor } from "./rates.mjs";
 
+// The two settings the server's own clock reads: the account's time zone
+// (its days, periods and shifts, the brief's send time) and the day of the
+// month a billing period starts on. Saved like every other input, and written
+// through to these keys, which contract.mjs, brief-job.mjs and alerts.mjs
+// read. Before this, Settings saved a time zone the server never looked at.
+export const KV_TZ = "owner.tz";
+export const KV_BILLING_DAY = "billing.anchor_day";
+
 const MAX_VALUE_BYTES = 64 * 1024;
 
 const num = (min, max) => (v) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
@@ -40,7 +48,29 @@ export const ACCOUNT_INPUTS = [
   "ownerName", "siteName", "businessName", "timezone", "avatarColor", "avatarIcon",
   // Names the owner gives stall spots: { siteSlug: { "x,y": "aisle 14" } }.
   "placeNames",
+  // The day of the month a billing period starts on, 1 to 28. Null means the
+  // day the first telemetry was seen, as before.
+  "billingDay",
 ];
+
+/** True for a zone name the clock knows ("America/Chicago"), so a typo can
+ *  never move every period onto UTC by surprise. */
+export function validTimeZone(v) {
+  if (typeof v !== "string" || !v || v.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: v });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Account keys the server itself reads are checked; the rest are page state
+// and only have to fit.
+const ACCOUNT_CHECKS = {
+  timezone: (v) => v === null || validTimeZone(v),
+  billingDay: (v) => v === null || (Number.isInteger(v) && v >= 1 && v <= 28),
+};
 
 export class InputError extends Error {}
 
@@ -94,6 +124,7 @@ export function saveInputs(store, changes, nowMs, by = null) {
 
   for (const [key, value] of Object.entries(account)) {
     if (!ACCOUNT_INPUTS.includes(key)) throw new InputError(`${key} is not something the dashboard saves`);
+    if (ACCOUNT_CHECKS[key] && !ACCOUNT_CHECKS[key](value ?? null)) throw new InputError(`${key} is not a value it can take`);
     const json = JSON.stringify(value ?? null);
     if (json.length > MAX_VALUE_BYTES) throw new InputError(`${key} is too large to save`);
     writes.push([`account.${key}`, json]);
@@ -120,6 +151,10 @@ export function saveInputs(store, changes, nowMs, by = null) {
   store.transaction(() => {
     for (const [k, v] of writes) store.setInput(k, v, nowMs);
     writeThrough(store, robotsById, merged, robots, nowMs);
+    // The settings the server's clock reads. An empty value puts the default
+    // back (the process's zone; the first day telemetry was seen).
+    if ("timezone" in account) store.setKV(KV_TZ, account.timezone ?? "");
+    if ("billingDay" in account) store.setKV(KV_BILLING_DAY, account.billingDay == null ? "" : String(account.billingDay));
     for (const [work, r] of Object.entries(rates)) {
       const last = store.lastRateChange(work);
       if (last && last.cents === r.cents && last.unit === r.unit && Boolean(last.own) === r.own) continue;

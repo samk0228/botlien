@@ -355,3 +355,38 @@ Still demo defaults on purpose: shifts (day/swing/night), vendor response
 hours (24 h unless a contract says otherwise), part prices, equipment costs,
 and the aisle grid a site uses until it names its places. 301 tests pass;
 browser sweep clean on demo (1,078 combos) and the live sim (1,217).
+
+## Settings that reach the server, and tickets (built 2026-09-28)
+
+Two settings the page saved were never read by the server, and one table
+had no way in.
+
+- **Time zone.** Settings saved `timezone` as page state, but the brief
+  job, the alerts job and `billingPeriods()` read the store key `owner.tz`,
+  which nothing wrote: an owner in Chicago got Pacific days and periods.
+  `inputs.mjs` now owns both keys (`KV_TZ`, `KV_BILLING_DAY`, re-exported
+  from `contract.mjs`), checks a time zone against the clock before saving
+  (a typo is refused, never silently UTC), and writes it through on save.
+  Clearing it puts the default back.
+- **Billing day.** A new account input `billingDay` (1 to 28, or null for
+  the first day telemetry was seen) writes through to `billing.anchor_day`.
+  The contract carries `billingDay` and the adapter `BILLING_DAY`, so the
+  page can show it. Periods frozen on the old boundaries stop matching and
+  the new ones compute fresh, as the period-close notes already say.
+- **Vendor tickets.** `src/tickets.mjs`: `POST /api/v1/tickets`
+  (`{ title, brand, ref, robotId, openedAt, respondedAt, status }`; only
+  the title is required, `openedAt` defaults to now) and
+  `PATCH /api/v1/tickets/<id>` (`respondedAt`, the vendor's first reply, or
+  `status`, `open` or `closed`). A reply before the ticket was opened, a
+  ticket in the future, a robot not on the account or an unknown status is
+  refused and nothing is saved; another account's ticket is a 404. The
+  Vendors tab already counts `open` tickets and takes the median days to
+  first reply from `respondedAt`.
+- **Connect attempts.** Every `POST /api/v1/connections` runs the pasted
+  keys against the vendor, so an account now gets ten attempts an hour
+  (429 after that). Enough to fix a typo; not enough to use Botlien to try
+  keys against somebody else's vendor account.
+
+The page does not send `billingDay` or log tickets yet: that is a Claude
+Design job, written into `docs/design/live-screens-v1-prompt.md` (5.1).
+359 tests pass.

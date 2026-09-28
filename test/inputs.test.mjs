@@ -116,3 +116,29 @@ test("the adapter carries people and the rate log, with a fallback owner", () =>
   const withPeople = adapter.liveTables({ ...c, people: [{ email: "dana@fleet.co", role: "Owner", since: T0 }] });
   assert.deepEqual(withPeople.PEOPLE.map((p) => [p.name, p.email, p.role]), [["dana", "dana@fleet.co", "Owner"]]);
 });
+
+test("the time zone and billing day the owner sets reach the server's own clock", () => {
+  const { s } = store2();
+  saveInputs(s, { account: { timezone: "Europe/Berlin", billingDay: 15 } }, T0);
+  const c = fleetContract(s, T0);
+  assert.equal(c.tz, "Europe/Berlin");
+  assert.equal(c.billingDay, 15);
+  assert.equal(c.periods[0].start, "2026-09-15");
+  assert.equal(adapter.liveTables(c).BILLING_DAY, 15);
+  assert.equal(loadInputs(s).account.timezone, "Europe/Berlin", "and comes back to the page like any input");
+  // Clearing either puts the default back.
+  saveInputs(s, { account: { timezone: null, billingDay: null } }, T0 + 1);
+  const back = fleetContract(s, T0 + 1);
+  assert.equal(back.tz, "America/Los_Angeles");
+  assert.equal(back.periods[0].start, "2026-09-01");
+});
+
+test("a zone the clock does not know, or a billing day past the 28th, saves nothing", () => {
+  const { s } = store2();
+  assert.throws(() => saveInputs(s, { account: { timezone: "Mars/Olympus", stallMinutes: 4 } }, T0), /timezone is not a value/);
+  assert.throws(() => saveInputs(s, { account: { billingDay: 31 } }, T0), InputError);
+  assert.throws(() => saveInputs(s, { account: { billingDay: 1.5 } }, T0), InputError);
+  assert.throws(() => saveInputs(s, { account: { billingDay: "15" } }, T0), InputError);
+  assert.deepEqual(loadInputs(s), { account: {}, robots: {} });
+  assert.equal(fleetContract(s, T0).tz, "America/Los_Angeles");
+});

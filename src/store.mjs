@@ -825,6 +825,21 @@ export class Store {
     return this.db.prepare(`SELECT * FROM vendor_tickets ORDER BY opened_at`).all();
   }
 
+  ticket(id) {
+    return this.db.prepare(`SELECT * FROM vendor_tickets WHERE id=?`).get(id) ?? null;
+  }
+
+  /** Mark the vendor's first reply, or change the status. A field left
+   *  undefined keeps its value. */
+  updateTicket(id, { respondedAt, status } = {}) {
+    const cur = this.ticket(id);
+    if (!cur) return null;
+    this.db
+      .prepare(`UPDATE vendor_tickets SET responded_at=?, status=? WHERE id=?`)
+      .run(respondedAt === undefined ? cur.responded_at : respondedAt, status === undefined ? cur.status : status, id);
+    return this.ticket(id);
+  }
+
   /** Only the samples where something was wrong. Downtime episodes are built
    *  from these alone: a healthy robot at 15-second sampling writes ~180k rows
    *  a month, and none of them change the answer. */
