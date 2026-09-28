@@ -421,9 +421,14 @@ export function startBoard(port, {
         if (req.method === "POST" && path === "/api/v1/setup/import") {
           let text;
           try { text = await readBody(req, MAX_UPLOAD_BYTES); } catch { return reply(413, { error: "That file is larger than 25MB." }); }
-          const name = new URL(req.url, "http://127.0.0.1").searchParams.get("name") ?? "upload.csv";
-          const result = onboarding.importText(text, name);
-          if (!result.ok) return reply(400, { error: result.message });
+          const q = new URL(req.url, "http://127.0.0.1").searchParams;
+          const name = q.get("name") ?? "upload.csv";
+          // ?columns={"robot_id":"Serial No","at":"Time"} for an export whose
+          // headers we do not recognise; a failed import lists the file's headers.
+          let columns = null;
+          try { columns = q.get("columns") ? JSON.parse(q.get("columns")) : null; } catch { return reply(400, { error: "columns must be JSON: {\"robot_id\": \"Serial No\", \"at\": \"Time\"}." }); }
+          const result = onboarding.importText(text, name, { columns });
+          if (!result.ok) return reply(400, { error: result.message, headers: result.headers ?? [] });
           return reply(200, setupState());
         }
         if (req.method === "POST" && path === "/api/v1/setup/confirm") {
@@ -492,6 +497,23 @@ export function startBoard(port, {
             return sendJSON(err?.name === "ConnectionError" || err?.constructor?.name === "ConnectionError" ? 400 : 500, { error: String(err?.message ?? err) });
           }
         }
+        // API keys for pushing robot status in.
+        if (path === "/api/v1/keys" && req.method === "GET") return sendJSON(200, { keys: connections.listKeys() });
+        if (path === "/api/v1/keys" && req.method === "POST") {
+          let body = {};
+          try {
+            body = JSON.parse((await readBody(req, 4096)) || "{}");
+          } catch {
+            return sendJSON(400, { error: "Send JSON: { label }." });
+          }
+          try {
+            return sendJSON(200, connections.createKey(body.label));
+          } catch (err) {
+            return sendJSON(400, { error: String(err?.message ?? err) });
+          }
+        }
+        const keyDel = path.match(/^\/api\/v1\/keys\/(\d+)$/);
+        if (req.method === "DELETE" && keyDel) return sendJSON(connections.revokeKey(keyDel[1]) ? 200 : 404, { keys: connections.listKeys() });
         const del = path.match(/^\/api\/v1\/connections\/([a-z0-9_-]+)$/);
         if (req.method === "DELETE" && del) return sendJSON(connections.disconnect(del[1]) ? 200 : 404, { sources: connections.list() });
 
@@ -499,7 +521,7 @@ export function startBoard(port, {
           const owner = await import("./owner.mjs");
           const page = (code, opts) => {
             res.writeHead(code, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-            res.end(owner.renderSourcesHTML(connections.list(), opts));
+            res.end(owner.renderSourcesHTML(connections.list(), { keys: connections.listKeys(), baseUrl: tenancy?.ctx?.baseUrl ?? "", ...opts }));
           };
           if (req.method === "GET") {
             const q = new URLSearchParams((req.url ?? "").split("?")[1] ?? "");
@@ -508,6 +530,21 @@ export function startBoard(port, {
           if (req.method === "POST") {
             const form = new URLSearchParams(await readBody(req, 16_384));
             const vendor = form.get("vendor") ?? "";
+            if (form.get("action") === "create_key") {
+              // Rendered straight back, not redirected: the key is shown once
+              // and must never sit in a URL or a browser history entry.
+              try {
+                return page(200, { newKey: connections.createKey(form.get("label")).key });
+              } catch (err) {
+                return page(400, { keyError: String(err?.message ?? err) });
+              }
+            }
+            if (form.get("action") === "revoke_key") {
+              connections.revokeKey(form.get("key_id"));
+              res.writeHead(303, { Location: "/owner/sources" });
+              res.end();
+              return;
+            }
             if (form.get("action") === "disconnect") {
               connections.disconnect(vendor);
               res.writeHead(303, { Location: `/owner/sources?disconnected=${encodeURIComponent(vendor)}` });

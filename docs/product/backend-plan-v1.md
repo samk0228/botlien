@@ -159,7 +159,25 @@ contract and credit, payback series, safety events. Each one replaces a
 hard-coded Demo table with a computed one, with a test that runs the sim
 fleet through it.
 
-**Phase 4. Any robot, not just two vendors (about 1 week)**
+**Phase 4. Any robot, not just two vendors (about 1 week)**. Built 2026-09-23.
+
+Status: `POST /api/v1/events` takes robot status pushed with an account's API
+key (`Authorization: Bearer blk_...`), up to 1,000 events a request and 120
+requests a minute per key. Only `robot_id` and `at` are required; the other
+fields use the file import's names, and name/brand/model/category are read
+the first time a robot is seen. Events land through the engine's own ingest
+and refresh only the hourly buckets they touch. Keys live in the control DB
+as SHA-256 hashes, five per account, made and revoked on Data sources (shown
+once) or through `/api/v1/keys`; pushed data then shows as a source on the
+dashboard. The import now reads each row's brand, model, name, kind of work
+and position where the file has them, and takes a column map
+(`?columns={"robot_id":"Serial No","at":"Time"}` on `/api/v1/setup/import`)
+for an export whose headers we do not recognise; a file with no usable rows
+comes back with its headers so a screen can ask. We deliberately did not
+hard-code Locus, Fetch, Pudu or Bear export formats: we have no real export
+from any of them, and a guessed format would break on the first real file.
+The column map covers them until we see real files. 338 tests.
+
 1. `POST /api/v1/events` with a per-customer API key, taking the
    normalized status shape, so integrators and other vendors can push.
 2. File import reads the brand column and knows the Locus, Fetch, Pudu and

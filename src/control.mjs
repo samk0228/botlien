@@ -10,6 +10,19 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const SCHEMA = `
+-- API keys an account uses to push robot status (POST /api/v1/events). Only
+-- a SHA-256 of the key is kept; the key itself is shown once, when made.
+CREATE TABLE IF NOT EXISTS api_keys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL UNIQUE,
+  label TEXT,
+  created_at INTEGER NOT NULL,
+  last_used_at INTEGER,
+  revoked_at INTEGER
+);
+
 -- Small facts about the service itself, such as when production was last
 -- backed up and verified (written by scripts/backup-mark.mjs).
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -146,6 +159,32 @@ export class Control {
 
   touchAccount(id, nowMs) {
     this.db.prepare(`UPDATE accounts SET last_seen_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  insertApiKey({ accountId, prefix, keyHash, label }, nowMs) {
+    const r = this.db
+      .prepare(`INSERT INTO api_keys (account_id, prefix, key_hash, label, created_at) VALUES (?, ?, ?, ?, ?)`)
+      .run(accountId, prefix, keyHash, label ?? null, nowMs);
+    return Number(r.lastInsertRowid);
+  }
+
+  apiKeysForAccount(accountId) {
+    return this.db
+      .prepare(`SELECT id, prefix, label, created_at, last_used_at, revoked_at FROM api_keys WHERE account_id=? ORDER BY id`)
+      .all(accountId);
+  }
+
+  /** The live key with this hash, and the account it belongs to. */
+  apiKeyByHash(keyHash) {
+    return this.db.prepare(`SELECT id, account_id FROM api_keys WHERE key_hash=? AND revoked_at IS NULL`).get(keyHash) ?? null;
+  }
+
+  touchApiKey(id, nowMs) {
+    this.db.prepare(`UPDATE api_keys SET last_used_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  revokeApiKey(accountId, id, nowMs) {
+    return this.db.prepare(`UPDATE api_keys SET revoked_at=? WHERE id=? AND account_id=? AND revoked_at IS NULL`).run(nowMs, id, accountId).changes > 0;
   }
 
   getMeta(key) {

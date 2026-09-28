@@ -1399,7 +1399,7 @@ ${m.robots.length === 0 ? '<div class="panel"><div class="empty">no robots yet, 
 /** Data sources: connect a vendor account with its API keys. Each vendor is
  * one card: connected (with how the last sync went) or a form. Keys are never
  * echoed back, not even masked, because nothing here needs to show them. */
-export function renderSourcesHTML(sources, { error = null, errorVendor = null, connected = null, disconnected = null } = {}) {
+export function renderSourcesHTML(sources, { error = null, errorVendor = null, connected = null, disconnected = null, keys = [], newKey = null, keyError = null, baseUrl = "" } = {}) {
   const ago = (ms) => {
     if (!ms) return "never";
     const min = Math.round((Date.now() - ms) / 60_000);
@@ -1457,7 +1457,24 @@ export function renderSourcesHTML(sources, { error = null, errorVendor = null, c
 ${connected ? `<div class="note">Connected ${esc(connected)}. The first sync starts within a minute.</div>` : ""}
 ${disconnected ? `<div class="note">Disconnected ${esc(disconnected)}. Data already synced stays on your dashboard.</div>` : ""}
 ${sources.map(card).join("")}
-<div class="honest">Using a make we cannot connect yet? Upload its export on the import page and the same dashboard fills in.</div>`,
+    <fieldset>
+      <legend>Push from your own system</legend>
+      <div class="sub">For fleet software, an integrator or a make we cannot connect yet: send robot status to <code>POST ${esc(baseUrl)}/api/v1/events</code> with an API key, and it lands on your dashboard like a connected vendor.</div>
+      ${newKey ? `<div class="note">Your new key, shown this once. Copy it now: <code style="user-select:all">${esc(newKey)}</code></div>` : ""}
+      ${keyError ? `<div class="note">${esc(keyError)}</div>` : ""}
+      ${keys.length
+        ? keys.map((k) => `<div class="sub" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><code>${esc(k.prefix)}…</code> ${esc(k.label ?? "")} · made ${esc(ago(k.createdAt))} · last used ${esc(ago(k.lastUsedAt))}
+        <form method="POST" action="/owner/sources" style="display:inline"><input type="hidden" name="action" value="revoke_key"><input type="hidden" name="key_id" value="${k.id}"><button type="submit">Revoke</button></form></div>`).join("")
+        : `<div class="sub">No keys yet.</div>`}
+      <form method="POST" action="/owner/sources" autocomplete="off" style="margin-top:12px">
+        <input type="hidden" name="action" value="create_key">
+        <label for="key-label">What it is for</label>
+        <input id="key-label" name="label" placeholder="Fleet manager sync" maxlength="60">
+        <button type="submit">Make an API key</button>
+        <div class="hint">Send it as <code>Authorization: Bearer blk_...</code>. Each request takes up to 1,000 events: <code>{"events": [{"robot_id": "AMR-7", "at": "2026-09-23T14:05:00Z", "mission_state": "active", "battery_pct": 81}]}</code>. Only robot_id and at are required.</div>
+      </form>
+    </fieldset>
+<div class="honest">Using a make we cannot connect yet? Upload its export on the import page, or push it here, and the same dashboard fills in.</div>`,
     { nav: { active: "sources", fleetBadge: 0 } }
   );
 }
