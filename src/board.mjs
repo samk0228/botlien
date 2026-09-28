@@ -341,6 +341,7 @@ export function startBoard(port, {
       let setupState = null;
       let saveSites = null;
       let connections = null;
+      let tickets = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -375,6 +376,7 @@ export function startBoard(port, {
           setupState = bound.setupState ?? null;
           saveSites = bound.saveSites ?? null;
           connections = bound.connections ?? null;
+          tickets = bound.tickets ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -476,6 +478,38 @@ export function startBoard(port, {
         }
       }
 
+      // ---- vendor tickets the owner logs by hand ----
+      if (tickets && path.startsWith("/api/v1/tickets")) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        const failed = (err) => reply(err?.constructor?.name === "TicketError" ? 400 : 500, { error: String(err?.message ?? err) });
+        let body;
+        try {
+          body = JSON.parse((await readBody(req, 16_384)) || "{}");
+        } catch {
+          return reply(400, { error: "Send JSON: { title, brand, robotId, openedAt, respondedAt, status }." });
+        }
+        if (req.method === "POST" && path === "/api/v1/tickets") {
+          try {
+            return reply(200, { ok: true, ticket: tickets.add(body) });
+          } catch (err) {
+            return failed(err);
+          }
+        }
+        const one = path.match(/^\/api\/v1\/tickets\/(\d+)$/);
+        if (req.method === "PATCH" && one) {
+          try {
+            const t = tickets.update(one[1], body);
+            return t ? reply(200, { ok: true, ticket: t }) : reply(404, { error: "No such ticket on this account." });
+          } catch (err) {
+            return failed(err);
+          }
+        }
+        return reply(404, { error: "not a ticket route" });
+      }
+
       // ---- data sources: an account's own vendor connections ----
       if (connections) {
         const sendJSON = (code, body) => {
@@ -494,7 +528,8 @@ export function startBoard(port, {
             const out = await connections.connect(String(body?.vendor ?? ""), body?.credentials ?? {});
             return sendJSON(200, { ok: true, robotCount: out.robotCount, robots: out.robots, sources: connections.list() });
           } catch (err) {
-            return sendJSON(err?.name === "ConnectionError" || err?.constructor?.name === "ConnectionError" ? 400 : 500, { error: String(err?.message ?? err) });
+            const kind = err?.constructor?.name;
+            return sendJSON(kind === "TooManyAttempts" ? 429 : err?.name === "ConnectionError" || kind === "ConnectionError" ? 400 : 500, { error: String(err?.message ?? err) });
           }
         }
         // API keys for pushing robot status in.

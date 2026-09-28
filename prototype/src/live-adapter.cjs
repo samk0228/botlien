@@ -217,6 +217,8 @@ function liveTables(c) {
   // FIRST_RUN, not SETUP: SETUP is already the page's per-robot hours table.
   T.FIRST_RUN = c.setup || null;
   T.TZ = tz;
+  // The day of the month a billing period starts on (Settings > Billing).
+  T.BILLING_DAY = c.billingDay || 1;
   // People on the account. One sign-in per account today; a contract without
   // people (the single-fleet server) still shows the owner as "You".
   var can = { Owner: 'Edits rates and invoices, closes periods', Manager: 'Imports usage, cannot change rates', Accountant: 'Reads and exports closed statements' };
@@ -255,7 +257,7 @@ var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'c
 var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
   'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
   'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
-  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames'];
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames', 'billingDay'];
 
 /* The changes between two snapshots of the page state, in the shape
    POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner

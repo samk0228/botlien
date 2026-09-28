@@ -27,6 +27,7 @@ import { verifyStop, stopBriefFor, KV_ALERTS_STOPPED } from "./brief-job.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { newApiKey, hashApiKey, pushEvents, MAX_KEYS } from "./push.mjs";
 import { saveInputs } from "./inputs.mjs";
+import { addTicket, updateTicket } from "./tickets.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
 import { normalizeEmail } from "./control.mjs";
 
@@ -51,7 +52,12 @@ function longDate(ms) {
 }
 
 export class KeyError extends Error {}
+export class TooManyAttempts extends Error {}
 const PUSH_PER_MINUTE = 120;
+// Every connect attempt runs the pasted keys against the vendor for real.
+// Ten an hour is enough to fix a typo and too few to use us to try keys
+// against somebody else's vendor account.
+const CONNECT_PER_HOUR = 10;
 
 export function createTenancy({
   control,
@@ -69,6 +75,7 @@ export function createTenancy({
 }) {
   const opsSet = parseOpsEmails(opsEmails);
   const pushHits = new Map(); // key id -> recent request times
+  const connectHits = new Map(); // account id -> recent connect attempts
   /** Events with no account attached (`landed`) still belong in the funnel. */
   const onEvent = (name, { accountId = null, detail = null } = {}) => {
     try {
@@ -255,6 +262,10 @@ export function createTenancy({
       vendors: Object.keys(VENDORS),
       list: () => describeConnections(control, account.id, store),
       async connect(vendor, input) {
+        const nowMs = now();
+        const recent = (connectHits.get(account.id) ?? []).filter((t) => nowMs - t < 3_600_000);
+        if (recent.length >= CONNECT_PER_HOUR) throw new TooManyAttempts(`${CONNECT_PER_HOUR} connection attempts an hour per account. Check the keys with the vendor and try again later.`);
+        connectHits.set(account.id, [...recent, nowMs]);
         const out = await connectVendor({ control, vault: vault ?? { ready: false }, accountId: account.id, vendor, input, config, fetchImpl, now });
         log(`account ${account.id} connected ${vendor} (${out.robotCount} robots)`);
         // Connecting a vendor is the funnel's data step as much as an upload.
@@ -284,6 +295,11 @@ export function createTenancy({
       },
     };
     const saveOwnerInputs = (changes) => saveInputs(store, changes, now(), account.email);
+    // Vendor tickets the owner logs by hand (the Vendors tab reads them).
+    const tickets = {
+      add: (body) => addTicket(store, body, now()),
+      update: (id, body) => updateTicket(store, id, body),
+    };
     // Where this account is in first run, read from its data. /app sends an
     // account that has no fleet yet to the step that gets it one.
     const step = () => onboardingStep(store);
@@ -320,7 +336,7 @@ export function createTenancy({
       });
       return setupState();
     };
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites };
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

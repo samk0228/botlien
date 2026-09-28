@@ -308,6 +308,35 @@ Stops carry `spot`, the 2 m grid key the page labels `near 14, 6 m`.
 
 ---
 
+## 5.1 Billing day and vendor tickets (Settings and the Vendors tab)
+
+Two things the server now keeps that the page cannot set yet.
+
+- **Billing day.** Beside the time zone in Settings, a select `Periods
+  start on day` with 1 to 28, read from and written to `S.billingDay`
+  (add it to `S`; on load, in a live account, start from
+  `liveData().BILLING_DAY`). It saves on its own like every other input.
+  One line under it: `Statements run from this day to the day before it
+  next month. Changing it recomputes periods that are not locked yet.`
+  The time zone select already saves and the server now reads it, so
+  nothing changes there.
+- **Log a ticket.** In a live account the Vendors tab reads `TICKETS` from
+  the server and starts empty. On each vendor's card, and in a robot
+  page's vendor section, a `Log a ticket` button opens an inline form:
+  `What it is about` (required), `Ticket number` (optional), `Opened`
+  (date and time, default now), and the robot when opened from a robot
+  page. It calls `POST /api/v1/tickets` with `{ title, ref, brand,
+  robotId, openedAt }` and gets `{ ok, ticket }`; add the ticket to
+  `TICKETS` in the page's own shape (`id, brand, i, title, opened,
+  responded, status`). Each open ticket row gets `Mark first reply`
+  (`PATCH /api/v1/tickets/<id>` with `{ respondedAt }`, default now) and
+  `Close` (`{ status: 'closed' }`). Status is `open` or `closed`; the reply
+  time is separate, and the median days to first reply comes from it. A
+  problem comes back as `{ error }` with 400, or 404 for a ticket that is
+  not this account's. The demo does not change.
+
+---
+
 ## 6. Morning brief delivery, live
 
 The Delivery form saves on its own and the server sends the brief by email.
