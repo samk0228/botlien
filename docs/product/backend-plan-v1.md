@@ -147,10 +147,27 @@ stated uptime promise and is null (not zero) without one. The page shows
 and "Closing" in the grace day. The adapter passes `PERIOD_FIGURES` (per
 robot row and totals) for the Period and Contract pages to use. 305 tests.
 
-Not done yet from this phase: naming places from robot positions (stalls
-still read "near x, y m"), a payback series from real history before the six
-periods (the page still back-projects), and a Downtime table for closed
-periods (their episodes feed uptime and credit but are not listed). If the
+Finished the same day (branch phase-3-derivations):
+- **Payback from measured months.** `paybackFor()` in `src/contract.mjs`,
+  carried as `contract.payback` and adapter `PAYBACK`. It uses every frozen
+  period on record (not only the six shown) plus the open ones. The price is
+  the lease's equipment cost, else the benchmark (`EQUIP_COST_CENTS` in
+  `src/rates.mjs`, same figures as the page). Months between the lease start
+  and the first data are counted, not guessed. Status: paid (measured months
+  alone cross the price), on track / behind / missed (every month since the
+  lease began is measured), partly measured (no verdict), no lease, no price.
+  The page's own payback chart still back-projects; the Claude Design pass
+  moves it onto these numbers.
+- **"A promise is missed" alert**, in the daily alert email, once per robot,
+  only on a measured "missed".
+- **Named places.** Every stop carries `spot`, the 2 m grid key the page
+  already labels "near x, y m". The owner's names are saved as the account
+  input `placeNames` ({ siteSlug: { "x,y": "aisle 14" } }) and every stop at
+  that spot then reads the name, in the contract, the brief and the alerts.
+  A fix saved under the old "near x, y m" label does not follow the rename.
+- **Closed periods' stops** are listed as `contract.pastDowntime` (adapter
+  `DOWNTIME_PAST`), each with its period; the open period's list is
+  unchanged. 349 tests. If the
 owner changes the billing anchor day, periods frozen on the old boundaries
 stop matching and the new ones compute fresh.
 
@@ -233,6 +250,37 @@ computed on the server.
 
 Morning brief email at the time the owner set (Resend is already wired),
 alert rules, period close, backups check.
+
+## What the robot API research changed (Sep 24, 2026)
+
+`botlien_robot_api_research.pdf` (30 vendors, field level, in Sam's Drive)
+checked against what is built:
+
+- **Confirmed direction.** No vendor exposes uptime or cycle count as a
+  field, so computing them from raw state, faults and task status is the
+  product, which is what the contract does. The client's own inputs should
+  shrink to value per unit and labor cost per hour, pre-filled; ours are
+  wage and throughput per kind of work from benchmarks, plus the lease
+  terms that only the customer has.
+- **Push API is the gateway's target.** Shop-floor controllers are not
+  internet-facing, so an on-site gateway reads robots locally and pushes to
+  `POST /api/v1/events`. Pushed events are now archived raw (joint drift,
+  motor current, operating time kept for later), `cycle_count` + `program`
+  count cycles as units, alarms keep a `description`. Fixed a bug where
+  pushed faults were stored double-encoded and never read as downtime.
+- **Live now vs later.** Each robot carries `now` (latest state, faults,
+  position). Anything comparing a robot with itself waits for a 14-day
+  baseline (`baselineReady`); the duty-collapse alert now does.
+- **Vendor corrections.** Locus has no confirmed public API (the docs we
+  had were a different company); Zebra is winding down Fetch; AutoStore is
+  NDA-gated; Global AGV and MiR are the most open; MiR or Universal Robots
+  are the best live demo. The Demo's "Locus Portal or Fetch Portal CSV"
+  promises are removed in the Claude Design prompt.
+- **Not decided.** The research's leads are mostly manufacturers (arms,
+  AMRs, cells) while the business types are restaurant, warehouse, hotel,
+  facilities. A manufacturing business type needs real benchmarks (value
+  per cycle, operator wage) before it is added. The gateway itself (MiR REST,
+  UR RTDE) is not built.
 
 ## Risks worth saying out loud
 

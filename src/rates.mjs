@@ -25,6 +25,19 @@ export const TASK_BASIS = {
 // Every kind of work a robot can do, keyed by the value stored in
 // robots.category. `delivery` and `cleaning` keep their original ids and rates
 // so existing databases keep reading correctly.
+// What a robot for each kind of work costs to buy, in cents: the price payback
+// is measured against when the owner has not entered their own. The same
+// figures as the dashboard's EQUIP_COST.
+export const EQUIP_COST_CENTS = {
+  delivery: 1_800_000,
+  bussing: 1_800_000,
+  cleaning: 2_800_000,
+  picking: 3_200_000,
+  putaway: 3_200_000,
+  room_delivery: 1_800_000,
+  laundry: 2_200_000,
+};
+
 export const BENCHMARKS = {
   delivery: {
     label: "Tray or food delivery",

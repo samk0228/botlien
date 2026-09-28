@@ -140,7 +140,36 @@ function liveTables(c) {
     if (d.pose) return 'stuck · near ' + Math.round(d.pose.x / 2) * 2 + ', ' + Math.round(d.pose.y / 2) * 2 + ' m';
     return 'stuck';
   }
-  T.DOWNTIME = byRobot(c.downtime, function (d) { return { date: d.date, start: d.start, minutes: d.minutes, cause: cause(d) }; });
+  // spot: the 2 m grid key a place name is saved under (S.placeNames).
+  T.DOWNTIME = byRobot(c.downtime, function (d) { return { date: d.date, start: d.start, minutes: d.minutes, cause: cause(d), spot: d.spot || null }; });
+  // Stops in the closed periods shown, with the period each belongs to.
+  T.DOWNTIME_PAST = byRobot(c.pastDowntime || [], function (d) { return { period: d.period, date: d.date, start: d.start, minutes: d.minutes, cause: cause(d), spot: d.spot || null }; });
+  // What each robot is doing right now (latest sample) and how far along its
+  // two-week baseline is. Nothing that compares a robot with itself should
+  // alert or predict before baselineReady.
+  T.NOW = robots.map(function (r) {
+    var n = r.now;
+    return {
+      at: n ? localStamp(n.at, tz) : null, atMs: n ? n.at : null,
+      connection: n ? n.connectionState : null, mission: n ? n.missionState : null,
+      battery: n ? n.batteryPct : null, charging: n ? n.charging : null,
+      stuck: n ? n.stuck : null, eStop: n ? n.eStop : null,
+      faults: n ? (n.errors || []).filter(function (e) { return !/^(WARN|WARNING|INFO)$/i.test(String(e && e.severity || '')); }) : [],
+      baselineDays: r.baselineDays || 0, baselineReady: !!r.baselineReady
+    };
+  });
+  // Payback from measured months (server): status, what was earned in the
+  // months with data, and how many months since the lease began have none.
+  T.PAYBACK = robots.map(function (r) {
+    var p = (c.payback || []).filter(function (x) { return x.robotId === r.id; })[0];
+    if (!p) return null;
+    return {
+      status: p.status, price: p.priceCents == null ? null : p.priceCents / 100, priceSource: p.priceSource,
+      earned: p.earnedCents / 100, monthsSinceStart: p.monthsSinceStart, monthsUnmeasured: p.monthsUnmeasured,
+      paceMonths: p.paceMonths, promisedMonths: p.promisedMonths,
+      months: p.months.map(function (m) { return { start: m.start, end: m.end, work: m.workCents / 100, frozen: m.frozen }; })
+    };
+  });
   T.SAFETY = byRobot(c.safety, function (s) { return { date: s.date, time: s.time, kind: s.kind, note: s.note || '' }; });
   // Undefined where the owner has not entered the lease: contractFor() then
   // uses its stated default and the page marks the robot's contract as not set.
@@ -226,7 +255,7 @@ var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'c
 var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
   'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
   'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
-  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon'];
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames'];
 
 /* The changes between two snapshots of the page state, in the shape
    POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner

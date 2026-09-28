@@ -29,6 +29,40 @@ so this pass can land at any time.
 
 ---
 
+## Before you start: the live hook
+
+This project's copy of the Demo does not contain the live wiring. The server
+adds it when it serves the page to a real account. You will not see that
+code here, and you do not need it. Add only this, once, near the top of the
+script beside `ICONS` and `LOGO`:
+
+```js
+const LIVE = null; // set by the server for a real account; leave as null here
+// Preview only: ?livepreview=1 shows the live screens with a sample account
+// built from the demo's own tables; ?livepreview=business, =import or
+// =confirm opens that sample account at that first-run step. A real account
+// never takes this path.
+const LIVE_PREVIEW = (location.search.match(/[?&]livepreview=([a-z0-9]+)/) || [])[1] || null;
+let previewLiveCache = null;
+function liveData(){ return LIVE || (LIVE_PREVIEW ? (previewLiveCache || (previewLiveCache = previewLive())) : null); }
+function isLiveAccount(){ return !!liveData() && !S.demoMode; }
+```
+
+Every live screen reads `liveData()`, never `LIVE` directly, and shows only
+when `isLiveAccount()` is true. Wherever a prompt says `LIVE.X`, read it as
+`liveData().X`.
+
+`previewLive()` returns an object with the live fields the prompt lists,
+filled from the demo's own tables and calculations (for first run: the
+demo's business types and robots, with `FIRST_RUN.step` set from
+`LIVE_PREVIEW` when it is `business`, `import` or `confirm`, else `done`).
+The values do not need to be exact. They only let you see the screens. Show
+nothing on screen that says "preview"; the parameter is the only switch.
+Server calls fail in the preview (there is no server here), which is the
+right way to see each screen's failed state.
+
+---
+
 ## 0. Rules
 
 - **Only real numbers.** In a live account never show a demo figure: no
@@ -90,8 +124,8 @@ object on success, or `{ error }` with status 400 on a problem:
 
 ## 2. Where first run starts
 
-In `bootScreen()`, inside the existing `if (LIVE){ ... }` branch: when
-`LIVE.FIRST_RUN` is present and its `step` is `business`, `import` or
+In `bootScreen()`, when `isLiveAccount()`: when `liveData().FIRST_RUN` is
+present and its `step` is `business`, `import` or
 `confirm`, open first run instead of the dashboard:
 
 - `S.stage = 'app'`, `S.onboarding = true` (no rail, the centred first-run
@@ -101,9 +135,9 @@ In `bootScreen()`, inside the existing `if (LIVE){ ... }` branch: when
 `step` of `setup` or `done` means the fleet exists: open the dashboard as
 today.
 
-Change `LIVE_PAGES` so `business`, `start` and `confirm` stay in the page
-when `LIVE_FIRST_RUN` is true. Keep `creds` pointing at `/owner/sources`,
-which is where an owner disconnects or replaces keys later.
+The server's copy of the page sends these views to its own plain pages until
+it sees `LIVE_FIRST_RUN`; you do not need to change that. The `creds` view
+stays the Data sources screen.
 
 A thin progress line runs across the top of all three screens:
 `1 Your business · 2 Your data · 3 Your fleet`, the current one in `--fg1`

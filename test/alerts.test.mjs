@@ -169,3 +169,11 @@ test("with sending off it only logs, and a stopped account gets nothing", async 
   await stopped.j.tick(AUG6_6AM + 90 * MIN);
   assert.equal(stopped.sent.length, 0);
 });
+
+test("no duty collapse alert before a robot has its two-week baseline", async () => {
+  // Nine days of data, Picker 2 idle for the last eight: too new to call it.
+  const { s } = account({ from: "2026-07-29", idleDays: 8 });
+  const { j, sent } = job({ s });
+  await j.tick(AUG6_6AM + 90 * MIN);
+  assert.ok(!sent.some((m) => /a day all week/.test(m.subject)));
+});
