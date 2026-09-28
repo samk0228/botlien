@@ -195,6 +195,12 @@ function liveTables(c) {
   });
   // Every rate the figures have used, newest first (Numbers > Rate history).
   T.RATE_LOG = c.rateHistory || [];
+  // When each alert rule last emailed the owner, by the page's rule name.
+  T.ALERT_LOG = {};
+  Object.keys(c.alertLog || {}).forEach(function (rule) {
+    var e = c.alertLog[rule];
+    T.ALERT_LOG[rule] = 'Sent ' + short(localStamp(e.at, tz).slice(0, 10)) + (e.summary ? ' · ' + e.summary : '');
+  });
   T.provenance = c.provenance;
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.

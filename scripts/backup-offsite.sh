@@ -48,6 +48,10 @@ out=$(fly ssh console -a "$APP" -C "node /app/scripts/backup.mjs $REMOTE_TMP" 2>
 # like a whole one is the failure mode worth being paranoid about.
 if ! printf '%s' "$out" | grep -q '^PASS'; then
   log "$out"
+  # The failure that ran for two weeks in September 2026: say what fixes it.
+  if printf '%s' "$out" | grep -q 'no access token'; then
+    fail "the Fly CLI on this Mac is not logged in. Run: fly auth login"
+  fi
   fail "backup.mjs did not report PASS"
 fi
 
@@ -92,7 +96,15 @@ for f in "$local_dir"/*.db; do
 done
 [ "$bad" -eq 0 ] || fail "$bad database(s) failed integrity_check in $local_dir"
 
-# ---------- 4. tidy up ----------
+# ---------- 4. tell production ----------
+# The app emails ops when this mark goes stale (src/backup-check.mjs), so a
+# job that stops running is noticed even if nobody reads this log.
+if ! fly ssh console -a "$APP" -C "node /app/scripts/backup-mark.mjs $count" 2>&1 | grep -q '^MARKED'; then
+  log "  could not record the backup in production (the backup itself is good)"
+  notify "Botlien backup ok but not recorded in production: check scripts/backup-mark.mjs is deployed" needs_user
+fi
+
+# ---------- 5. tidy up ----------
 fly ssh console -a "$APP" -C "rm -rf $REMOTE_TMP" >/dev/null 2>&1
 
 # Prune old local copies. Runs only after a verified-good backup exists, so a

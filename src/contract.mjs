@@ -457,6 +457,14 @@ export function fleetContract(store, nowMs, config = {}) {
     tickets,
     // What the owner typed on the dashboard, restored into the page on load.
     inputs: loadInputs(store),
+    // When each alert rule last actually emailed the owner (alerts.mjs).
+    alertLog: (() => {
+      try {
+        return JSON.parse(store.getKV("alerts.log") ?? "{}") ?? {};
+      } catch {
+        return {};
+      }
+    })(),
     // Every rate the figures have used, newest first, and who set it.
     rateHistory: store.listRateChanges().map((r) => ({ work: r.work, cents: r.cents, unit: r.unit, own: Boolean(r.own), by: r.by_email, at: r.at })),
     // Where each table came from, so the page can say "from the robot" or

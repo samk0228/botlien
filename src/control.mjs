@@ -10,6 +10,10 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const SCHEMA = `
+-- Small facts about the service itself, such as when production was last
+-- backed up and verified (written by scripts/backup-mark.mjs).
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
@@ -78,6 +82,7 @@ CREATE TABLE IF NOT EXISTS connections (
  * so recordEvent rejects it rather than silently writing a name nobody queries. */
 export const EVENTS = [
   "landed",
+  "brief_sent",
   "account_created",
   "data_connected",
   "fleet_confirmed",
@@ -141,6 +146,18 @@ export class Control {
 
   touchAccount(id, nowMs) {
     this.db.prepare(`UPDATE accounts SET last_seen_at=? WHERE id=?`).run(nowMs, id);
+  }
+
+  getMeta(key) {
+    return this.db.prepare(`SELECT value FROM meta WHERE key=?`).get(key)?.value ?? null;
+  }
+
+  setMeta(key, value) {
+    this.db.prepare(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key, String(value));
+  }
+
+  listAccounts() {
+    return this.db.prepare(`SELECT id, email, created_at, last_seen_at FROM accounts ORDER BY id`).all();
   }
 
   countAccounts() {

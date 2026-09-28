@@ -14,6 +14,8 @@ import { createTenancy } from "../src/tenancy.mjs";
 import { boardModel } from "../src/board.mjs";
 import { openStore } from "../src/store.mjs";
 import { SESSION_COOKIE } from "../src/auth.mjs";
+import { createVault } from "../src/vault.mjs";
+import { stopLink, stoppedEmails } from "../src/brief-job.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00-07:00");
 const DAY = 86_400_000;
@@ -31,7 +33,7 @@ function csv(prefix, days = 3) {
 
 /** Boots the real server on an ephemeral port with a console mailer, so the
  * sign-in link is captured rather than emailed. */
-async function boot({ opsEmails = ["sam@harborgrill.com"] } = {}) {
+async function boot({ opsEmails = ["sam@harborgrill.com"], vault = null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "botlien-gate-"));
   const control = openControl(join(dir, "control.db"));
   const sent = [];
@@ -49,6 +51,7 @@ async function boot({ opsEmails = ["sam@harborgrill.com"] } = {}) {
     secureCookies: false,
     readBody,
     opsEmails,
+    vault,
   });
 
   const server = startBoard(0, {
@@ -454,6 +457,28 @@ test("an account's contract names its owner, and rate changes are signed with th
     // Another account sees none of it.
     const other = await app.signIn("sam@harborgrill.com");
     assert.deepEqual((await (await app.get("/api/v1/fleet", other)).json()).rateHistory, []);
+  } finally {
+    await app.close();
+  }
+});
+
+test("the brief's stop link asks first, refuses a forged link, and stops a signed one", async () => {
+  const vault = createVault({ keyB64: Buffer.alloc(32, 3).toString("base64") });
+  const app = await boot({ vault });
+  try {
+    await app.signIn("dana@fleetco.com");
+    const acct = app.control.accountByEmail("dana@fleetco.com");
+    const link = new URL(stopLink(app.base, vault, acct.id, "floor@fleetco.com"));
+    const path = link.pathname + link.search;
+    const page = await app.get(path);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<form method="post">/);
+    assert.deepEqual(stoppedEmails(app.tenants.get(acct.id)), [], "opening the link alone stops nothing");
+    const forged = await fetch(`${app.base}${path.replace("floor%40", "owner%40")}`, { method: "POST" });
+    assert.equal(forged.status, 400);
+    const ok = await fetch(`${app.base}${path}`, { method: "POST" });
+    assert.equal(ok.status, 200);
+    assert.deepEqual(stoppedEmails(app.tenants.get(acct.id)), ["floor@fleetco.com"]);
   } finally {
     await app.close();
   }

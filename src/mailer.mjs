@@ -57,7 +57,7 @@ export function createResendMailer({ apiKey, from, fetchImpl = fetch }) {
   if (!from) throw new Error("resend mailer requires a from address");
   return {
     kind: "resend",
-    async send({ to, subject, text }) {
+    async send({ to, subject, text, html = null, headers = null }) {
       let res;
       try {
         res = await fetchImpl(RESEND_ENDPOINT, {
@@ -66,7 +66,7 @@ export function createResendMailer({ apiKey, from, fetchImpl = fetch }) {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ from, to: [to], subject, text }),
+          body: JSON.stringify({ from, to: [to], subject, text, ...(html ? { html } : {}), ...(headers ? { headers } : {}) }),
         });
       } catch (err) {
         return { ok: false, error: `network: ${err?.message ?? String(err)}` };
