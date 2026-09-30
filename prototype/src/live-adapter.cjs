@@ -240,6 +240,9 @@ function liveTables(c) {
   // Robot ids in row order: the page keys per-robot inputs by row, the
   // server by id, and this is the one place the two are joined.
   T.ROBOT_IDS = robots.map(function (r) { return r.id; });
+  // Per row: what a robot arm costs per hour and what its waiting costs a
+  // year (manufacturing), or null for work priced per unit.
+  T.COST = robots.map(function (r) { return r.cost || null; });
   // What the owner saved, back in the page's own shape.
   var saved = c.inputs || { account: {}, robots: {} };
   T.SAVED = { account: saved.account || {}, robots: {} };
@@ -256,7 +259,7 @@ function liveTables(c) {
 
 /* The owner's inputs the page saves, and nothing else. src/inputs.mjs keeps
    the same two lists, and a test fails if they ever differ. */
-var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'contract'];
+var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'contract', 'robotCost'];
 var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
   'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
   'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',

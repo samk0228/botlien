@@ -39,6 +39,18 @@ export const ROBOT_INPUTS = {
     dateKey(v.start) &&
     ["term", "payback"].every((k) => v[k] === undefined || v[k] === null || num(0, 600)(v[k])) &&
     (v.uptime === undefined || v.uptime === null || num(0, 100)(v.uptime)),
+  // A robot arm's own cost figures (robot-cost.mjs): which UR it is, what it
+  // cost in dollars, the install multiple on top, and hours scheduled a year.
+  // Any may be left out and falls back to the benchmark.
+  robotCost: (v) =>
+    v !== null &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    Object.keys(v).every((k) => ["arm", "armPrice", "install", "hoursYear"].includes(k)) &&
+    (v.arm === undefined || v.arm === null || str(20)(v.arm)) &&
+    (v.armPrice === undefined || v.armPrice === null || num(0, 5_000_000)(v.armPrice)) &&
+    (v.install === undefined || v.install === null || num(0, 5)(v.install)) &&
+    (v.hoursYear === undefined || v.hoursYear === null || num(100, 8_760)(v.hoursYear)),
 };
 
 export const ACCOUNT_INPUTS = [

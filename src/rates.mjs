@@ -8,6 +8,14 @@
 // tray run is worth what a runner charges to carry it, not the price of the
 // food on it. Anything that would require knowing what the business would have
 // done without the robot belongs nowhere in this file.
+//
+// Manufacturing is the exception that proves it. A CNC tender's work has no
+// honest per-unit human price (the benchmark refused to guess product values),
+// so an arm's working hour is priced at what the arm itself costs per hour
+// (robot-cost.mjs). Coverage then reads as the share of the robot's cost that
+// turned into work, and the rest is idle cost. Value per part is an optional
+// layer the owner adds on top.
+import { UR_ARMS, INSTALL_BANDS, COST_DEFAULTS, armFor, robotCostPerHour, costDerivation } from "./robot-cost.mjs";
 
 export const TASK_BASIS = {
   // tasks = sum(mission_count): discrete trips, priced per run
@@ -36,6 +44,10 @@ export const EQUIP_COST_CENTS = {
   putaway: 3_200_000,
   room_delivery: 1_800_000,
   laundry: 2_200_000,
+  // Deployed cost of each work's default arm and install band: a UR10e in a
+  // complex cell, and a UR10e in a welding cell.
+  machine_tending: 12_399_000,
+  welding: 14_878_800,
 };
 
 export const BENCHMARKS = {
@@ -128,7 +140,66 @@ export const BENCHMARKS = {
     invoiceCentsMonth: 90_000,
     operatingHoursDay: 16,
   },
+  // Robot arms. No wage and no throughput: the unit is an hour the arm spent
+  // working, priced at the arm's own cost per hour (see costModel). The
+  // invoice is that same cost over a month of scheduled hours, so an arm that
+  // works every scheduled hour covers exactly 1.00x. operatingHoursDay is the
+  // benchmark's 4,000 hours a year over 250 working days.
+  machine_tending: {
+    label: "CNC machine tending",
+    taskType: "tending_hour",
+    taskBasis: TASK_BASIS.ACTIVE_HOUR,
+    unit: "working hour",
+    unitPlural: "working hours",
+    humanUnitsPerHour: 1,
+    wageCentsHour: null,
+    costModel: { arm: "ur10e", install: "complex" },
+    operatingHoursDay: 16,
+  },
+  welding: {
+    label: "Robotic welding",
+    taskType: "welding_hour",
+    taskBasis: TASK_BASIS.ACTIVE_HOUR,
+    unit: "working hour",
+    unitPlural: "working hours",
+    humanUnitsPerHour: 1,
+    wageCentsHour: null,
+    costModel: { arm: "ur10e", install: "welding" },
+    operatingHoursDay: 16,
+  },
 };
+
+/** The cost model behind a robot-arm work, with the owner's overrides laid
+ *  over the defaults: which arm (from the robot's model when it names a UR),
+ *  its price, the install multiple, and hours a year. Null for work priced
+ *  per unit. `estimated` stays true until the owner has given a price and a
+ *  schedule of their own, which is the benchmark's rule for showing it. */
+export function robotCostFor(category, model = null, own = null) {
+  const cm = BENCHMARKS[category]?.costModel;
+  if (!cm) return null;
+  const arm = armFor(own?.arm) ?? armFor(model) ?? cm.arm;
+  const spec = UR_ARMS[arm];
+  const installMultiple = own?.install ?? INSTALL_BANDS[cm.install].multiple;
+  const armPriceCents = own?.armPrice > 0 ? Math.round(own.armPrice * 100) : spec.priceCents;
+  const hoursPerYear = own?.hoursYear ?? COST_DEFAULTS.hoursPerYear;
+  const cost = robotCostPerHour({ armPriceCents, installMultiple, watts: spec.watts, hoursPerYear });
+  return {
+    arm,
+    armLabel: spec.label,
+    armPriceCents,
+    installMultiple,
+    hoursPerYear,
+    ...cost,
+    derivation: costDerivation(spec.label, cost),
+    estimated: !(own?.armPrice > 0 && own?.hoursYear > 0),
+  };
+}
+
+// The invoice for a robot-cost work is its cost over a month of scheduled
+// hours; filled in here so every benchmark row still carries one.
+for (const [k, b] of Object.entries(BENCHMARKS)) {
+  if (b.costModel) b.invoiceCentsMonth = Math.round((robotCostFor(k).perHour * COST_DEFAULTS.hoursPerYear) / 12);
+}
 
 // What kind of business the owner runs. This is the ONE thing a telemetry export
 // cannot tell us: nothing in a status stream distinguishes a restaurant from a
@@ -138,6 +209,14 @@ export const BENCHMARKS = {
 // The answer selects which kinds of work are offered and what the defaults are,
 // which is why it is worth one screen before the upload.
 export const BUSINESS_TYPES = {
+  // First: UR manufacturing is the first customer (decided 9/30/26).
+  manufacturing: {
+    label: "Manufacturing",
+    blurb: "Robot arms tending CNC machines or welding. Priced from what each arm costs to own and run.",
+    works: ["machine_tending", "welding"],
+    defaultWork: "machine_tending",
+    exportHint: "your Universal Robots arms",
+  },
   restaurant: {
     label: "Restaurant, cafe, or bar",
     blurb: "Robots running trays, bussing, or cleaning the floor after service.",
@@ -209,6 +288,8 @@ export function businessPreview(businessType) {
     unit: main.unit,
     rateCents: derivedRateCents(b.defaultWork),
     derivation: rateDerivation(b.defaultWork),
+    // Manufacturing leads with the arm's cost per hour, not a rate per unit.
+    costBasis: main.costModel ? "robot" : "labor",
     operatingHoursDay: main.operatingHoursDay,
   };
 }
@@ -218,6 +299,7 @@ export function businessPreview(businessType) {
 export function derivedRateCents(category, wageCentsHour = null) {
   const b = BENCHMARKS[category];
   if (!b) return null;
+  if (b.costModel) return Math.round(robotCostFor(category).perHour);
   const wage = wageCentsHour ?? b.wageCentsHour;
   return Math.round(wage / b.humanUnitsPerHour);
 }
@@ -226,6 +308,7 @@ export function derivedRateCents(category, wageCentsHour = null) {
 export function rateDerivation(category, wageCentsHour = null) {
   const b = BENCHMARKS[category];
   if (!b) return null;
+  if (b.costModel) return robotCostFor(category).derivation;
   const wage = wageCentsHour ?? b.wageCentsHour;
   const rate = derivedRateCents(category, wage);
   const money = (c) => `$${(c / 100).toFixed(2)}`;
@@ -242,9 +325,24 @@ export function rateDerivation(category, wageCentsHour = null) {
 /** Benchmark economics for a robot, or null when its category has no benchmark.
  * Null is deliberate: an unpriced category must show "set your rate" rather than
  * inherit a number from an unrelated kind of work. */
-export function defaultEconomicsFor(robot) {
+export function defaultEconomicsFor(robot, ownCost = null) {
   const b = BENCHMARKS[robot?.category];
   if (!b) return null;
+  // An arm is priced from its own model and the owner's figures, per robot.
+  const cost = robotCostFor(robot.category, robot.model, ownCost);
+  if (cost) {
+    return {
+      taskType: b.taskType,
+      taskBasis: b.taskBasis,
+      unit: b.unit,
+      taskLabel: taskLabelFor(robot.category),
+      rateCents: Math.round(cost.perHour),
+      rateDerivation: cost.derivation,
+      invoiceCentsMonth: Math.round((cost.perHour * cost.hoursPerYear) / 12),
+      wageCentsHour: null,
+      operatingHoursDay: b.operatingHoursDay,
+    };
+  }
   return {
     taskType: b.taskType,
     taskBasis: b.taskBasis,
@@ -274,7 +372,7 @@ export function taskLabelFor(category) {
  * exists, otherwise the benchmark. isDefault drives the "these are benchmark
  * numbers, set your real ones" affordance in the UI. Returns null when neither
  * exists, which callers must render as unconfigured rather than as zero. */
-export function economicsFor(robot, storedRow) {
+export function economicsFor(robot, storedRow, ownCost = null) {
   if (storedRow) {
     // The wage is the one optional field on the setup form, and it is the
     // divisor behind the labour-equivalent hours line. Falling back to the
@@ -298,6 +396,6 @@ export function economicsFor(robot, storedRow) {
       isDefault: false,
     };
   }
-  const d = defaultEconomicsFor(robot);
+  const d = defaultEconomicsFor(robot, ownCost);
   return d ? { ...d, isDefault: true } : null;
 }

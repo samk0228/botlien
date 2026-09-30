@@ -7,7 +7,8 @@ test("every benchmark is complete and internally consistent", () => {
     assert.ok(b.taskType, `${category} needs a task type`);
     assert.ok(b.unit, `${category} needs a unit noun`);
     assert.ok(Object.values(TASK_BASIS).includes(b.taskBasis), `${category} basis must be a known basis`);
-    assert.ok(b.wageCentsHour > 0, `${category} wage must be positive`);
+    // Robot arms are priced from their own cost, not a wage (robot-cost.mjs).
+    if (!b.costModel) assert.ok(b.wageCentsHour > 0, `${category} wage must be positive`);
     assert.ok(b.humanUnitsPerHour > 0, `${category} throughput must be positive`);
     assert.ok(derivedRateCents(category) > 0, `${category} rate must derive to something positive`);
     assert.ok(b.invoiceCentsMonth > 0, `${category} invoice must be positive`);
