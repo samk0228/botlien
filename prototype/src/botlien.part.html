@@ -5,7 +5,8 @@
      below is written against the real viewport, so none of them would ever
      match and the phone would get the desktop layout at 40% scale. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Botlien · Demo</title>
+<title>Botlien · Live account</title>
+
 <style>
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
 @font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER_EXT__") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;}
@@ -73,7 +74,9 @@ input{font-family:inherit}
   .hv-ghost-fg1:hover{background:var(--ghost);color:var(--fg1)}
   /* Hover and active are two different statements on the rail: hover is
      the surface lifting, active is the cobalt square. */
-  .hv-sb:hover{background:rgba(255,255,255,.16);color:var(--sb-accent-fg)}
+  /* !important: every rail row sets its own background inline, which a
+     plain :hover rule can never beat. */
+  .hv-sb:hover{background:var(--acc) !important;color:var(--sb-accent-fg) !important}
   .bl-rail:hover{background:var(--sb-border)}
 }
 /* While actually dragging the rail (not just clicking it), the grid
@@ -123,6 +126,20 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
   [data-side][data-collapsed] [data-rail-label]{display:none !important}
   [data-side]:not([data-collapsed]){width:240px;box-shadow:var(--shadow-2)}
   [data-side]:not([data-collapsed]) [data-rail-dot]{display:none}
+  /* Open, the rail takes its width from the page instead of lying over it:
+     the top bar and everything under it slide right with it. */
+  [data-grid]{transition:grid-template-columns .3s cubic-bezier(.2,0,.38,.9)}
+  [data-grid]:has([data-side]:not([data-collapsed])){grid-template-columns:240px minmax(0,1fr) !important}
+  [data-side]:not([data-collapsed]){box-shadow:none}
+}
+/* The rail opens while the pointer is over it and closes when it leaves.
+   Hover is tracked in S.railHover (see railHover below), not :hover, so a
+   click that re-renders the page does not snap it shut. */
+@media (min-width:900px) and (hover:hover) and (pointer:fine){
+  [data-side][data-hover]{width:240px}
+  [data-grid]:has([data-side][data-hover]){grid-template-columns:240px minmax(0,1fr) !important}
+  [data-side][data-hover] [data-rail-label]{display:flex !important}
+  [data-side][data-hover] [data-rail-dot]{display:none}
 }
 /* The peek drawer clears the 60px top bar, so the period picker, the site
    scope and the search stay visible while a drawer is open. Below 900px
@@ -187,7 +204,8 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
 @media (max-width:1100px){
   [data-fleet-head],[data-fleet-row]{grid-template-columns:minmax(0,1fr) 120px 84px 24px !important}
   [data-fleet-head] > div:nth-child(3),[data-fleet-head] > div:nth-child(4),[data-fleet-head] > div:nth-child(5),
-  [data-fleet-row] > [data-row-secondary]{display:none !important}
+  [data-fleet-row] > [data-row-secondary],[data-fleet-head] > [data-now-head]{display:none !important}
+  [data-fleet-head] > [data-head-secondary]{display:none !important}
   /* Numbers: no ranking figure, so the row is name, source pill, chevron. */
   [data-numbers-table] [data-fleet-head],[data-numbers-table] [data-fleet-row]{grid-template-columns:minmax(0,1fr) 110px 24px !important}
   [data-numbers-table] [data-fleet-head] > div:nth-child(2){display:none !important}
@@ -437,6 +455,28 @@ input.bl-slider::-moz-range-track{height:6px;border-radius:3px;background:transp
 const ICONS = __ICONS_JSON__;
 const LOGO = "__LOGO__";
 
+/* ───── LIVE DATA ─────
+   Served by Botlien for a signed-in account, the page arrives with that
+   account's data contract in window.BOTLIEN_LIVE (see src/app.mjs).
+   Every table marked "LIVE ? LIVE.X :" below then comes from it, and the demo
+   literal after the colon is ignored. ?demo=1 always shows the demo. */
+__LIVE_ADAPTER__
+const LIVE = (typeof window !== 'undefined' && window.BOTLIEN_LIVE && !/[?&]demo=1(&|$)/.test(location.search))
+  ? liveTables(window.BOTLIEN_LIVE) : null;
+// Preview only: ?livepreview=1 shows the live screens with a sample account
+// built from the demo's own tables; ?livepreview=business, =import or
+// =confirm opens that sample account at that first-run step. A real account
+// never takes this path.
+const LIVE_PREVIEW = (location.search.match(/[?&]livepreview=([a-z0-9]+)/) || [])[1] || null; // only with ?livepreview=1|business|import|confirm
+let previewLiveCache = null;
+function liveData(){ return LIVE || (LIVE_PREVIEW ? (previewLiveCache || (previewLiveCache = previewLive())) : null); }
+function isLiveAccount(){ return !!liveData() && !S.demoMode; }
+const LIVE_FIRST_RUN = true;
+// Views a live account opens on a server page instead of inside this one.
+// Business, import and confirm stay here once first run is built in.
+// Data sources is built in too, so creds stays here as well.
+const LIVE_PAGES = LIVE_FIRST_RUN ? {} : { business:'/owner/business', start:'/owner/import', confirm:'/owner/confirm', creds:'/owner/sources' };
+
 function ic(name, size, style){
   const s = size || 18;
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;'+(style||'')+'">'+(ICONS[name]||'')+'</svg>';
@@ -595,14 +635,7 @@ function breakEven(base){ let t = 1; while (t < 2000 && calc(t, base).cov >= 1) 
 // live numbers in the open period, same mild month-to-month noise Pier 4
 // already had, not a hand-drawn straight line pretending to be six real
 // months.
-/* ───── LIVE DATA ─────
-   Served by Botlien for a signed-in account, the page arrives with that
-   account's data contract in window.BOTLIEN_LIVE (see src/app.mjs).
-   Every table marked "LIVE ? LIVE.X :" below then comes from it, and the demo
-   literal after the colon is ignored. ?demo=1 always shows the demo. */
-__LIVE_ADAPTER__
-const LIVE = (typeof window !== 'undefined' && window.BOTLIEN_LIVE && !/[?&]demo=1(&|$)/.test(location.search))
-  ? liveTables(window.BOTLIEN_LIVE) : null;
+
 
 // "All 3 sites" in the demo; a live account says how many it has.
 function allSitesLabel(){ return SITES.length === 1 ? 'All robots' : 'All ' + SITES.length + ' sites'; }
@@ -1144,7 +1177,12 @@ function computeStatement(full, scope){
   // invoices are prorated to the range's own day count, same "prorated to
   // the same period" rule the header copy already states, so a short range
   // doesn't get charged a full month.
-  const range = full ? null : (S.dashRange || { start: PERIODS[S.period].start, end: PERIODS[S.period].end });
+  // A live account's open period has not happened yet past today, so its
+  // default range stops at today and the lease is prorated to days elapsed,
+  // the same rule the server uses. Otherwise day 3 of a new account would
+  // read as 0.1x against a whole month of lease.
+  const liveEnd = (LIVE && S.period === 0 && NOW_STAMP.slice(0, 10) < PERIODS[0].end) ? NOW_STAMP.slice(0, 10) : null;
+  const range = full ? null : (S.dashRange || { start: PERIODS[S.period].start, end: liveEnd || PERIODS[S.period].end });
   const periodDays = daysBetweenInclusive(PERIODS[0].start, PERIODS[0].end);
   const rangeDays = range ? daysBetweenInclusive(range.start, range.end) : periodDays;
   const rows = entries.map(({c,i}) => {
@@ -1495,7 +1533,7 @@ function computeIncidents(){
       const linked = safety.find(s => s.linked && s.date === x.date);
       out.push({
         i: r.i, name: r.name, site, siteName: SITES[site].name, date: x.date, time: x.start, hour,
-        kind: x.cause, family: x.cause.indexOf('stuck') === 0 ? 'Stuck' : x.cause.indexOf('error') === 0 ? 'Error E-217' : x.cause.indexOf('collision') === 0 ? 'Collision' : x.cause.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
+        kind: lvCause(site, x), spot: x.spot || null, rawKind: x.cause, family: x.cause.indexOf('stuck') === 0 ? 'Stuck' : x.cause.indexOf('error') === 0 ? 'Error E-217' : x.cause.indexOf('collision') === 0 ? 'Collision' : x.cause.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
         minutes: x.minutes, cost: isStall ? Math.round(S.stallMinutes / 60 * wage * 100) / 100 : null,
         safetyNote: linked ? linked.note : '', shift: shiftOf(hour).label, kindClass:'downtime'
       });
@@ -2114,6 +2152,9 @@ const S = {
   // and anything a robot still does is shown regardless (see workOptions).
   hiddenWork: [],
   timezone: 'America/Los_Angeles',
+  // A live account's own names for stall spots, { <site slug>: { '<spot>': 'aisle 14' } },
+  // and the day its billing periods start. Both save like every other input.
+  placeNames: {}, billingDay: 1,
 
   onboarding: false, view: 'dashv2', openSetup: 0, openRobot: -1, profileOpen: false, railCollapsed: true, mobileNavOpen: false,
   // The top bar's search. Narrows Fleet and Numbers by robot name.
@@ -2493,7 +2534,7 @@ function appRail(){
   // Icon-only until the owner asks for words. The rail used to widen on
   // hover, which meant crossing it with the cursor covered the first
   // column of the table underneath; now the brand badge is the switch.
-  const collapsed = isPhoneLayout() ? false : S.railCollapsed !== false;
+  const collapsed = !isPhoneLayout();
   const nav = (k) => {
     const on = S.view === k || (k === 'robots' && S.view === 'robot') || (k === 'setup' && S.view === 'numbersRobot');
     return { bg: on ? 'var(--sb-accent)' : 'transparent', fg: on ? 'var(--sb-accent-fg)' : 'var(--sb-fg)', fw: on ? 500 : 400 };
@@ -2537,7 +2578,7 @@ function appRail(){
   // nothing to collapse now, so hovering it no longer offers an action.
   // The badge is the rail's one control: click it for labels, click it
   // again for icons. It does not navigate; Dashboard is a nav row.
-  const brandIcon = '<div data-act="toggleRail" title="'+(collapsed ? 'Show the labels' : 'Back to icons')+'" role="button" tabindex="0" style="position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:6px;flex:none;background:rgba(255,255,255,.12);cursor:pointer">'
+  const brandIcon = '<div style="position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:6px;flex:none;background:rgba(255,255,255,.12)">'
     + '<img class="bl-brand-logo" src="'+LOGO+'" alt="Botlien" style="width:18px;height:22px;object-fit:contain;filter:brightness(0) invert(1)">'
   + '</div>';
   const bizName = S.demoMode ? 'Anchorpoint Fulfillment' : 'Harbor Grill Group';
@@ -2585,7 +2626,7 @@ function appRail(){
     + ic('home',14) + (collapsed ? '' : '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Demo &middot; Home</span>')
   + '</a>';
 
-  return '<aside data-side'+(collapsed ? ' data-collapsed' : '')+' class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;z-index:10;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
+  return '<aside data-side'+(collapsed ? ' data-collapsed' : '')+(collapsed && S.railHover ? ' data-hover' : '')+' class="'+(S.mobileNavOpen?'bl-mobile-open':'')+'" style="position:sticky;top:0;z-index:10;display:flex;flex-direction:column;height:100vh;background:var(--sb-bg);color:var(--sb-fg);border-right:1px solid var(--sb-border)">'
     + rail
     + demoBanner
     + '<div style="position:relative;display:flex;gap:8px;align-items:stretch;padding:'+(collapsed?'8px 8px 10px':'8px 8px 4px')+'">' + brand + mobileToggle + '</div>'
@@ -2865,9 +2906,7 @@ function periodFacts(p){
         ? (p.isCustom
             ? 'This range is still running. Numbers keep moving until it ends.'
             : 'This period runs to '+PERIODS[0].label.split(' – ')[1]+'. Numbers keep moving until then, and lock when it closes.')
-        : p.locked === false
-          ? 'Closing. This period has ended; its numbers lock once a day has passed and the next period&#39;s data has arrived.'
-          : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.')+'</span>'
+        : (lvOn() && !p.isCustom && (PERIODS[S.period] || {}).locked === false ? 'Closing. This period has ended; its numbers lock once a day has passed and the next period&#39;s data has arrived.' : p.closed+'. Numbers are locked, so changing a rate now will not rewrite this statement.'))+'</span>'
     + '</div>'
     + (p.isCustom ? '' : '<div '+openAttrs('period', String(S.period), 'statement')+' role="link" tabindex="0" style="display:inline-block;margin-top:12px;font-size:12.5px;font-weight:500;'+linkStyle()+'">Open this period as a tab</div>')
   + '</div>';
@@ -3117,7 +3156,7 @@ function coverageKpiCard(opts){
   // methodology, and an explainer that has to be opened reads as a warning
   // that the thing is hard. The scope is the part people actually need:
   // whose robots, how many, over what.
-  const scopeWord = S.dashScope === 'all' ? 'all 3 sites' : SITES[S.dashScope].name;
+  const scopeWord = scopeName(S.dashScope);
   const subhead = s.mode === 'estimate'
     ? (s.manualRevenue > 0
       ? money(s.totalValue)+' of estimated work vs. '+money(s.totalInvoice)+' leased, from '+s.manualCount+' robot'+(s.manualCount===1?'':'s')+' at the numbers you typed in'
@@ -3176,6 +3215,7 @@ function attentionCard(){
     + '</div>'
     + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
     + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">Nothing under its lease right now, every included robot is covering its cost.</div>')+'</div>'
+    + lvBaselineAttn(s.included)
   + '</div>';
 }
 
@@ -3333,6 +3373,7 @@ function viewDashV2(){
   // nothing to reorder against each other. Needs attention first by
   // default, Where the work is under it.
   return '<div style="padding:0 0 8px;margin-bottom:40px">'
+    + frBenchCard()
     + dashToolbar(hidden)
     + (showBrief ? '<div style="margin-bottom:20px">'+dashBlockWrap('brief')+'</div>' : '')
     + '<div data-dash-cols style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start">'
@@ -3509,7 +3550,7 @@ function costScope(){
     const perUnit = works.length === 1;
     return { key, label, rows, perUnit, work: perUnit ? works[0] : null, workCount: works.length };
   };
-  const whole = () => build('all', 'Your whole fleet · all 13 robots, every kind of work', rowsOf(() => true));
+  const whole = () => { const rows = rowsOf(() => true); return build('all', 'Your whole fleet · all '+rows.length+' robot'+(rows.length === 1 ? '' : 's')+', every kind of work', rows); };
 
   const raw = String(S.costScope || '');
   if (raw === 'all') return whole();
@@ -3924,7 +3965,7 @@ function robotFacts(s){
     dutyPct: String(r.duty).replace(/^duty\s*/, ''),
     condition: !r.parts ? 'not reported' : spentParts ? spentParts+(spentParts === 1 ? ' part past life' : ' parts past life') : 'within rated life',
     condIcon: !r.parts ? '' : spentParts ? 'triangle-alert' : 'check',
-    delta: ROBOT_DELTA[r.name] || ''
+    delta: lvBase(s.i) ? '' : (ROBOT_DELTA[r.name] || '')
   };
 }
 
@@ -4215,7 +4256,7 @@ function viewRobots(){
   // separate view to find the flagged robot was more clicks than the
   // problem deserved. The caution mark on its name in the one list does
   // the same job at a glance, without hiding the other five.
-  const shown = searchRows(stmt.rows, s => ROBOTS[s.i].name+' '+ROBOTS[s.i].model);
+  const shown = lvSortFleet(searchRows(stmt.rows, s => ROBOTS[s.i].name+' '+ROBOTS[s.i].model));
   const rows = shown.map((s) => {
     const r = ROBOTS[s.i];
     const i = s.i;
@@ -4255,13 +4296,14 @@ function viewRobots(){
     const caution = !short ? '' : '<span title="Under its lease" style="display:inline-flex;color:var(--fg1)">'+ic('triangle-alert',15)+'</span>';
 
     const tile = '<div style="flex:none;width:34px;height:34px;border-radius:7px;background:var(--ghost);display:flex;align-items:center;justify-content:center;color:var(--fg2)">'+ic('boxes',16)+'</div>';
-    const summary = '<div data-act="toggleRobot" data-i="'+i+'" data-fleet-row class="hv-ghost" style="display:grid;grid-template-columns:minmax(180px,2fr) minmax(96px,.9fr) minmax(64px,.6fr) minmax(120px,1.1fr) minmax(64px,.6fr) 84px 24px;gap:14px;align-items:center;padding:13px 18px;cursor:pointer;background:'+(open?'var(--ghost)':'transparent')+'">'
+    const summary = '<div data-act="toggleRobot" data-i="'+i+'" data-fleet-row class="hv-ghost" style="display:grid;grid-template-columns:'+lvFleetCols()+';gap:14px;align-items:center;padding:13px 18px;cursor:pointer;background:'+(open?'var(--ghost)':'transparent')+'">'
       + '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+tile+'<div style="min-width:0"><div style="display:flex;align-items:center;gap:7px;font-size:14px;font-weight:'+(open||short?600:500)+';color:var(--fg1)">'+r.name+caution+'</div>'
         + '<div style="font-size:12px;color:var(--fg3);margin-top:2px">'+r.model+'</div></div></div>'
       + '<div data-row-status>'+pill(chip, short ? 'triangle-alert' : (s.benchmarkWage ? 'sliders-horizontal' : 'check'), short ? 'bad' : (s.benchmarkWage ? 'warn' : 'good'))+'</div>'
       + '<div data-row-secondary style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+r.duty+'</div>'
       + '<div data-row-secondary style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:'+(spentParts?600:400)+';color:'+(spentParts?'var(--fg1)':'var(--fg3)')+'">'+conditionLine+'</div>'
-      + '<div data-row-secondary style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+(ROBOT_DELTA[r.name] || 'first period')+'</div>'
+      + '<div data-row-secondary style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+lvDelta(i, ROBOT_DELTA[r.name])+'</div>'
+      + (lvNowCol() ? '<div data-row-secondary>'+lvNowPill(lvNow(i))+'</div>' : '')
       + '<div style="margin-left:auto;text-align:right;font-size:16px;font-weight:600;letter-spacing:-0.01em;color:'+(short?'var(--bad)':'var(--fg1)')+';font-variant-numeric:tabular-nums">'+covLabel+'</div>'
       // Matches the Costs queue: a chevron that rotates, on a row that is
       // itself the click target, rather than a plus sign that reads as "add".
@@ -4273,7 +4315,7 @@ function viewRobots(){
     // below in full; this is the ranking line the header used to carry.
     const detail = !open ? '' : '<div style="padding:8px 18px 26px">'
       + '<div data-row-restate style="display:none;gap:14px;flex-wrap:wrap;padding:0 0 16px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'
-        + '<span>'+r.duty+'</span><span>'+ROBOT_DELTA[r.name]+' vs July</span><span>'+conditionLine+'</span>'
+        + '<span>'+r.duty+'</span><span>'+(lvOn() && lvBase(i) ? 'building baseline' : ROBOT_DELTA[r.name]+' vs July')+'</span><span>'+conditionLine+'</span>'+(lvNowCol() && lvNow(i) ? '<span>'+lvNowPill(lvNow(i))+'</span>' : '')
       + '</div>'
       + '<div data-split style="display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:28px;align-items:start;margin-bottom:4px">'
         + '<div>'
@@ -4316,10 +4358,10 @@ function viewRobots(){
 
   // A table, the reference's list shape: a tinted header row naming the
   // columns once, then rows that are themselves the click target.
-  const fleetCols = 'minmax(180px,2fr) minmax(96px,.9fr) minmax(64px,.6fr) minmax(120px,1.1fr) minmax(64px,.6fr) 84px 24px';
+  const fleetCols = lvFleetCols();
   const th = (t, right) => '<div style="font-size:12.5px;font-weight:500;color:var(--fg2);'+(right?'text-align:right;':'')+'">'+t+'</div>';
   const head = '<div data-fleet-head style="display:grid;grid-template-columns:'+fleetCols+';gap:14px;align-items:center;padding:12px 18px;background:var(--ghost);border-bottom:1px solid var(--hair)">'
-    + th('Robot') + th('Status') + th('Duty') + th('Condition') + th('vs July') + th('Coverage', true) + '<div></div>'
+    + th('Robot') + th('Status') + th('Duty') + th('Condition') + th('vs July') + (lvNowCol() ? lvNowHead() : '') + th('Coverage', true) + '<div></div>'
   + '</div>';
   const tableCard = '<div style="border:1px solid var(--hair);border-radius:6px;overflow:hidden;margin-bottom:24px">'
       + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:20px 18px 16px">'
@@ -4798,16 +4840,16 @@ function viewSetup(){
 }
 
 const HOW_TO = {
-  locus: { name:'Locus Portal', steps:[
-    'Sign in at portal.locusrobotics.com with the account your installer set up.',
-    'Open Analytics, then Reports, in the left menu.',
+  locus: { name:'Locus', steps:[
+    'Sign in to the fleet software your installer set up.',
+    'Open its reports or analytics area. Menu names differ between versions.',
     'Set the range to a whole month. Partial months still work, they just read short.',
     'Choose Export, then CSV. Leave the column names exactly as they come.',
     'The file lands in your downloads as locus-fleet-export.csv.'
-  ], note:'Read-only. Nothing you do in Botlien changes anything in Locus Portal.' },
-  fetch: { name:'Fetch Portal', steps:[
-    'Sign in at portal.fetchrobotics.com.',
-    'Open Data, then Task records.',
+  ], note:'Read-only. Nothing you do in Botlien changes anything in Locus.' },
+  fetch: { name:'Fetch', steps:[
+    'Sign in to the fleet software your installer set up.',
+    'Open the area that lists tasks or jobs by robot. Menu names differ between versions.',
     'Pick your facility, then set the date range to a whole month.',
     'Choose Export. Pick CSV rather than Excel, so the column names survive.',
     'The file lands in your downloads as a dated task record export.'
@@ -4821,7 +4863,7 @@ function howToBlock(){
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:'+(k?'20px':'0')+'">'
       + '<div style="flex:1;min-width:260px"><div style="font-size:15.5px;font-weight:600;color:var(--fg1);margin-bottom:5px">Not sure where the file is?</div>'
       + '<div style="font-size:13.5px;color:var(--fg2);line-height:1.6">It takes about a minute in the dashboard your installer already gave you.</div></div>'
-      + tab('locus','Locus Portal') + tab('fetch','Fetch Portal')
+      + tab('locus','Locus') + tab('fetch','Fetch')
     + '</div>'
     + (k
       ? '<div style="border-top:1px solid var(--hair);padding-top:20px">'
@@ -4885,7 +4927,7 @@ function viewStart(){
     box = '<div style="border:1px dashed var(--hair3);border-radius:4px;padding:64px 40px;text-align:center;margin-bottom:32px">'
       + ic('upload-cloud',34,'color:var(--fg2);display:inline-block')
       + '<h2 style="font-size:24px;font-weight:600;letter-spacing:-0.025em;margin:18px 0 10px;color:var(--fg1)">Drop your usage export here</h2>'
-      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 auto 26px;max-width:56ch">A Locus Portal or Fetch Portal CSV is enough. Your coverage statement fills in within minutes, history included, no credentials to chase.</p>'
+      + '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 auto 26px;max-width:56ch">An export from your fleet software is enough. Your coverage statement fills in within minutes, history included, no credentials to chase.</p>'
       + '<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">'
         + '<button type="button" data-act="uploadGood" class="hv-dim press" style="padding:14px 22px;border-radius:4px;border:none;background:var(--acc);color:var(--acc-fg);cursor:pointer;font-size:14px;font-weight:600">Choose a file</button>'
         + '<button type="button" data-act="sampleData" class="hv-ghost" style="padding:14px 20px;border-radius:3px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:500">Look around with sample data</button>'
@@ -4916,7 +4958,7 @@ function viewStart(){
   if (S.upload === 'bad'){
     box = '<div style="border:1px solid var(--hair3);border-radius:4px;padding:36px 34px;margin-bottom:32px">'
       + '<h2 style="font-size:22px;font-weight:600;letter-spacing:-0.025em;margin:0 0 10px;color:var(--fg1)">We couldn&#39;t read that file</h2>'
-      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 22px">It has no column we recognize as a robot id or a mission start. Export again from Locus Portal or Fetch Portal without renaming the columns.</p>'
+      + '<p style="font-size:14px;color:var(--fg2);line-height:1.65;margin:0 0 22px">It has no column we recognize as a robot id or a mission start. Export again from your fleet software. If we do not recognise a column, you tell us which one it is.</p>'
       + '<div style="font-size:11.5px;font-weight:600;color:var(--fg3);margin-bottom:8px">Columns we accept</div>'
       + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg1);line-height:1.9;margin-bottom:22px;overflow-x:auto;white-space:nowrap">robot_id | robot_name | mission_start_at | mission_type | duration_s | battery_pct</div>'
       + '<div style="font-size:11.5px;font-weight:600;color:var(--fg3);margin-bottom:8px">What we found instead</div>'
@@ -5008,7 +5050,8 @@ function viewBusiness(){
 }
 
 function viewCreds(){
-  return '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:78ch">Locus and Fetch issue API credentials manually, one account at a time, and it can take weeks. We&#39;ll send your vendor the request and the exact scopes we need, and you&#39;ll hear from them directly. Meanwhile the file drop works today and gives you the same statement, history included.</p>'
+  if (lvOn()) return lvSourcesHtml();
+  return '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0 0 20px;max-width:78ch">Where a vendor offers API access at all, it is issued by hand, one account at a time, and it can take weeks. We&#39;ll send your vendor the request and the exact scopes we need, and you&#39;ll hear from them directly. Meanwhile the file drop works today and gives you the same statement, history included.</p>'
     + '<div style="font-family:inherit;font-size:12.5px;color:var(--fg2);line-height:1.9;margin-bottom:28px;overflow-x:auto;white-space:nowrap">scopes requested: robot.list · robot.status.read · mission.history.read</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
       + '<button type="button" data-act="sendCreds" class="hv-dim" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--acc);color:var(--acc-fg);cursor:pointer;font-size:14px;font-weight:600;opacity:'+(S.credSending?0.8:1)+'">'
@@ -5093,7 +5136,7 @@ function viewSettings(){
     // a number, so the per-robot field is the honest place for it.
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">Timezone decides which day a run counts toward. Operating hours are set per robot, on Numbers.</p>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">'
-      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone)
+      + field('Site name','siteName',S.siteName) + field('Timezone','settingsTimezone',S.timezone) + (lvOn() ? lvBillingField() : '')
     + '</div></div>';
 
   panes.account = '<div style="padding:0;margin-bottom:24px">'
@@ -5145,6 +5188,7 @@ function viewSettings(){
       + '<span style="margin-left:auto;font-size:12.5px;color:var(--fg3)">'+d.status+'</span></div>').join('')
     + '<button type="button" data-act="go" data-view="start" class="hv-ghost" style="margin-top:20px;padding:12px 18px;border-radius:3px;border:1px solid var(--hair2);background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:var(--fg1)">Import usage</button></div>';
 
+  if (lvOn()) panes.data = '<div style="padding:0;margin-bottom:24px"><h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Data sources</h2><p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px">Every way data reaches this account: vendors we connect, data your systems push, and exports you upload.</p>'+lvSourcesHtml()+'</div>';
   panes.method = '<div style="padding:0;margin-bottom:24px">'
     + '<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">How we count</h2>'
     + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:74ch">Where a figure rests on an assumption rather than on something a robot reported, this is the assumption. Costs links here.</p>'
@@ -5812,6 +5856,7 @@ function paybackRowDetail(r){
   + '</div>';
 }
 function viewPayback(){
+  if (lvOn() && lvT('PAYBACK')) return lvPaybackView();
   const p = computePayback();
   if (p.mode === 'estimate' || !p.rows.length){
     return noContractCard('A typed estimate has no contract behind it. Import your export and set the start date and quoted payback on Numbers.');
@@ -5909,7 +5954,7 @@ function contractRowDetail(r){
         + '<div style="color:var(--fg1)">'+fmtDateShort(x.date)+'</div>'
         + '<div>'+fmtClock(x.start)+'</div>'
         + '<div>'+fmtDownFor(x.minutes)+'</div>'
-        + '<div style="font-variant-numeric:normal">'+esc(x.cause)+'</div>'
+        + '<div style="font-variant-numeric:normal">'+esc(lvCause(robotSite(r.i), x))+'</div>'
       + '</div>').join('')
     + '</div></div>'
     + '<div style="font-size:13px;line-height:1.7;color:var(--fg2);margin-top:14px;max-width:80ch">'
@@ -6023,6 +6068,7 @@ function viewContract(){
     + '</div></div></div>';
   return metricTabs(tabs, current, 'contractTab')
     + metricPanel(current === 'credit' ? creditLedger(c) : uptimeTable)
+    + (lvOn() ? lvCreditStrip() : '')
     + leases
     + '<div style="display:flex;flex-wrap:wrap;gap:18px;margin:14px 0 40px;font-size:11.5px;color:var(--fg3)">'
       + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:11px;height:11px;flex:none;background:var(--fg1)"></span>logged by the robot</span>'
@@ -6642,7 +6688,7 @@ function viewVendors(){
       + row('Cost per cleaning hour', '', list.map(v => ({ sort: v.perHour === null ? null : -v.perHour, html: v.perHour === null ? '<span style="color:var(--fg3)">no cleaning</span>' : money(v.perHour) })), 'high')
       + row('Parts, 90 days', 'Only a make that reports wear can be billed for parts you can see.', list.map(v => ({ sort:null, html: v.partsSpend === null ? '<span style="color:var(--fg3)">not reported</span>' : money0(v.partsSpend) })))
       + row('Credits owed', 'This period, under the uptime clause.', list.map(v => ({ sort: v.credit > 0 ? -v.credit : 0, html: v.credit > 0 ? money(v.credit) : '<span style="color:var(--fg3)">none</span>' })), 'high')
-      + row('Support, first reply', 'Median days to a first reply on open tickets.', list.map(v => ({ sort: v.tickets.medianDays === null ? null : -v.tickets.medianDays, html: v.tickets.open === 0 ? '<span style="color:var(--fg3)">no open tickets</span>' : v.tickets.medianDays+' days · '+v.tickets.open+' open' })), 'high')
+      + row('Support, first reply', 'Median days to a first reply on open tickets.', list.map(v => ({ sort: v.tickets.medianDays === null ? null : -v.tickets.medianDays, html: v.tickets.open === 0 ? '<span style="color:var(--fg3)">no open tickets</span>' : (v.tickets.medianDays == null ? 'no first reply yet' : v.tickets.medianDays+' days')+' · '+v.tickets.open+' open' })), 'high')
       + row('Paid back', '', list.map(v => ({ sort: v.paid, html: v.paid+' of '+v.count })), 'high')
       + row('Reports condition', '', list.map(v => ({ sort:null, html: yesNo(v.reports.condition) })))
       + row('Reports battery', '', list.map(v => ({ sort:null, html: yesNo(v.reports.battery) })))
@@ -6651,6 +6697,7 @@ function viewVendors(){
         + '<div style="font-size:12.5px;color:var(--fg2)">Take it to them</div>'
         + list.map(v => '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">'
           + '<button type="button" data-act="openEvidence" data-brand="'+esc(v.brand)+'" class="hv-ghost" style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--hair2);background:var(--card);cursor:pointer;font-size:12px;font-weight:600;color:var(--fg1)">'+ic('printer',13)+'Evidence pack</button>'
+          + (lvOn() ? '<button type="button" data-act="lvTicketOpen" data-from="vendors" data-brand="'+esc(v.brand)+'" class="hv-ghost" style="'+LV_SMALL+'">'+ic('file-text',13)+'Log a ticket</button>' : '')
           + (v.endingSoon.length ? '<button type="button" data-act="renewalBrief" data-i="'+v.endingSoon[0].i+'" class="hv-ghost" style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--hair2);background:var(--card);cursor:pointer;font-size:12px;font-weight:600;color:var(--fg1)">'+ic('file-text',13)+'Renewal brief</button>' : '<span style="font-size:11.5px;color:var(--fg3)">no lease ends inside 9 months</span>')
           + '<span style="font-size:11.5px;color:var(--fg3)">'+esc(v.contact)+'</span>'
         + '</div>').join('')
@@ -6661,7 +6708,7 @@ function viewVendors(){
     + cardTitle('Renewal brief', 'Every figure read from the same calculations the pages show.', '<button type="button" data-act="copyBrief" class="hv-ghost" style="margin-left:auto;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--hair2);background:var(--card);cursor:pointer;font-size:12px;font-weight:600;color:var(--fg1)">'+(S.briefCopied ? 'Copied' : 'Copy')+'</button>')
     + '<pre id="renewalBriefText" style="margin:0;padding:18px 20px;background:var(--ghost);border:1px solid var(--hair);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.8;color:var(--fg1);white-space:pre-wrap">'+esc(renewalBrief(S.briefRobot))+'</pre>'
   + '</div>';
-  return table + brief
+  return table + (lvOn() && S.lv.ticket && S.lv.ticket.from === 'vendors' ? '<div style="margin:0 0 20px">'+lvTicketForm('vendors', S.lv.ticket.brand, null)+'</div>' : '') + brief
     + '<div style="font-size:12.5px;line-height:1.7;color:var(--fg2);margin-bottom:40px;max-width:88ch">The report rows are why a figure elsewhere in the app reads not reported: a make that does not send wear, battery or position cannot be asked about it. Nothing here is a rating, only what each vendor promised, delivered, cost and sent.</div>';
 }
 
@@ -6734,6 +6781,7 @@ function appBody(){
 }
 
 function appStage(){
+  if (frOn()) return frStage();
   // appTopbar used to live here, the bell and account avatar floating over
   // every page. Both moved into the sidebar foot, so this is just padding
   // now, no header row to reserve space for.
@@ -6906,7 +6954,7 @@ function peekCrumb(p){
 // An incident has no id in the data, so one is derived from the fields
 // that already identify it: which robot, which day, which minute.
 function incidentId(x){ return 'inc-'+x.i+'-'+String(x.date).replace(/-/g,'')+'-'+String(x.time).replace(':',''); }
-function incidentById(id){ return computeIncidents().rows.find(x => incidentId(x) === id) || null; }
+function incidentById(id){ return computeIncidents().rows.find(x => incidentId(x) === id) || (lvOn() ? lvPastRows().find(x => incidentId(x) === id) : null) || null; }
 
 /* ── the robot peek: four tabs, the four the owner opens most ── */
 const PEEK_ROBOT_TABS = [
@@ -6921,7 +6969,7 @@ function peekRobotBody(i, tab){
   if (!s) return '<div style="font-size:13px;color:var(--fg3)">This robot is not in the statement.</div>';
   const f = robotFacts(s);
   if (tab === 'verdict'){
-    return '<div style="font-size:13.5px;line-height:1.7;color:var(--fg2);margin-bottom:18px">'
+    return (lvOn() ? lvNowBlock(i) : '') + '<div style="font-size:13.5px;line-height:1.7;color:var(--fg2);margin-bottom:18px">'
         + (f.short ? 'It is under its lease this period.' : 'It covered its lease this period.')
         + ' ' + esc(f.s.work) + ' at ' + esc(f.r.model) + '.</div>'
       + robotEquation(s);
@@ -7016,7 +7064,7 @@ function peekSummary(p){
   const f = robotFacts(s);
   const stats = [
     ['Coverage', f.covLabel, 'verdict'],
-    ['Change vs July', f.delta || 'not reported', 'time'],
+    ['Change vs July', f.delta || lvNoDelta(f), 'time'],
     ['Condition', f.condition, 'verdict'],
     ['Lease', money0(s.invoice), 'money']
   ];
@@ -7243,7 +7291,7 @@ function robotTable(stRows){
   return tableShell('minmax(160px,2fr) minmax(120px,1fr) 64px 70px 76px', ['Robot','Status','Duty','vs July','Coverage'],
     shown.map(s => { const f = robotFacts(s); return { attrs:'data-peek="robot:'+s.i+':verdict"', cells:[
       '<div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name)+'</div><div style="font-size:12px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(f.r.model)+'</div>',
-      pill(f.chip, f.chipIcon, f.chipTone), esc(f.dutyPct), esc(f.delta || 'not reported'), f.short ? '<span style="color:var(--bad)">'+f.covLabel+'</span>' : f.covLabel ] }; }), [false,false,false,false,true], 540);
+      pill(f.chip, f.chipIcon, f.chipTone), esc(f.dutyPct), esc(f.delta || lvNoDelta(f)), f.short ? '<span style="color:var(--bad)">'+f.covLabel+'</span>' : f.covLabel ] }; }), [false,false,false,false,true], 540);
 }
 function incidentList(rows, showRobot){
   const shown = searchRows(rows, r => r.name+' '+r.kind+' '+r.siteName);
@@ -7335,7 +7383,12 @@ function dayRows(i, days, only){
 }
 function lastDays(n){ const end = lastDataKey(); const out = []; for (let k = n - 1; k >= 0; k--) out.push(addDaysKey(end, -k)); return out; }
 /** The last day the export holds, from the logged stops themselves. */
-function lastDataKey(){ let m = ''; DOWNTIME.forEach(list => (list || []).forEach(x => { if (x.date > m) m = x.date; })); return m || PERIODS[0].end; }
+/* A live account's data runs to the server's clock, not to the end of the
+   open period, so a quiet fleet with no downtime still briefs for tomorrow. */
+function lastDataKey(){
+  if (LIVE) return NOW_STAMP.slice(0, 10);
+  let m = ''; DOWNTIME.forEach(list => (list || []).forEach(x => { if (x.date > m) m = x.date; })); return m || PERIODS[0].end;
+}
 
 /* ── coverage by shift and by hour, from the same rows ── */
 function shiftCoverage(key){
@@ -7401,7 +7454,7 @@ function l3Scope(kind, id){
   if (kind === 'work'){ const w = workById(id); return CONFIRM.some((c, i) => stmtWork(i) === w && inScope(i)) ? cur : 'all'; }
   return cur;
 }
-function scopeName(sc){ return sc === 'all' ? 'all 3 sites' : SITES[sc].name; }
+function scopeName(sc){ return sc === 'all' ? (SITES.length === 1 ? 'your site' : 'all ' + SITES.length + ' sites') : SITES[sc].name; }
 function scopeNoteFor(kind, id){
   if (kind === 'site') return '';
   const want = l3Scope(kind, id);
@@ -7443,7 +7496,9 @@ function tabPage(t){
   const note = scopeNoteFor(t.kind, t.id);
   return '<div data-l3 style="min-width:0">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-bottom:12px;min-height:32px">'+crumbHtml(parts.crumb)+(t.kind !== 'site' && t.kind !== 'brief' ? '<div style="margin-left:auto">'+scopeToggle()+'</div>' : '')+'</div>'
-    + '<h1 style="font-size:clamp(19px,2.4vw,23px);font-weight:600;letter-spacing:-0.02em;line-height:1.35;margin:0 0 '+(note ? '6px' : '20px')+';color:var(--fg1);max-width:62ch;text-wrap:pretty">'+parts.h.headline+'</h1>'
+    + (parts.h.badge ? '<div style="margin:0 0 10px">'+parts.h.badge+'</div>' : '')
+    + '<h1 style="font-size:clamp(19px,2.4vw,23px);font-weight:600;letter-spacing:-0.02em;line-height:1.35;margin:0 0 '+(note || parts.h.sub ? '6px' : '20px')+';color:var(--fg1);max-width:62ch;text-wrap:pretty">'+parts.h.headline+'</h1>'
+    + (parts.h.sub ? '<div style="font-size:13px;line-height:1.6;color:var(--fg2);margin:0 0 '+(note ? '6px' : '18px')+';max-width:72ch">'+parts.h.sub+'</div>' : '')
     + (note ? '<div style="font-size:12.5px;color:var(--fg3);margin:0 0 18px">'+note+'</div>' : '')
     + metricTabs(parts.h.tiles.slice(0, parts.h.maxTiles || 4), (t.tile && parts.h.tiles.some(x => x.id === t.tile && (x.tab || x.id) === parts.cur)) ? t.tile : parts.cur, 'l3Inner')
     + metricPanel(subNav(parts.inner, parts.cur, 'l3Inner', parts.content).replace('top:84px', 'top:124px'))
@@ -7460,12 +7515,12 @@ L3.robot = {
     if (!s) return null;
     const f = robotFacts(s), site = robotSite(i);
     const d = f.delta ? (f.delta.indexOf('\u2212') === 0 ? 'down '+f.delta.slice(1) : 'up '+f.delta.replace('+','')) : '';
-    return { name: s.name, dot: f.short,
+    return { name: s.name, dot: f.short, sub: lvBase(i) ? lvBaseLine(i) : '',
       crumb: [{ label:'Fleet', attrs:'data-act="go" data-view="robots"' }, { label: SITES[site].name, attrs: openAttrs('site', siteSlug(site)) }, { label: s.name }],
       headline: esc(s.name)+(f.short ? ' is under its lease at ' : ' covered its lease at ')+f.covLabel+(d ? ', '+d+' on July' : '')+'.',
       tiles: [
         { id:'verdict', label:'Coverage', value: f.covLabel, unit:'this period' },
-        { id:'time', label:'Change vs July', value: f.delta || 'not reported', unit:'coverage' },
+        { id:'time', label:'Change vs July', value: f.delta || lvNoDelta(f), unit:'coverage' },
         { id:'condition', label:'Condition', value: f.condition, unit: f.r.parts ? f.r.parts.length+' parts reported' : 'from the vendor' },
         { id:'money', label:'Lease', value: money0(s.invoice), unit:'this period' }
       ] };
@@ -7480,7 +7535,7 @@ L3.robot = {
 function robotBody(i, tab){
   const s = stmtRow(i), f = robotFacts(s), r = ROBOTS[i];
   if (tab === 'verdict'){
-    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px">'+pill(f.chip, f.chipIcon, f.chipTone)+'<span style="font-size:12.5px;color:var(--fg3)">'+esc(r.model)+' &middot; <span '+openAttrs('work', slug(s.work), 'rate')+' role="link" tabindex="0" style="'+linkStyle()+'">'+esc(s.work)+'</span></span></div>'
+    return (lvOn() ? lvNowBlock(i) : '') + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px">'+pill(f.chip, f.chipIcon, f.chipTone)+'<span style="font-size:12.5px;color:var(--fg3)">'+esc(r.model)+' &middot; <span '+openAttrs('work', slug(s.work), 'rate')+' role="link" tabindex="0" style="'+linkStyle()+'">'+esc(s.work)+'</span></span></div>'
       + lead(f.short ? 'The work it did this period is worth less than what it costs to lease.' : 'The work it did this period is worth more than what it costs to lease.')
       + '<div style="max-width:560px">'+robotEquation(s)+'</div>';
   }
@@ -7543,12 +7598,13 @@ function robotBody(i, tab){
   }
   if (tab === 'contract'){
     const c = computeContract().rows.find(x => x.i === i);
-    if (!c) return lead('No contract on file for this robot.');
+    const tk = lvOn() ? secHead('Vendor') + lvTicketBar('robot:'+i, brandOf(r.model), i) : '';
+    if (!c) return lead('No contract on file for this robot.') + tk;
     const del = c.delivered == null ? 'not reported' : c.delivered.toFixed(2)+'%';
     return lead('It delivered '+del+' uptime against '+c.promised+'% promised. '+(c.credit > 0 ? money(c.credit)+' of credit is owed.' : 'No credit is owed.'))
       + statGrid([statRow('Promised', c.promised+'%', 'you set this'), statRow('Delivered', del, 'worked out'), statRow('Gap', c.gap.toFixed(2)+' pts', 'worked out'), statRow('Credit owed', money(c.credit), 'worked out')])
       + (c.credit > 0 ? rowLink('data-record="claim:'+i+'"', 'coins', 'Credit claim', claimStatus(i), money(c.credit)) : '')
-      + srcNote('Delivered is scheduled minutes less the '+fmtDownFor(c.minutes)+' the robot logged down. '+CREDIT_CLAUSE);
+      + srcNote('Delivered is scheduled minutes less the '+fmtDownFor(c.minutes)+' the robot logged down. '+CREDIT_CLAUSE) + tk;
   }
   if (tab === 'condition'){
     const brand = brandOf(r.model);
@@ -7709,10 +7765,12 @@ L3.vendor = {
     if (tab === 'robots') return robotTable(computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && brandOf((ROBOTS[r.i] || {}).model) === b));
     if (tab === 'tickets'){
       const ts = TICKETS.filter(t => t.brand === b);
-      if (!ts.length) return lead('No tickets on file with '+esc(b)+'.');
+      const bar = lvOn() ? '<div style="margin:0 0 16px">'+lvTicketBar('vendor:'+b, b, null)+'</div>' : '';
+      if (!ts.length) return lead('No tickets on file with '+esc(b)+'.') + bar;
       return lead(ts.length+' ticket'+(ts.length === 1 ? '' : 's')+' with '+esc(b)+'. The contract gives them '+(VENDOR_RESPONSE_HOURS[b] || 24)+' hours to respond.')
-        + tableShell('64px minmax(110px,1.4fr) 56px 90px 150px', ['Ticket','Robot','Opened','Waited','Status'], ts.map(t => ({ attrs:'data-record="ticket:'+t.id+'"', cells:[
-          esc(t.id), esc(robotLabel(t.i)), esc(shortDate(t.opened.slice(0,10))), Math.round(ticketWait(t))+' h of '+(VENDOR_RESPONSE_HOURS[b] || 24)+' h', ticketPill(t)] })), [], 500);
+        + bar
+        + tableShell('64px minmax(110px,1.4fr) 56px 90px 150px'+(lvOn() ? ' minmax(190px,1.2fr)' : ''), ['Ticket','Robot','Opened','Waited','Status'].concat(lvOn() ? [''] : []), ts.map(t => ({ attrs:'data-record="ticket:'+t.id+'"', cells:[
+          esc(t.id), esc(robotLabel(t.i)), esc(shortDate(t.opened.slice(0,10))), Math.round(ticketWait(t))+' h of '+(VENDOR_RESPONSE_HOURS[b] || 24)+' h', ticketPill(t)].concat(lvOn() ? [lvTicketActs(t)] : []) })), [], lvOn() ? 700 : 500);
     }
     if (tab === 'credits'){
       const owed = computeContract().rows.filter(r => r.credit > 0 && brandOf(r.model) === b);
@@ -7762,20 +7820,27 @@ L3.period = {
     const k = Number(id), p = PERIODS[k];
     if (!p) return null;
     const cov = covForPeriod(p, S.dashScope), st = periodStatement(k);
-    return { name: periodName(k),
+    return { name: periodName(k), badge: lvOn() ? lvPeriodBadge(k) : '',
       crumb: [{ label:'Trends', attrs:'data-act="go" data-view="trends"' }, { label: periodName(k) }],
       headline: esc(periodName(k))+': '+fmtX(cov)+', the fleet&#39;s '+(ORDINAL[PERIODS.length - 1 - k] || '')+' period'+(p.status === 'open' ? ', still open' : '')+'.',
       tiles: [
         { id:'statement', label:'Coverage', value: fmtX(cov), unit: p.status === 'open' ? 'still moving' : p.closed.toLowerCase() },
         { id:'_work', tab:'statement', label:'Work done', value: money0(st.value), unit:'at today&#39;s rates' },
         { id:'moved', label:'Lease paid', value: money0(st.invoice), unit:'this period' },
-        { id:'incidents', label:'Incidents', value: k === 0 ? String(computeIncidents().rows.length) : 'not reported', unit: k === 0 ? 'logged' : 'closed period' }
+        (lvOn() && k !== 0 && lvT('DOWNTIME_PAST')) ? { id:'stops', label:'Stops', value: String(lvPastRows().filter(x => x.periodKey === p.start).length), unit:'closed period' } : { id:'incidents', label:'Incidents', value: k === 0 ? String(computeIncidents().rows.length) : 'not reported', unit: k === 0 ? 'logged' : 'closed period' }
       ] };
   },
-  inner(){ return [{ id:'statement', label:'Statement', icon:'file-text' }, { id:'moved', label:'What moved it', icon:'trending-up' }, { id:'incidents', label:'Incidents', icon:'list' }]; },
+  inner(id){
+    const base = [{ id:'statement', label:'Statement', icon:'file-text' }, { id:'moved', label:'What moved it', icon:'trending-up' }, { id:'incidents', label:'Incidents', icon:'list' }];
+    if (!lvOn()) return base;
+    const p = PERIODS[Number(id)] || {};
+    return base.concat([{ id:'credit', label:'Credit and uptime', icon:'coins' }]).concat(p.status === 'closed' ? [{ id:'stops', label:'Stops', icon:'triangle-alert' }] : []);
+  },
   see(){ return [['trends','Trends'],['dashv2','Dashboard']]; },
   body(id, tab){
     const k = Number(id), p = PERIODS[k];
+    if (lvOn() && tab === 'credit') return lvPeriodCredit(k);
+    if (lvOn() && tab === 'stops') return lvPeriodStops(k);
     if (tab === 'incidents'){
       if (k !== 0) return lead('Incidents were not reported for closed periods in this import.') + pill('not reported','help-circle');
       return incidentList(computeIncidents().rows, true);
@@ -8173,7 +8238,7 @@ function draftBlock(key, label, text, to, subject){
 }
 function claimStatus(i){ return (S.claims || {})[i] || 'not claimed'; }
 function claimPill(i){ const s = claimStatus(i); return s === 'paid' ? pill('paid','check','good') : s === 'claimed' ? pill('claimed','file-text','warn') : pill('not claimed','coins'); }
-function ticketWait(t){ return (Date.parse((t.responded || NOW_STAMP)+':00Z') - Date.parse(t.opened+':00Z')) / 3.6e6; }
+function ticketWait(t){ return (Date.parse((t.responded || (lvOn() ? lvLocalNow() : NOW_STAMP))+':00Z') - Date.parse(t.opened+':00Z')) / 3.6e6; }
 function ticketLate(t){ return t.status === 'open' && !t.responded && ticketWait(t) > (VENDOR_RESPONSE_HOURS[t.brand] || 24); }
 function ticketPill(t){ return t.status === 'closed' ? pill('closed','check','good') : ticketLate(t) ? pill('past response time','triangle-alert','bad') : pill(t.responded ? 'open, answered' : 'open','file-text'); }
 
@@ -8196,7 +8261,7 @@ const REC = {
       stats: [statRow('Down for', x.minutes ? fmtDownFor(x.minutes) : 'none logged', 'from the robot'),
         statRow((x.cost != null ? estMark() : '')+'What it cost', x.cost != null ? money(x.cost) : 'not reported', x.cost != null ? 'staff time, estimated' : 'no clearing logged'),
         place ? statRow('At this spot', String(same.length), esc(place)) : '',
-        statRow('Counts on Contract', adds == null ? 'no' : money(adds), adds == null ? 'not downtime' : 'credit it adds')],
+        x.kindClass === 'past' ? statRow('Period', esc(periodName(PERIODS.findIndex(p => p.start === x.periodKey))), 'closed') : statRow('Counts on Contract', adds == null ? 'no' : money(adds), adds == null ? 'not downtime' : 'credit it adds')],
       body: (x.safetyNote ? lead(esc(capFirst(x.safetyNote))+'.') : '')
         + (place ? rowLink('data-record="spot:'+slug(x.siteName)+'.'+slug(place)+'"', 'anchor', 'At this spot: '+esc(capFirst(place)), same.length+' stop'+(same.length === 1 ? '' : 's')+' this period') : '')
         + rowLink('data-peek="robot:'+x.i+':broke"', 'boxes', esc(x.name), 'everything that stopped it'),
@@ -8215,7 +8280,7 @@ const REC = {
     return { title: capFirst(place),
       crumb: [{ label: SITES[n].name, attrs: openAttrs('site', sId) }, { label:'Where they stall', attrs: openAttrs('site', sId, 'stall') }, { label: capFirst(place) }],
       headline: esc(capFirst(place))+': '+stalls.length+' stall'+(stalls.length === 1 ? '' : 's')+' this period across '+robots.length+' robot'+(robots.length === 1 ? '' : 's')+'.',
-      top: stalls.length ? fixBlock(n, place) : '',
+      top: lvSpotBlock(n, place, rows) + (stalls.length ? fixBlock(n, place) : ''),
       stats: [statRow('Stops here', String(rows.length), 'from the robots'), statRow('Robot time lost', fmtDownFor(mins), 'from the robots'), statRow(estMark()+'Staff time', money(cost), stalls.length+' &times; '+S.stallMinutes+' min, estimated')],
       body: secHead('Stops by hour')
         + barChart(byHour.map((c, h) => ({ value:c, label: hourSpan(h), axis: h % 6 === 0 ? hourLabel(h) : '\u00a0', display: c ? String(c) : '' })), { height:90, gap:2, labelAll:true })
@@ -8233,7 +8298,7 @@ const REC = {
       crumb: [{ label: t.brand, attrs: openAttrs('vendor', slug(t.brand)) }, { label:'Tickets', attrs: openAttrs('vendor', slug(t.brand), 'tickets') }, { label: t.id }],
       headline: esc(t.title)+'. '+(t.status === 'closed' ? 'Closed.' : late ? 'Open, and past the '+resp+'-hour response time.' : 'Open.'),
       stats: [statRow('Opened', esc(shortDate(t.opened.slice(0,10))), fmtClock(t.opened.slice(11))), statRow(t.responded ? 'Answered after' : 'Waited', Math.round(w)+' h', 'the contract says '+resp+' h'), statRow('Robot', esc(robotLabel(t.i)), esc(t.brand))],
-      top: '<div style="margin:-4px 0 14px">'+ticketPill(t)+'</div>',
+      top: '<div style="margin:-4px 0 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px">'+ticketPill(t)+(lvOn() ? lvTicketActs(t) : '')+'</div>',
       primary: t.status === 'open' ? draftBlock('ticket:'+t.id, 'Draft the escalation', text, VENDOR_CONTACTS[t.brand], t.id+' is '+Math.round(w)+' hours old') : '',
       links: [[robotLabel(t.i), 'robot', String(t.i), 'broke'], [t.brand+' tickets', 'vendor', slug(t.brand), 'tickets']] };
   },
@@ -8559,6 +8624,7 @@ function fixTable(rows, compact){
         const names = r.robots.slice(0, 2).map(i => '<span data-peek="robot:'+i+':broke" role="link" tabindex="0" style="'+linkStyle()+'">'+esc(robotLabel(i))+'</span>').join(', ') + (r.robots.length > 2 ? ' +'+(r.robots.length - 2) : '');
         return { id:'fixrow-'+cssId(r.key), attrs:'data-record="spot:'+siteSlug(r.site)+'.'+slug(r.place)+'"', bg: S.fixHighlight === r.key ? 'var(--ghost2)' : '', cells:[
           '<div style="font-weight:600">'+esc(capFirst(r.place))+'</div><div style="font-size:12px;color:var(--fg3)">'+esc(SITES[r.site].name)+'</div>'
+            + lvSpotEditor(r.site, r.place, r.rows, true)
             + (r.mins > 1200 ? '<div data-act="whatifFix" data-key="'+esc(r.key)+'" role="link" tabindex="0" style="font-size:12px;margin-top:3px;'+linkStyle()+'">What if this spot were fixed?</div>' : ''),
           '<div style="white-space:normal;line-height:1.5">'+names+'</div>',
           String(r.rows.length),
@@ -8670,7 +8736,7 @@ function briefBlockHtml(b){
   return '<div style="margin-top:14px"><div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);margin-bottom:2px">'+b.title+'</div>'+b.html+'</div>';
 }
 function briefFooter(){
-  return '<div style="font-size:12px;line-height:1.6;color:var(--fg3);margin-top:16px;padding-top:12px;border-top:1px solid var(--hair)">Built from the export through '+esc(shortDate(lastDataKey()))+'. With a live vendor feed this also shows which robots are down or charging right now.</div>';
+  return '<div style="font-size:12px;line-height:1.6;color:var(--fg3);margin-top:16px;padding-top:12px;border-top:1px solid var(--hair)">'+(LIVE && LIVE.LIVE_FEED ? 'Built from your live robot feed through '+esc(shortDate(lastDataKey()))+'.' : 'Built from the export through '+esc(shortDate(lastDataKey()))+'. With a live vendor feed this also shows which robots are down or charging right now.')+'</div>';
 }
 function briefCard(){
   const d = briefData(), all = briefBlocks(d, false), shown = briefBlocks(d, true);
@@ -8731,9 +8797,10 @@ function briefDelivery(){
   const toggle = (on, attrs, label) => '<div '+attrs+' role="checkbox" aria-checked="'+on+'" tabindex="0" class="hv-dim9" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;'+(on ? 'background:var(--card);border:1px solid var(--fg1);color:var(--fg1)' : 'background:transparent;border:1px solid var(--hair2);color:var(--fg2)')+'">'+(on ? ic('check', 13) : '')+label+'</div>';
   const times = ['4:30 AM','5:00 AM','5:30 AM','6:00 AM','6:30 AM','7:00 AM'];
   const sms = briefSms();
-  return lead('Where the brief goes each morning. This is a demo, so saving sends nothing.')
+  return (lvOn() ? lvBriefStatus() + lead('Where the brief goes each morning. We send it by email.') : lead('Where the brief goes each morning. This is a demo, so saving sends nothing.'))
     + lab('Send it to')
-    + f.to.map((v, n) => '<input id="briefTo-'+n+'" data-brief-to="'+n+'" type="text" value="'+esc(v)+'" placeholder="Phone or email" autocomplete="off" style="display:block;width:100%;max-width:360px;box-sizing:border-box;height:40px;padding:0 12px;margin-bottom:8px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13.5px;color:var(--fg1);outline:none">').join('')
+    + f.to.map((v, n) => '<input id="briefTo-'+n+'" data-brief-to="'+n+'" type="text" value="'+esc(v)+'" placeholder="'+(lvOn() ? 'Email' : 'Phone or email')+'" autocomplete="off" style="display:block;width:100%;max-width:360px;box-sizing:border-box;height:40px;padding:0 12px;margin-bottom:8px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13.5px;color:var(--fg1);outline:none">'
+      + (lvOn() && lvIsPhone(v) ? '<div style="display:flex;gap:6px;font-size:12px;color:var(--fg2);line-height:1.5;margin:-2px 0 10px;max-width:360px">'+ic('help-circle',13,'flex:none;margin-top:2px;color:var(--fg3)')+'<span>Text messages are not sent yet. Add an email to get the brief.</span></div>' : '')).join('')
     + (f.to.length < 3 ? '<span data-act="briefAddTo" role="button" tabindex="0" style="font-size:12.5px;font-weight:500;'+linkStyle()+'">+ Add someone</span>' : '')
     + lab('Time')
     + '<select id="briefTime" data-brief-time style="height:40px;padding:0 10px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13.5px;color:var(--fg1)">'+times.map(t => '<option'+(t === f.time ? ' selected' : '')+'>'+t+'</option>').join('')+'</select>'
@@ -8741,7 +8808,7 @@ function briefDelivery(){
     + '<div style="display:flex;flex-wrap:wrap;gap:6px">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, n) => toggle(!!f.days[n], 'data-act="briefDay" data-d="'+n+'"', d)).join('')+'</div>'
     + lab('Sites')
     + '<div style="display:flex;flex-wrap:wrap;gap:6px">'+SITES.map((s, n) => toggle(!!f.sites[n], 'data-act="briefSite" data-n="'+n+'"', esc(s.name))).join('')+'</div>'
-    + lab('Preview, as a text message')
+    + lab(lvOn() ? 'Preview' : 'Preview, as a text message')
     + '<pre style="white-space:pre-wrap;max-width:360px;font-family:inherit;font-size:13px;line-height:1.55;color:var(--fg1);background:var(--ghost);border-radius:12px 12px 12px 4px;padding:12px 14px;margin:0">'+esc(sms)+'</pre>'
     + '<div style="font-size:11.5px;color:var(--fg3);margin-top:6px">'+sms.length+' of 480 characters. Watch today, the top stall spot and one thing to do.</div>'
     + '<div style="margin-top:18px">'+primaryBtn('data-act="briefSave"', 'Save')+'</div>';
@@ -9177,7 +9244,7 @@ function render(){
   const inner = onAuth
     ? authStage()
     : inOnboarding
-      ? '<div data-stage style="padding:56px 34px 80px;display:flex;justify-content:center"><div style="width:100%;max-width:860px">' + appStage() + '</div></div>'
+      ? '<div data-stage style="padding:56px 34px 80px;display:flex;justify-content:center"><div style="width:100%;max-width:'+(frOn() && S.view === 'start' ? 1080 : 860)+'px">' + appStage() + '</div></div>'
       : appRail() + appStage();
 
   /* The app keeps its rail, because navigation between Coverage, Robots, Rates
@@ -9553,12 +9620,8 @@ const CLOSED_UI_STATE = {
   emailChangeSending: false, emailChangeVerifying: false, emailChangeCodeErr: false
 };
 
-// In a live account these steps are real server pages: the upload that reads
-// a vendor export, the vendor connection, the business and confirm steps.
-// The demo keeps its own mock screens for them.
-const LIVE_PAGES = { start:'/owner/import', creds:'/owner/sources', business:'/owner/business', confirm:'/owner/confirm' };
 function goView(view, extra){
-  if (LIVE && !S.demoMode && LIVE_PAGES[view]){ location.href = LIVE_PAGES[view]; return; }
+  if (isLiveAccount() && LIVE_PAGES[view]){ location.href = LIVE_PAGES[view]; return; }
   // A rail click changes the section tab and keeps the Level 3 tabs open.
   if (S.stage === 'app' && S.tabs.length) saveTabScroll();
   S.activeTab = -1;
@@ -10365,6 +10428,13 @@ function bootScreen(){
     // shared link is always demo plus a view, or demo plus a peek.
   }
 
+  if (isLiveAccount() && liveData().FIRST_RUN && FR_VIEW[liveData().FIRST_RUN.step]){
+    S.stage = 'app';
+    S.onboarding = true;
+    S.view = FR_VIEW[liveData().FIRST_RUN.step];
+    frInit();
+    return;
+  }
   // A signed-in account's own data: straight into its dashboard, with the
   // owner's typed invoice and hours in the same overlays Numbers writes.
   if (LIVE){
@@ -10381,8 +10451,14 @@ function bootScreen(){
     const cur = calMonthOf(PERIODS[0].start);
     S.calYear = cur.y; S.calMonth = cur.m;
   }
+  // The sample live account (?livepreview=1) has no server data, but it is
+  // still an account with a fleet: open its dashboard, not the sign-in.
+  else if (isLiveAccount()){
+    S.stage = 'app';
+    S.view = 'dashv2';
+  }
 
-  if (!S.demoMode && !LIVE){
+  if (!S.demoMode && !liveData()){
     const screen = q.get('screen');
     if (screen && AUTH_SCREENS.some(([k]) => k === screen)){
       S.stage = 'auth';
@@ -10426,7 +10502,1327 @@ function bootScreen(){
   }
 }
 
+/* ─────────────────────────  FIRST RUN, LIVE  ─────────────────────────
+
+   A real account's first run: business, data, fleet, talking to the server.
+   Runs only when isLiveAccount(). Every figure on these screens comes from
+   liveData().FIRST_RUN, which every setup call replaces. */
+
+const FR_VIEW = { business:'business', import:'start', confirm:'confirm' };
+const FR_STEPS = [['business','Your business'], ['start','Your data'], ['confirm','Your fleet']];
+const FR_MAX_BYTES = 25 * 1024 * 1024;
+const FR_BTN = 'padding:14px 22px;border-radius:4px;border:none;background:var(--acc);color:var(--acc-fg);font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:9px;font-family:inherit';
+const FR_GHOST = 'padding:13px 20px;border-radius:4px;border:1px solid var(--hair2);background:transparent;color:var(--fg1);cursor:pointer;font-size:13px;font-weight:500;font-family:inherit';
+const FR_INPUT = 'width:100%;box-sizing:border-box;font-size:14px;color:var(--fg1);background:transparent;padding:9px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit';
+const FR_LABEL = 'display:block;font-size:11.5px;font-weight:600;color:var(--fg3);margin-bottom:4px';
+let frPollTimer = null;
+
+function frOn(){ return !!(isLiveAccount() && S.onboarding && S.fr); }
+function frData(){ return (isLiveAccount() && liveData().FIRST_RUN) || {}; }
+function frBiz(){ const d = frData(); return (d.businessTypes || []).find(b => b.key === (S.fr.pick || d.business)) || null; }
+function frNum(n){ return typeof n === 'number' ? n.toLocaleString('en-US') : String(n); }
+function frCount(v){ return Array.isArray(v) ? v.length : v; }
+
+function frInit(){
+  const d = frData();
+  const sites = (d.sites && d.sites.length) ? d.sites.slice() : [];
+  S.fr = {
+    pick: d.business || null,
+    busy: '', err: {},
+    imp: d.lastImport ? 'read' : 'idle', impName: '', impErr: '',
+    keys: {}, conn: {},
+    names: {}, cat: {}, site: {}, excl: {},
+    sites, newSite: '', addingSite: false, tried: false
+  };
+  if (d.step === 'confirm') frSeedFleet();
+  if ((d.vendors || []).some(v => v.connected && (!v.history || v.history.state === 'running'))) frStartPoll();
+}
+
+/* The fleet step's editable copy of the server's robots. A site that is not
+   named yet starts as "Main site", which the owner can rename or replace. */
+function frSeedFleet(){
+  const d = frData();
+  if (!S.fr.sites.length){
+    S.fr.sites = ['Main site'];
+  }
+  (d.robots || []).forEach(r => {
+    if (S.fr.cat[r.id] === undefined) S.fr.cat[r.id] = r.category || '';
+    if (S.fr.excl[r.id] === undefined) S.fr.excl[r.id] = !!r.excluded;
+    if (S.fr.site[r.id] === undefined) S.fr.site[r.id] = (r.site && S.fr.sites.indexOf(r.site) >= 0) ? r.site : S.fr.sites[0];
+  });
+}
+
+async function frCall(method, url, body, csv){
+  const opt = { method, credentials:'same-origin', headers:{ 'Accept':'application/json' } };
+  if (body !== undefined){
+    opt.headers['Content-Type'] = csv ? 'text/csv' : 'application/json';
+    opt.body = csv ? body : JSON.stringify(body);
+  }
+  let res, data = null;
+  try { res = await fetch(url, opt); } catch(e){ throw new Error('We could not reach Botlien. Check your connection and try again.'); }
+  try { data = await res.json(); } catch(e){}
+  if (!res.ok || !data || data.error) throw new Error((data && data.error) || 'Something went wrong on our side. Try again in a minute.');
+  return data;
+}
+function frTake(reply){ if (reply && reply.step && liveData()) liveData().FIRST_RUN = reply; }
+function frGo(view){ S.fr.err = {}; if (view === 'confirm') frSeedFleet(); set({ view }); try { window.scrollTo(0, 0); } catch(e){} }
+
+/* ?livepreview only: a sample account filled from the demo's own tables, so
+   the live screens can be seen here. Server calls fail, on purpose. */
+function previewLive(){
+  const benchKey = (w) => Object.keys(BENCH).find(k => k.toLowerCase().split(' ')[0] === String(w).toLowerCase().split(' ')[0]);
+  const businessTypes = BUSINESSES.filter(b => b[0] !== 'Something else').map(b => {
+    const works = b[1].split(', ');
+    const k = benchKey(works[0]), bb = k ? BENCH[k] : null;
+    const rate = bb ? bb.wageCentsHour / bb.humanUnitsPerHour : null;
+    return {
+      key: b[0].toLowerCase().split(' ')[0], label: b[0], blurb: 'Starts on '+(k || works[0]).toLowerCase()+'.',
+      exportHint: "A CSV export from your robot vendor's portal. One row per job.",
+      works, unit: bb ? bb.unit : null, rateCents: rate,
+      derivation: bb ? money(rate/100)+' per '+bb.unit+', from '+money(bb.wageCentsHour/100)+' an hour \u00f7 '+bb.humanUnitsPerHour+' '+(bb.humanUnitsPerHour === 1 ? bb.unit : bb.unitPlural)+' an hour' : null,
+      operatingHoursDay: 16
+    };
+  });
+  const step = ['business','import','confirm'].indexOf(LIVE_PREVIEW) >= 0 ? LIVE_PREVIEW : 'done';
+  const robots = CONFIRM.map((c,i) => {
+    const m = ((ROBOTS[i] || {}).model || '').split(' ');
+    return { id:'r'+i, name:c.name, brand:m[0] || '', model:m.slice(1).join(' '), category:c.work, excluded:false, seen:c.seen, site:null };
+  });
+  return { FIRST_RUN: {
+    step, business: step === 'business' ? null : businessTypes[0].key, businessTypes,
+    robots: step === 'business' ? [] : robots,
+    categories: WORK_CATEGORIES.map(w => ({ key:w, label:w })),
+    sites: [],
+    lastImport: step === 'confirm' ? { filename:'fleet-export.csv', rows:robots.length*40, imported:robots.length*40, skipped:0, skipReasons:[], robots:robots.length, rangeLabel:'Aug 4 to Sep 3', at:null } : null,
+    vendors: [{ vendor:'gausium', label:'Gausium', help:"Find these in the Gausium Open Platform, under your account's API keys.",
+      fields:[{ key:'client_id', label:'Client ID', secret:false }, { key:'client_secret', label:'Client secret', secret:true }, { key:'open_access_key', label:'Open access key', secret:true }],
+      connected:false, state:null, robotCount:null, lastOkAt:null, error:null, history:null }]
+  } };
+}
+
+/* ───── shared pieces ───── */
+
+function frProgress(){
+  const at = FR_STEPS.findIndex(s => s[0] === S.view);
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding-bottom:18px;margin-bottom:34px;border-bottom:1px solid var(--hair)">'
+    + FR_STEPS.map((s,i) => {
+        const done = i < at, cur = i === at;
+        return '<span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:'+(cur?600:500)+';color:'+(cur||done?'var(--fg1)':'var(--fg3)')+'">'
+          + (done ? ic('check',13,'color:var(--good)') : '<span style="font-variant-numeric:tabular-nums">'+(i+1)+'</span>')
+          + s[1] + '</span>';
+      }).join('<span style="color:var(--fg3);font-size:12.5px">&middot;</span>')
+  + '</div>';
+}
+function frH1(text, sub){
+  return '<h1 style="font-size:clamp(24px,4.2vw,30px);font-weight:600;letter-spacing:-0.03em;line-height:1.15;margin:0 0 12px;color:var(--fg1)">'+text+'</h1>'
+    + (sub ? '<p style="font-size:14.5px;line-height:1.65;color:var(--fg2);margin:0 0 28px;max-width:64ch">'+sub+'</p>' : '');
+}
+/* One primary button, four states: ready, disabled with the reason beside
+   it, pending with the spinner and its own words, failed with the server's
+   sentence under it. */
+function frButton(act, label, o){
+  const off = !!o.disabled, busy = !!o.pending;
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px">'
+      + '<button type="button" data-act="'+act+'"'+(o.attrs||'')+(off||busy?' aria-disabled="true"':'')+' class="'+(off||busy?'':'hv-dim press')+'" style="'+FR_BTN+';cursor:'+(off||busy?'default':'pointer')+';opacity:'+(off?0.4:busy?0.85:1)+'">'
+        + (busy ? spinner(13) + esc(o.pending) : esc(label)) + '</button>'
+      + (off && o.reason ? '<span style="font-size:13px;color:var(--fg2);line-height:1.5">'+esc(o.reason)+'</span>' : '')
+    + '</div>'
+    + (o.error ? '<div role="alert" style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:13px;line-height:1.55;color:var(--bad)">'+ic('triangle-alert',14,'flex:none;margin-top:2px')+'<span>'+esc(o.error)+'</span></div>' : '');
+}
+
+function frStage(){
+  const body = S.view === 'business' ? frBusiness() : S.view === 'confirm' ? frFleet() : frDataStep();
+  return '<div data-main style="padding:0;min-width:0">'
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:26px"><img src="'+LOGO+'" alt="" style="width:18px;height:22px;object-fit:contain"><span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:var(--fg1)">Botlien</span></div>'
+    + frProgress() + body
+  + '</div>';
+}
+
+/* ───── 1 · Your business ───── */
+
+function frBusiness(){
+  const d = frData(), pick = S.fr.pick;
+  const types = d.businessTypes || [];
+  const card = (b) => {
+    const on = pick === b.key;
+    const rate = b.derivation || (typeof b.rateCents === 'number' ? '$'+(b.rateCents/100).toFixed(2)+(b.unit ? ' per '+b.unit : '') : '');
+    return '<div data-act="frPick" data-k="'+esc(b.key)+'" role="radio" aria-checked="'+on+'" tabindex="0" class="hv-ghost" style="border:1px solid '+(on?'var(--fg1)':'var(--hair)')+';border-radius:4px;padding:20px 22px;cursor:pointer;background:'+(on?'var(--ghost2)':'transparent')+'">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="width:12px;height:12px;border-radius:50%;border:1px solid '+(on?'var(--fg1)':'var(--hair3)')+';background:'+(on?'var(--fg1)':'transparent')+';box-shadow:'+(on?'inset 0 0 0 2px var(--card)':'none')+';flex:none"></span>'
+        + '<span style="font-size:15px;font-weight:600;color:var(--fg1)">'+esc(b.label)+'</span></div>'
+      + (b.blurb ? '<div style="font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:8px">'+esc(b.blurb)+'</div>' : '')
+      + ((b.works||[]).length ? '<div style="font-size:12.5px;color:var(--fg2);line-height:1.6">'+esc(b.works.join(', '))+'</div>' : '')
+      + (rate ? '<div style="font-size:12.5px;color:var(--fg1);line-height:1.6;margin-top:10px;padding-top:10px;border-top:1px solid var(--hair);font-variant-numeric:tabular-nums">Starts at '+esc(rate)+'</div>' : '')
+    + '</div>';
+  };
+  return frH1('What kind of business is this?', 'It sets the kinds of work we price your robots against, and the rate we start from. You can change it later.')
+    + (types.length
+      ? '<div role="radiogroup" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-bottom:28px">'+types.map(card).join('')+'</div>'
+      : '<p style="font-size:13.5px;color:var(--fg2);margin:0 0 28px">No business types came back from the server. Reload the page to try again.</p>')
+    + frButton('frBusinessGo', 'Continue', {
+        disabled: !pick, reason: 'Pick the closest match. You can change it later.',
+        pending: S.fr.busy === 'business' ? 'Saving…' : '', error: S.fr.err.business
+      });
+}
+
+/* ───── 2 · Your data ───── */
+
+function frSkipLines(li){
+  const r = li.skipReasons;
+  if (!r) return [];
+  if (Array.isArray(r)) return r.map(x => typeof x === 'string' ? x : (x.count != null ? frNum(x.count)+' rows skipped: '+(x.reason||x.label||'') : (x.reason||x.label||'')));
+  return Object.keys(r).map(k => frNum(r[k])+' rows skipped: '+k);
+}
+
+function frUpload(){
+  const d = frData(), f = S.fr, b = frBiz();
+  const hint = esc((b && b.exportHint) || "A CSV export from your robot vendor's portal.");
+  const head = '<div style="font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--fg3);margin-bottom:12px">Upload an export</div>';
+  const file = '<input id="frFile" type="file" accept=".csv,text/csv,text/plain" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">';
+  if (f.imp === 'loading'){
+    return head + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:32px 28px">'
+      + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--fg1)">'+spinner(14)+'<span style="font-size:15px;font-weight:500;color:var(--fg1);word-break:break-all">'+esc(f.impName)+'</span></div>'
+      + '<p style="font-size:13.5px;color:var(--fg2);line-height:1.6;margin:0">Reading rows. This takes a few seconds for a month of data.</p></div>';
+  }
+  if (f.imp === 'read' && d.lastImport){
+    const li = d.lastImport;
+    const skips = li.skipped > 0 ? frSkipLines(li) : [];
+    return head + '<div style="border:1px solid var(--hair2);border-radius:4px;padding:28px 26px">'
+      + '<div style="margin-bottom:12px">'+pill('Read','check','good')+'</div>'
+      + '<h2 style="font-size:19px;font-weight:600;letter-spacing:-0.02em;line-height:1.35;margin:0 0 8px;color:var(--fg1);font-variant-numeric:tabular-nums">Read '+esc(frNum(li.imported))+' rows across '+esc(frNum(frCount(li.robots)))+' robots'+(li.rangeLabel ? ' &middot; '+esc(li.rangeLabel) : '')+'</h2>'
+      + (li.filename ? '<p style="font-size:13px;color:var(--fg2);margin:0 0 '+(skips.length?'12px':'22px')+';word-break:break-all">'+esc(li.filename)+'</p>' : '')
+      + (skips.length ? '<ul style="margin:0 0 22px;padding-left:18px;font-size:13px;line-height:1.7;color:var(--fg2)">'+skips.map(s => '<li>'+esc(s)+'</li>').join('')+'</ul>' : '')
+      + '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
+        + '<button type="button" data-act="frToFleet" class="hv-dim press" style="'+FR_BTN+';cursor:pointer">Check your fleet</button>'
+        + '<label for="frFile" class="hv-ghost" style="'+FR_GHOST+'">Use a different file</label>'+file
+      + '</div></div>';
+  }
+  if (f.imp === 'bad'){
+    return head + '<div style="border:1px solid var(--hair3);border-radius:4px;padding:28px 26px">'
+      + '<div style="margin-bottom:12px">'+pill('Not read','triangle-alert','bad')+'</div>'
+      + '<h2 style="font-size:19px;font-weight:600;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg1)">We couldn&#39;t read that file</h2>'
+      + '<p style="font-size:13.5px;color:var(--fg2);line-height:1.65;margin:0 0 18px">'+esc(f.impErr)+'</p>'
+      + '<div style="font-size:11.5px;font-weight:600;color:var(--fg3);margin-bottom:6px">Columns we accept</div>'
+      + '<div style="font-size:12.5px;color:var(--fg1);line-height:1.8;margin-bottom:22px;overflow-wrap:anywhere">robot_id | robot_name | mission_start_at | mission_type | duration_s | battery_pct</div>'
+      + '<label for="frFile" class="hv-dim press" style="'+FR_BTN+';cursor:pointer">Try another file</label>'+file
+    + '</div>';
+  }
+  return head + '<div data-fr-drop style="border:1px dashed var(--hair3);border-radius:4px;padding:40px 24px;text-align:center">'
+      + ic('upload-cloud',30,'color:var(--fg2);display:inline-block')
+      + '<h2 style="font-size:19px;font-weight:600;letter-spacing:-0.02em;margin:14px 0 8px;color:var(--fg1)">Drop your usage export here</h2>'
+      + '<p style="font-size:13.5px;line-height:1.6;color:var(--fg2);margin:0 auto 20px;max-width:46ch">'+hint+'</p>'
+      + '<label for="frFile" class="hv-dim press" style="'+FR_BTN+';cursor:pointer">Choose a file</label>'+file
+      + '<div style="font-size:12px;color:var(--fg3);margin-top:14px">CSV, up to 25 MB.</div>'
+    + '</div>';
+}
+
+function frVendor(v){
+  const f = S.fr, keys = f.keys[v.vendor] || {}, conn = f.conn[v.vendor];
+  const d = frData();
+  const head = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="font-size:15px;font-weight:600;color:var(--fg1)">'+esc(v.label)+'</span>'
+    + (v.connected || conn ? pill('Connected','check','good') : '') + '</div>';
+  if (v.connected || conn){
+    const count = conn ? conn.robotCount : v.robotCount;
+    const names = ((conn && conn.robots) || (d.robots || []).filter(r => String(r.brand||'').toLowerCase() === String(v.label).toLowerCase()))
+      .map(r => typeof r === 'string' ? r : r.name).filter(Boolean);
+    const h = v.history;
+    const failed = h && h.state === 'failed';
+    const done = h && h.state === 'done';
+    return head
+      + '<div style="font-size:14px;color:var(--fg1);line-height:1.6;margin-bottom:6px;font-variant-numeric:tabular-nums">Connected. '+(count != null ? esc(frNum(count))+' robot'+(count===1?'':'s')+' found.' : '')+'</div>'
+      + (names.length ? '<div style="font-size:13px;color:var(--fg2);line-height:1.6;margin-bottom:14px">'+esc(names.slice(0,4).join(', '))+(names.length > 4 ? ' and '+(names.length-4)+' more' : '')+'</div>' : '')
+      + (failed
+        ? '<div style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.55;color:var(--warn)">'+ic('triangle-alert',14,'flex:none;margin-top:2px')+'<span>The 90-day history did not load. New data keeps syncing, so you can go on.</span></div>'
+        : done
+          ? '<div style="font-size:13px;color:var(--fg2);line-height:1.6;font-variant-numeric:tabular-nums">History loaded'+(h.days != null ? ': '+esc(frNum(h.days))+' days' : '')+(h.jobs != null ? ', '+esc(frNum(h.jobs))+' jobs' : '')+'.</div>'
+          : '<div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--fg1)">'+spinner(13)+'<span>Loading your last 90 days</span></div>');
+  }
+  const fields = v.fields || [];
+  const missing = fields.filter(fl => !String(keys[fl.key]||'').trim()).length;
+  const busy = f.busy === 'connect:'+v.vendor;
+  return head
+    + '<div style="display:flex;flex-direction:column;gap:16px;margin-bottom:12px">'
+      + fields.map(fl => '<div><label for="frKey-'+esc(v.vendor)+'-'+esc(fl.key)+'" style="'+FR_LABEL+'">'+esc(fl.label)+'</label>'
+        + '<input id="frKey-'+esc(v.vendor)+'-'+esc(fl.key)+'" data-fr-key="'+esc(v.vendor)+'" data-k="'+esc(fl.key)+'" type="'+(fl.secret?'password':'text')+'" autocomplete="off" spellcheck="false" value="'+esc(keys[fl.key]||'')+'" style="'+FR_INPUT+'"></div>').join('')
+    + '</div>'
+    + (v.help ? '<div style="font-size:12.5px;color:var(--fg3);line-height:1.6;margin-bottom:18px">'+esc(v.help)+'</div>' : '')
+    + frButton('frConnect', 'Test and connect', {
+        attrs: ' data-v="'+esc(v.vendor)+'"',
+        disabled: missing > 0, reason: missing === fields.length ? 'Paste your '+v.label+' keys first.' : missing+' key'+(missing===1?'':'s')+' still empty.',
+        pending: busy ? 'Checking your keys with '+v.label+'…' : '',
+        error: f.err['connect:'+v.vendor] || v.error
+      });
+}
+
+function frDataStep(){
+  const vendors = frData().vendors || [];
+  return frH1('Bring in your robots&#39; data', 'A file works today. Vendor keys can take weeks, so the live connection comes second.')
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:24px;align-items:start;margin-bottom:30px">'
+      + '<div style="min-width:0">'+frUpload()+'</div>'
+      + (vendors.length ? '<div style="min-width:0"><div style="font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--fg3);margin-bottom:12px">Or connect your robots</div>'
+          + vendors.map(v => '<div style="border:1px solid var(--hair2);border-radius:4px;padding:24px 24px 26px;margin-bottom:14px">'+frVendor(v)+'</div>').join('')
+        + '</div>' : '')
+    + '</div>'
+    + '<div style="padding-top:22px;border-top:1px solid var(--hair);display:flex;flex-wrap:wrap;gap:12px 22px">'
+      + '<a href="/app?demo=1" style="font-size:13px;font-weight:500;color:var(--fg1);text-decoration:underline;text-underline-offset:3px">See a sample statement first</a>'
+      + '<span data-act="frBack" data-view="business" role="link" tabindex="0" style="font-size:13px;font-weight:500;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Change what kind of business this is</span>'
+    + '</div>';
+}
+
+/* ───── 3 · Your fleet ───── */
+
+function frFleetProblem(){
+  const robots = frData().robots || [], f = S.fr;
+  if (!robots.length) return 'No robots came back from your data yet.';
+  if (robots.some(r => !f.site[r.id] || f.sites.indexOf(f.site[r.id]) < 0)) return 'Give every robot a site.';
+  if (robots.every(r => f.excl[r.id])) return 'Include at least one robot, or there is nothing to measure.';
+  return '';
+}
+
+function frFleet(){
+  const d = frData(), f = S.fr, robots = d.robots || [], cats = d.categories || [];
+  const catOpts = (cur) => (cur && !cats.some(c => c.key === cur) ? '<option value="" selected>Pick one</option>' : '')
+    + cats.map(c => '<option value="'+esc(c.key)+'"'+(c.key === cur || c.label === cur ? ' selected' : '')+'>'+esc(c.label)+'</option>').join('');
+  const siteOpts = (cur) => (f.sites.indexOf(cur) < 0 ? '<option value="" selected>Pick a site</option>' : '')
+    + f.sites.map(s => '<option value="'+esc(s)+'"'+(s === cur ? ' selected' : '')+'>'+esc(s)+'</option>').join('');
+  const sel = 'width:100%;box-sizing:border-box;font-size:13.5px;color:var(--fg1);background:transparent;padding:8px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit';
+  const row = (r) => {
+    const out = !!f.excl[r.id];
+    const noSite = f.tried && (!f.site[r.id] || f.sites.indexOf(f.site[r.id]) < 0);
+    const idk = esc(String(r.id));
+    return '<div style="border-top:1px solid var(--hair);padding:18px 2px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 22px">'
+      + '<div style="flex:1 1 220px;min-width:0;opacity:'+(out?0.55:1)+'">'
+        + '<label for="frName-'+idk+'" style="'+FR_LABEL+'">Name</label>'
+        + '<input id="frName-'+idk+'" data-fr-name="'+idk+'" type="text" placeholder="'+esc(r.name||'')+'" value="'+esc(f.names[r.id] ?? '')+'" style="'+FR_INPUT+'">'
+        + '<div style="font-size:12.5px;color:var(--fg2);margin-top:6px">'+esc([r.brand, r.model].filter(Boolean).join(' '))+'</div>'
+        + (r.seen ? '<div style="font-size:12px;color:var(--fg3);margin-top:2px;font-variant-numeric:tabular-nums">'+esc(r.seen)+'</div>' : '')
+      + '</div>'
+      + '<div style="flex:1 1 160px;min-width:0;opacity:'+(out?0.55:1)+'"><label for="frCat-'+idk+'" style="'+FR_LABEL+'">What it does</label><select id="frCat-'+idk+'" data-fr-cat="'+idk+'" style="'+sel+'">'+catOpts(f.cat[r.id])+'</select></div>'
+      + '<div style="flex:1 1 160px;min-width:0;opacity:'+(out?0.55:1)+'"><label for="frSite-'+idk+'" style="'+FR_LABEL+(noSite?';color:var(--bad)':'')+'">Where it works</label><select id="frSite-'+idk+'" data-fr-site="'+idk+'" style="'+sel+(noSite?';border-bottom-color:var(--bad)':'')+'">'+siteOpts(f.site[r.id])+'</select></div>'
+      + '<div style="flex:0 0 170px;min-width:0"><div style="'+FR_LABEL+'">Include</div>'
+        + '<button type="button" role="switch" aria-checked="'+(!out)+'" data-act="frInclude" data-id="'+idk+'" style="display:flex;align-items:center;gap:10px;padding:6px 0;border:none;background:transparent;cursor:pointer;font-family:inherit">'
+          + '<span style="position:relative;width:36px;height:20px;border-radius:10px;background:'+(out?'var(--hair3)':'var(--acc)')+';flex:none"><span style="position:absolute;top:2px;left:'+(out?2:18)+'px;width:16px;height:16px;border-radius:50%;background:#fff"></span></span>'
+          + '<span style="font-size:12.5px;color:'+(out?'var(--fg2)':'var(--fg1)')+';text-align:left;line-height:1.35">'+(out?'left out of your numbers':'included')+'</span>'
+        + '</button></div>'
+    + '</div>';
+  };
+  const chip = (s,i) => '<span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 12px;border:1px solid var(--hair2);border-radius:16px;font-size:13px;color:var(--fg1)">'+esc(s)
+    + '<button type="button" data-act="frSiteRemove" data-i="'+i+'" title="Remove '+esc(s)+'" aria-label="Remove '+esc(s)+'" class="hv-ghost" style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;border-radius:50%;background:transparent;color:var(--fg2);cursor:pointer;padding:0">'+ic('x',12)+'</button></span>';
+  const problem = frFleetProblem();
+  const included = robots.filter(r => !f.excl[r.id]).length;
+  return frH1('Check your fleet', 'Rename anything you call something else. Say what each robot does and where it works. Leave out anything you do not pay for.')
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:22px">'
+      + '<span style="font-size:12.5px;font-weight:600;color:var(--fg3);margin-right:4px">Sites</span>'
+      + f.sites.map(chip).join('')
+      + (f.addingSite
+        ? '<span style="display:inline-flex;align-items:center;gap:8px"><input id="frNewSite" data-fr-newsite type="text" placeholder="Site name" value="'+esc(f.newSite)+'" style="'+FR_INPUT+';width:160px;padding:6px 2px"><button type="button" data-act="frSiteAdd" class="hv-ghost" style="'+FR_GHOST+';padding:6px 12px">Add</button><button type="button" data-act="frSiteCancel" style="border:none;background:transparent;color:var(--fg2);font-size:13px;cursor:pointer;font-family:inherit">Cancel</button></span>'
+        : '<button type="button" data-act="frSiteNew" class="hv-ghost" style="height:30px;padding:0 12px;border:1px dashed var(--hair3);border-radius:16px;background:transparent;color:var(--fg1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">+ Add a site</button>')
+    + '</div>'
+    + (robots.length ? '<div style="font-size:13px;color:var(--fg2);margin-bottom:6px;font-variant-numeric:tabular-nums">'+frNum(robots.length)+' robot'+(robots.length===1?'':'s')+' in your data &middot; '+frNum(included)+' included</div>' : '')
+    + robots.map(row).join('')
+    + '<div style="border-top:1px solid var(--hair);padding-top:24px;margin-top:4px">'
+      + frButton('frConfirm', 'This is my fleet', {
+          disabled: !!problem, reason: problem,
+          pending: S.fr.busy === 'confirm' ? 'Saving your fleet…' : '', error: f.err.confirm
+        })
+      + (problem ? '' : '<div style="font-size:12.5px;color:var(--fg3);margin-top:12px;line-height:1.6">Every robot starts on benchmark rates. Set your own numbers after, any time.</div>')
+    + '</div>'
+    + '<div style="margin-top:22px"><span data-act="frBack" data-view="start" role="link" tabindex="0" style="font-size:13px;font-weight:500;color:var(--fg1);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Back to your data</span></div>';
+}
+
+/* ───── after first run ───── */
+
+function frBenchCard(){
+  if (!isLiveAccount()) return '';
+  if (!CONFIRM.length || CONFIRM.some((c,i) => S.robotInvoice[i] !== undefined)) return '';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:12px 16px;margin-bottom:18px;background:var(--card);border:1px solid var(--hair);border-radius:8px">'
+    + pill('Benchmarks','sliders-horizontal')
+    + '<span style="flex:1;min-width:200px;font-size:13.5px;color:var(--fg1)">Your numbers are benchmarks until you set yours</span>'
+    + '<span data-act="go" data-view="setup" role="link" tabindex="0" style="font-size:13px;font-weight:600;color:var(--acc);cursor:pointer;display:inline-flex;align-items:center;gap:4px">Set your numbers'+ic('chevron-right',14)+'</span>'
+  + '</div>';
+}
+
+/* ───── actions ───── */
+
+async function frSendFile(file){
+  if (!file || !frOn()) return;
+  if (file.size > FR_MAX_BYTES){ S.fr.imp = 'bad'; S.fr.impErr = 'This file is over 25 MB. Export a shorter date range and try again.'; render(); return; }
+  S.fr.imp = 'loading'; S.fr.impName = file.name; render();
+  try {
+    const text = await file.text();
+    const reply = await frCall('POST', '/api/v1/setup/import?name='+encodeURIComponent(file.name), text, true);
+    frTake(reply);
+    S.fr.imp = 'read';
+  } catch(e){ S.fr.imp = 'bad'; S.fr.impErr = e.message; }
+  render();
+}
+
+function frStartPoll(){
+  clearInterval(frPollTimer);
+  frPollTimer = setInterval(async () => {
+    if (!frOn()){ clearInterval(frPollTimer); return; }
+    let reply;
+    try { reply = await frCall('GET', '/api/v1/setup'); } catch(e){ return; }
+    frTake(reply);
+    const d = frData();
+    if (d.step === 'setup' || d.step === 'done'){ clearInterval(frPollTimer); location.href = '/app'; return; }
+    const failed = (d.vendors || []).some(v => v.history && v.history.state === 'failed');
+    const pending = (d.vendors || []).some(v => v.connected && (!v.history || v.history.state === 'running'));
+    if (d.step !== 'import' || failed || !pending){
+      clearInterval(frPollTimer);
+      if (S.view === 'start'){ render(); setTimeout(() => { if (frOn() && S.view === 'start') frGo('confirm'); }, failed ? 2500 : 0); return; }
+    }
+    render();
+  }, 3000);
+}
+
+Object.assign(ACTIONS, {
+  frPick: (el) => { if (S.fr.busy) return; S.fr.pick = el.dataset.k; delete S.fr.err.business; render(); },
+  frBusinessGo: async () => {
+    const f = S.fr;
+    if (!f.pick || f.busy) return;
+    f.busy = 'business'; delete f.err.business; render();
+    try { frTake(await frCall('POST', '/api/v1/setup/business', { business: f.pick })); f.busy = ''; frGo('start'); }
+    catch(e){ f.busy = ''; f.err.business = e.message; render(); }
+  },
+  frBack: (el) => { if (!S.fr.busy) frGo(el.dataset.view); },
+  frToFleet: () => frGo('confirm'),
+  frConnect: async (el) => {
+    const f = S.fr, key = el.dataset.v;
+    const v = (frData().vendors || []).find(x => x.vendor === key);
+    if (!v || f.busy) return;
+    const keys = f.keys[key] || {};
+    if ((v.fields || []).some(fl => !String(keys[fl.key]||'').trim())) return;
+    f.busy = 'connect:'+key; delete f.err['connect:'+key]; v.error = null; render();
+    const credentials = {};
+    (v.fields || []).forEach(fl => { credentials[fl.key] = String(keys[fl.key]).trim(); });
+    try {
+      const reply = await frCall('POST', '/api/v1/connections', { vendor:key, credentials });
+      f.conn[key] = reply; f.keys[key] = {}; f.busy = '';
+      try { frTake(await frCall('GET', '/api/v1/setup')); } catch(e){}
+      render();
+      frStartPoll();
+    } catch(e){ f.busy = ''; f.err['connect:'+key] = e.message; render(); }
+  },
+  frInclude: (el) => { const id = el.dataset.id; const r = (frData().robots||[]).find(x => String(x.id) === id); if (!r) return; S.fr.excl[r.id] = !S.fr.excl[r.id]; render(); },
+  frSiteNew: () => { S.fr.addingSite = true; S.fr.newSite = ''; render(); const el = document.getElementById('frNewSite'); if (el) el.focus(); },
+  frSiteCancel: () => { S.fr.addingSite = false; render(); },
+  frSiteAdd: () => {
+    const f = S.fr, name = f.newSite.trim();
+    if (!name){ f.addingSite = false; render(); return; }
+    if (f.sites.indexOf(name) < 0) f.sites.push(name);
+    f.addingSite = false; f.newSite = ''; render();
+  },
+  frSiteRemove: (el) => {
+    const f = S.fr, s = f.sites[Number(el.dataset.i)];
+    f.sites = f.sites.filter(x => x !== s);
+    Object.keys(f.site).forEach(k => { if (f.site[k] === s) f.site[k] = f.sites.length === 1 ? f.sites[0] : ''; });
+    render();
+  },
+  frConfirm: async () => {
+    const f = S.fr, robots = frData().robots || [];
+    if (f.busy) return;
+    f.tried = true;
+    if (frFleetProblem()){ render(); return; }
+    f.busy = 'confirm'; delete f.err.confirm; render();
+    const placed = {};
+    robots.forEach(r => { placed[r.id] = f.site[r.id]; });
+    try {
+      await frCall('POST', '/api/v1/setup/sites', { sites: f.sites.slice(), robots: placed });
+      await frCall('POST', '/api/v1/setup/confirm', { robots: robots.map(r => ({
+        id: r.id,
+        name: String(f.names[r.id] ?? '').trim() || r.name,
+        category: f.cat[r.id] || r.category,
+        excluded: !!f.excl[r.id]
+      })) });
+      location.href = '/app';
+    } catch(e){ f.busy = ''; f.err.confirm = e.message; render(); }
+  }
+});
+
+document.addEventListener('input', (e) => {
+  if (!frOn() || !e.target || !e.target.dataset) return;
+  const t = e.target, ds = t.dataset;
+  if (ds.frKey){ (S.fr.keys[ds.frKey] = S.fr.keys[ds.frKey] || {})[ds.k] = t.value; render(); }
+  else if (ds.frName !== undefined){ const r = (frData().robots||[]).find(x => String(x.id) === ds.frName); if (r) S.fr.names[r.id] = t.value; }
+  else if (ds.frNewsite !== undefined){ S.fr.newSite = t.value; }
+});
+document.addEventListener('keydown', (e) => {
+  if (!frOn() || !e.target) return;
+  if (e.key === 'Enter' && e.target.id === 'frNewSite'){ e.preventDefault(); ACTIONS.frSiteAdd(); }
+  if (e.key === 'Escape' && e.target.id === 'frNewSite'){ ACTIONS.frSiteCancel(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && e.target.dataset.act === 'frPick'){ e.preventDefault(); ACTIONS.frPick(e.target); }
+});
+document.addEventListener('change', (e) => {
+  if (!frOn() || !e.target) return;
+  const t = e.target, ds = t.dataset || {};
+  if (t.id === 'frFile'){ const file = t.files && t.files[0]; t.value = ''; frSendFile(file); return; }
+  const find = (id) => (frData().robots||[]).find(x => String(x.id) === id);
+  if (ds.frCat !== undefined){ const r = find(ds.frCat); if (r){ S.fr.cat[r.id] = t.value; render(); } }
+  if (ds.frSite !== undefined){ const r = find(ds.frSite); if (r){ S.fr.site[r.id] = t.value; render(); } }
+});
+document.addEventListener('dragover', (e) => {
+  if (!frOn() || S.view !== 'start') return;
+  if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) e.preventDefault();
+});
+document.addEventListener('drop', (e) => {
+  if (!frOn() || S.view !== 'start' || !e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  if (S.fr.imp === 'loading') return;
+  frSendFile(e.dataTransfer.files[0]);
+});
+
+/* The rail opens on hover and closes when the pointer leaves it. A short
+   delay on the way in, so crossing it to reach the page does not flash it
+   open. Held in state so every re-render keeps it where it is. */
+let railHoverTimer = null;
+const RAIL_HOVER_MQ = window.matchMedia('(hover:hover) and (pointer:fine)');
+function setRailHover(on){
+  if (!!S.railHover === on) return;
+  S.railHover = on;
+  const a = document.querySelector('[data-side]');
+  if (a) a.toggleAttribute('data-hover', on && a.hasAttribute('data-collapsed'));
+}
+document.addEventListener('mouseover', (e) => {
+  if (S.stage !== 'app' || isPhoneLayout() || !RAIL_HOVER_MQ.matches) return;
+  if (!(e.target.closest && e.target.closest('[data-side]'))) return;
+  if (S.railHover || railHoverTimer) return;
+  railHoverTimer = setTimeout(() => { railHoverTimer = null; setRailHover(true); }, 120);
+});
+document.addEventListener('mouseout', (e) => {
+  if (!(e.target.closest && e.target.closest('[data-side]'))) return;
+  const to = e.relatedTarget;
+  if (to && to.closest && to.closest('[data-side]')) return;
+  if (to && !document.contains(to)) return;
+  clearTimeout(railHoverTimer); railHoverTimer = null;
+  setRailHover(false);
+});
+document.documentElement.addEventListener('mouseleave', () => { clearTimeout(railHoverTimer); railHoverTimer = null; setRailHover(false); });
+
+/* ─────────────────────────  LIVE ACCOUNT SCREENS  ─────────────────────────
+
+   Data sources, locked periods, measured payback, named spots, right now,
+   baselines, billing day, tickets and brief status. Every function here
+   returns the demo's own output (or nothing) unless lvOn(), so ?demo=1 is
+   untouched. Everything reads liveData(), never LIVE. */
+
+const LV_SMALL = 'display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--hair2);background:var(--card);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--fg1);font-family:inherit;box-sizing:border-box';
+const LV_INPUT = 'width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13.5px;color:var(--fg1);outline:none;font-family:inherit';
+const LV_LABEL = 'display:block;font-size:12.5px;font-weight:500;color:var(--fg2);margin:0 0 6px';
+const LV_MONO = 'ui-monospace,SFMono-Regular,Menlo,monospace';
+const LV_EYEBROW = 'font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--fg3);margin:0 0 12px';
+const LV_FIELDS = [
+  ['robot_id','Robot id',true], ['at','Time',true],
+  ['mission_state','Status'], ['connection_state','Connection'], ['mission_id','Mission id'], ['battery_pct','Battery'],
+  ['brand','Brand'], ['model','Model'], ['category','Kind of work'], ['x','X'], ['y','Y']
+];
+const LV_GUESS = { robot_id:/robot|serial|device|asset|unit/i, at:/time|date|logged|start|timestamp|\bat\b/i, mission_state:/status|state/i,
+  connection_state:/connect|online/i, mission_id:/mission|task|job|order/i, battery_pct:/batt|charge|soc/i, brand:/brand|make|vendor|manufact/i,
+  model:/model/i, category:/category|kind|type|work/i, x:/^x$|pos.?x|x.?pos/i, y:/^y$|pos.?y|y.?pos/i };
+
+function lvOn(){ return isLiveAccount() && !S.onboarding; }
+function lvT(k){ const d = liveData(); return d && d[k] != null ? d[k] : null; }
+function lvAt(obj, i){ return obj ? (obj[i] !== undefined ? obj[i] : obj[String(i)]) : undefined; }
+
+async function lvFetch(method, url, body, csv){
+  const opt = { method, credentials:'same-origin', headers:{ 'Accept':'application/json' } };
+  if (body !== undefined){ opt.headers['Content-Type'] = csv ? 'text/csv' : 'application/json'; opt.body = csv ? body : JSON.stringify(body); }
+  let res, data = null;
+  try { res = await fetch(url, opt); } catch(e){ return { ok:false, status:0, data:null, error:'We could not reach Botlien. Check your connection and try again.' }; }
+  try { data = await res.json(); } catch(e){}
+  if (!res.ok || !data || data.error) return { ok:false, status:res.status, data, error:(data && data.error) || 'Something went wrong on our side. Try again in a minute.' };
+  return { ok:true, status:res.status, data, error:'' };
+}
+
+function lvAgo(ms){
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 1) return 'just now';
+  if (m < 60) return m+' min ago';
+  const h = Math.round(m / 60);
+  if (h < 24) return h+' h ago';
+  const d = Math.round(h / 24);
+  return d+' day'+(d === 1 ? '' : 's')+' ago';
+}
+function lvClock(ms){ try { return new Date(ms).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:S.timezone }); } catch(e){ return new Date(ms).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }); } }
+function lvKeyOf(ms){
+  try {
+    const parts = {};
+    new Intl.DateTimeFormat('en-CA', { timeZone:S.timezone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' })
+      .formatToParts(new Date(ms)).forEach(p => { parts[p.type] = p.value; });
+    return parts.year+'-'+parts.month+'-'+parts.day+'T'+parts.hour+':'+parts.minute;
+  } catch(e){ return new Date(ms).toISOString().slice(0,16); }
+}
+function lvLocalNow(){ return lvKeyOf(Date.now()); }
+function lvError(msg){ return msg ? '<div role="alert" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:13px;line-height:1.55;color:var(--bad)">'+ic('triangle-alert',14,'flex:none;margin-top:2px')+'<span>'+esc(msg)+'</span></div>' : ''; }
+function lvBtn(attrs, label, busy){ return '<button type="button" '+attrs+(busy ? ' aria-disabled="true"' : '')+' class="'+(busy ? '' : 'hv-ghost press')+'" style="'+LV_SMALL+(busy ? ';cursor:default;opacity:.85' : '')+'">'+(busy ? spinner(12)+esc(busy) : label)+'</button>'; }
+function lvLink(attrs, label){ return '<span '+attrs+' role="button" tabindex="0" style="font-size:12.5px;font-weight:500;'+linkStyle()+'">'+label+'</span>'; }
+
+/* ─── spots ─── */
+
+function lvSpotLabel(spot){ return 'near '+String(spot).split(',').map(s => s.trim()).join(', ')+' m'; }
+function lvCause(site, x){
+  if (!lvOn() || !x.spot) return x.cause;
+  const names = (S.placeNames || {})[siteSlug(site)] || {};
+  if (!Object.prototype.hasOwnProperty.call(names, x.spot)) return x.cause;
+  return String(x.cause).split(' \u00b7 ')[0]+' \u00b7 '+(names[x.spot] || lvSpotLabel(x.spot));
+}
+function lvSpotEditBody(site, place, spot, compact){
+  const key = siteSlug(site)+'|'+spot, named = !/^near /.test(place);
+  if (S.lv.spotEdit !== key){
+    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:'+(compact ? 4 : 0)+'px;font-size:12px;color:var(--fg3);line-height:1.5">'
+      + (named ? '<span>Robots report it as '+esc(lvSpotLabel(spot))+'</span>' : '')
+      + lvLink('data-act="lvSpotEdit" data-key="'+esc(key)+'" data-v="'+esc(named ? place : '')+'"', named ? 'Rename' : 'Name this spot')
+    + '</div>';
+  }
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px">'
+      + '<input id="lvSpotIn" data-act="lvNoop" data-lv-f="spotDraft" type="text" value="'+esc(S.lv.spotDraft)+'" placeholder="aisle 14" aria-label="Name for this spot" autocomplete="off" style="'+LV_INPUT+';width:'+(compact ? 150 : 220)+'px;height:36px">'
+      + lvBtn('data-act="lvSpotSave" data-site="'+site+'" data-spot="'+esc(spot)+'" data-old="'+esc(place)+'"', 'Save')
+      + lvLink('data-act="lvSpotCancel"', 'Cancel')
+    + '</div>'
+    + (named ? '<div style="font-size:12px;color:var(--fg3);margin-top:6px">Save it empty to go back to '+esc(lvSpotLabel(spot))+'.</div>' : '');
+}
+function lvSpotOf(rows){ const r = (rows || []).find(x => x.spot); return r ? r.spot : null; }
+function lvSpotBlock(n, place, rows){
+  if (!lvOn()) return '';
+  const spot = lvSpotOf(rows);
+  return spot ? '<div style="margin:-4px 0 16px">'+lvSpotEditBody(n, place, spot, false)+'</div>' : '';
+}
+function lvSpotEditor(site, place, rows, compact){
+  if (!lvOn()) return '';
+  const spot = lvSpotOf(rows);
+  return spot ? lvSpotEditBody(site, place, spot, compact) : '';
+}
+function lvRekey(obj, from, to){
+  if (obj == null) return obj;
+  try { return JSON.parse(JSON.stringify(obj).split(from).join(to)); } catch(e){ return obj; }
+}
+
+/* ─── right now and baselines ─── */
+
+function lvNow(i){ return lvOn() ? (lvAt(lvT('NOW'), i) || null) : null; }
+function lvNowCol(){ return lvOn() && !!lvT('NOW'); }
+function lvStale(n){ return !n.atMs || Date.now() - n.atMs > 15 * 60000; }
+function lvNowState(n){
+  if (n.eStop) return ['e-stop','triangle-alert','bad', 0];
+  if (n.stuck) return ['stuck','triangle-alert','bad', 1];
+  if (n.connection === 'offline') return ['offline','x', undefined, 2];
+  if (n.charging) return ['charging','zap', undefined, 3];
+  if (n.mission) return ['running','arrow-right', undefined, 5];
+  return ['idle','moon', undefined, 4];
+}
+function lvNowPill(n){
+  if (!n) return '<span style="font-size:12px;color:var(--fg3)">not reported</span>';
+  const s = lvNowState(n);
+  return pill(s[0], s[1], lvStale(n) ? undefined : s[2]);
+}
+function lvNowHead(){
+  return '<div data-now-head data-act="lvNowSort" role="button" tabindex="0" title="Sort by what they are doing now" style="display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:'+(S.lv.nowSort ? 600 : 500)+';color:'+(S.lv.nowSort ? 'var(--fg1)' : 'var(--fg2)')+';cursor:pointer">Now'+(S.lv.nowSort ? ic('chevron-down',12) : '')+'</div>';
+}
+function lvFleetCols(){
+  const base = 'minmax(180px,2fr) minmax(96px,.9fr) minmax(64px,.6fr) minmax(120px,1.1fr) minmax(64px,.6fr) 84px 24px';
+  return lvNowCol() ? base.replace(' 84px 24px', ' minmax(92px,.8fr) 84px 24px') : base;
+}
+function lvSortFleet(rows){
+  if (!lvNowCol() || !S.lv.nowSort) return rows;
+  const rank = (i) => { const n = lvNow(i); return n ? lvNowState(n)[3] : 9; };
+  return rows.slice().sort((a, b) => rank(a.i) - rank(b.i));
+}
+function lvNowBlock(i){
+  const n = lvNow(i);
+  if (!n) return '';
+  const stale = lvStale(n), faults = n.faults || [];
+  return '<div style="margin:0 0 16px">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px"><span style="font-size:12.5px;font-weight:600;color:var(--fg1)">Right now</span>'+lvNowPill(n)
+      + '<span style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">'+(stale ? 'Last heard '+(n.atMs ? lvAgo(n.atMs) : 'not reported') : 'as of '+lvClock(n.atMs))+'</span>'
+      + (!stale && typeof n.battery === 'number' ? '<span style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums">battery '+Math.round(n.battery)+'%</span>' : '')
+    + '</div>'
+    + (faults.length ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">'+faults.map(f => '<div style="display:flex;gap:8px;font-size:12.5px;line-height:1.5;color:var(--fg1)">'
+        + ic('triangle-alert',13,'flex:none;margin-top:2px;color:'+(f.severity === 'error' || f.severity === 'critical' ? 'var(--bad)' : 'var(--warn)'))
+        + '<span><span style="font-family:'+LV_MONO+';font-size:12px">'+esc(f.code || '')+'</span>'+(f.description ? ' '+esc(f.description) : '')+'</span></div>').join('')+'</div>' : '')
+  + '</div>';
+}
+function lvBase(i){ if (!lvOn()) return false; const n = lvAt(lvT('NOW'), i); return !!(n && n.baselineReady === false); }
+function lvBaseLine(i){
+  const n = lvAt(lvT('NOW'), i) || {};
+  return 'Building this robot&#39;s baseline: '+Math.min(14, n.baselineDays || 0)+' of 14 days. Trends and alerts that compare it with itself start after that.';
+}
+function lvDelta(i, d){ return lvBase(i) ? '<span style="color:var(--fg3)">building baseline</span>' : d; }
+function lvNoDelta(f){ return f && f.s && lvBase(f.s.i) ? 'building baseline' : 'not reported'; }
+function lvBaselineAttn(rows){
+  if (!lvOn()) return '';
+  const n = (rows || []).filter(r => lvBase(r.i)).length;
+  return n ? '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--hair);font-size:12.5px;color:var(--fg2)">'+ic('help-circle',13,'color:var(--fg3)')+'<span>'+n+' robot'+(n === 1 ? '' : 's')+' still building a baseline</span></div>' : '';
+}
+
+/* ─── locked periods ─── */
+
+function lvFig(k){ const f = lvT('PERIOD_FIGURES'); return f ? f[k] || null : null; }
+function lvLockedOn(k){ const f = lvFig(k); return f && f.closedAt ? shortDate(new Date(f.closedAt).toISOString().slice(0,10)) : ''; }
+function lvPeriodBadge(k){
+  const p = PERIODS[k] || {};
+  if (p.status === 'open') return pill('Still moving','trending-up');
+  if (p.locked) return pill('Locked'+(lvLockedOn(k) ? ' '+lvLockedOn(k) : ''),'lock','good');
+  return '<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 10px">'+pill('Closing','calendar','warn')
+    + '<span style="font-size:12.5px;font-weight:400;color:var(--fg2)">Locks once a day has passed and the next period&#39;s data has arrived.</span></span>';
+}
+function lvCents(c){ return c == null ? null : money(c / 100); }
+function lvPeriodCredit(k){
+  const f = lvFig(k), p = PERIODS[k] || {};
+  if (!f) return lead('Credit and uptime were not reported for this period.');
+  const t = f.totals || {};
+  const rows = Object.keys(f.robots || {}).map(i => Object.assign({ i:Number(i) }, f.robots[i]));
+  const owed = rows.filter(r => r.creditCents > 0).length;
+  const head = t.creditCents == null
+    ? 'No lease on this account states an uptime promise.'
+    : (p.locked ? 'Locked'+(lvLockedOn(k) ? ' '+lvLockedOn(k) : '')+'. ' : p.status === 'open' ? 'Still moving until the period closes. ' : 'Closing. ')
+      + (t.creditCents > 0 ? money(t.creditCents / 100)+' of credit owed across '+owed+' robot'+(owed === 1 ? '' : 's')+'.' : 'Every robot delivered its promise, so no credit is owed.');
+  const up = (r) => r.promisedUptimePct == null ? '<span style="color:var(--fg3)">no promise stated</span>'
+    : (r.deliveredUptimePct == null ? 'not reported' : r.deliveredUptimePct.toFixed(1)+'%')+' of '+Number(r.promisedUptimePct).toFixed(1)+'%';
+  const cr = (c) => c == null ? '<span style="color:var(--fg3)">no promise stated</span>' : c > 0 ? '<span style="font-weight:600">'+lvCents(c)+'</span>' : lvCents(0);
+  const total = { attrs:'', cells:['<span style="font-weight:600">All robots</span>', '', fmtDownFor(t.downtimeMinutes || 0), String(t.incidents || 0), t.creditCents == null ? '<span style="color:var(--fg3)">no promise stated</span>' : '<span style="font-weight:600">'+lvCents(t.creditCents)+'</span>'] };
+  return lead(head)
+    + tableShell('minmax(130px,1.4fr) minmax(118px,1.1fr) 84px 50px minmax(92px,.9fr)', ['Robot','Uptime','Downtime','Stops','Credit'],
+      [total].concat(searchRows(rows, r => r.name || robotLabel(r.i)).map(r => ({ attrs:'data-peek="robot:'+r.i+':verdict"', cells:[esc(r.name || robotLabel(r.i)), up(r), fmtDownFor(r.downtimeMinutes || 0), String(r.incidents || 0), cr(r.creditCents)] }))),
+      [false,false,false,true,true], 500)
+    + srcNote(p.locked ? 'Frozen when the period locked. A later rate change does not rewrite it.' : 'Delivered uptime is scheduled time less downtime the robots reported.');
+}
+function lvPastRows(){
+  const past = lvT('DOWNTIME_PAST');
+  if (!lvOn() || !past) return [];
+  const out = [];
+  Object.keys(past).forEach(k => {
+    const i = Number(k), site = robotSite(i);
+    (past[k] || []).forEach(x => {
+      const hour = Number(String(x.start).split(':')[0]), c = String(x.cause || '');
+      out.push({ i, name: robotLabel(i), site, siteName: SITES[site].name, date: x.date, time: x.start, hour,
+        kind: lvCause(site, x), spot: x.spot || null, rawKind: c,
+        family: c.indexOf('stuck') === 0 ? 'Stuck' : c.indexOf('error') === 0 ? 'Error E-217' : c.indexOf('collision') === 0 ? 'Collision' : c.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
+        minutes: x.minutes, cost: null, safetyNote:'', shift: shiftOf(hour).label, kindClass:'downtime', periodKey: x.period });
+    });
+  });
+  return out.sort((a, b) => (a.date+a.time) < (b.date+b.time) ? 1 : -1);
+}
+function lvPeriodStops(k){
+  const p = PERIODS[k] || {};
+  if (!lvT('DOWNTIME_PAST')) return lead('Stops were not reported for this period.');
+  const rows = lvPastRows().filter(x => x.periodKey === p.start);
+  if (!rows.length) return lead('No robot reported a stop in '+esc(periodName(k))+'.');
+  const mins = rows.reduce((a, x) => a + (x.minutes || 0), 0);
+  return lead(rows.length+' stop'+(rows.length === 1 ? '' : 's')+' in '+esc(periodName(k))+', '+fmtDownFor(mins)+' of robot time. As the robots reported them.')
+    + incidentList(rows, true);
+}
+function lvCreditStrip(){
+  const figs = lvT('PERIOD_FIGURES');
+  if (!figs) return '';
+  const locked = PERIODS.map((p, k) => ({ p, k, f: figs[k] })).filter(x => x.p.locked && x.f).reverse();
+  if (!locked.length) return '';
+  const max = Math.max(1, ...locked.map(x => (x.f.totals || {}).creditCents || 0));
+  const col = (x) => {
+    const c = (x.f.totals || {}).creditCents, h = c == null ? 60 : Math.max(3, Math.round(c / max * 80));
+    return '<div '+openAttrs('period', String(x.k), 'credit')+' class="hv-ghost" style="flex:1 1 0;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;border-radius:6px;cursor:pointer">'
+      + '<div style="font-size:12px;font-weight:600;color:'+(c == null ? 'var(--fg3)' : 'var(--fg1)')+';font-variant-numeric:tabular-nums;white-space:nowrap">'+(c == null ? 'no promise' : money0(c / 100))+'</div>'
+      + '<div style="height:84px;width:100%;max-width:44px;display:flex;align-items:flex-end"><div style="width:100%;height:'+h+'px;border-radius:3px 3px 0 0;box-sizing:border-box;'+(c == null ? 'border:1px dashed var(--hair3);background:transparent' : 'background:var(--acc)')+'"></div></div>'
+      + '<div style="font-size:11.5px;color:var(--fg2);text-align:center;line-height:1.4">'+esc(periodName(x.k).split(' to ')[0])+'<br><span style="color:var(--fg3)">locked '+esc(lvLockedOn(x.k) || '')+'</span></div>'
+    + '</div>';
+  };
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:18px 20px;margin:20px 0">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;margin-bottom:12px"><h3 style="font-size:14px;font-weight:600;margin:0;color:var(--fg1)">Credit by period</h3><span style="font-size:12px;color:var(--fg3)">Locked periods only. Open one to see each robot.</span></div>'
+    + '<div style="display:flex;gap:6px;overflow-x:auto">'+locked.map(col).join('')+'</div>'
+  + '</div>';
+}
+
+/* ─── payback, measured ─── */
+
+const LV_PAY_TONE = { 'paid':['good','check'], 'on track':['good','check'], 'behind':['warn','triangle-alert'], 'missed':['bad','triangle-alert'], 'partly measured':[undefined,'help-circle'], 'no lease':[undefined,'file-text'], 'no price':[undefined,'coins'] };
+function lvPayPill(st){ const t = LV_PAY_TONE[st] || [undefined,'help-circle']; return pill(st, t[1], t[0]); }
+function lvPayLine(p){
+  const price = money0(p.price || 0), un = p.monthsUnmeasured || 0, n = (p.months || []).length;
+  switch (p.status){
+    case 'paid': return 'Paid back its '+price+' price.';
+    case 'on track': case 'behind': return p.paceMonths ? 'At this pace it pays back in month '+p.paceMonths+'. The lease promised month '+p.promisedMonths+'.' : 'Not enough measured months yet to set a pace.';
+    case 'missed': return 'Passed its '+p.promisedMonths+'-month promise. '+money0(p.earned || 0)+' earned of '+price+'.';
+    case 'partly measured': return money0(p.earned || 0)+' earned in the '+n+' month'+(n === 1 ? '' : 's')+' we can see. The '+un+' before your data began '+(un === 1 ? 'is' : 'are')+' not measured, so no verdict yet.';
+    case 'no lease': return 'Enter the lease start on Numbers to measure payback. '+lvLink('data-act="go" data-view="setup"', 'Open Numbers');
+    case 'no price': return 'Enter what it cost on Numbers to measure payback. '+lvLink('data-act="go" data-view="setup"', 'Open Numbers');
+  }
+  return '';
+}
+function lvPayChart(p){
+  const months = p.months || [], un = p.monthsUnmeasured || 0;
+  if (!months.length || !(p.price > 0)) return '';
+  const W = 400, H = 120, band = un > 0 ? Math.min(W * 0.34, 18 * un + 40) : 0, gap = 4;
+  const bw = Math.max(4, (W - band - gap * months.length) / months.length);
+  let run = 0; const cum = months.map(m => (run += (m.work || 0)));
+  const top = Math.max(p.price, run, ...months.map(m => m.work || 0)) * 1.12;
+  const y = (v) => H - (v / top) * H;
+  const bars = months.map((m, j) => '<rect x="'+(band + gap / 2 + j * (bw + gap)).toFixed(1)+'" y="'+y(m.work || 0).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(H - y(m.work || 0)).toFixed(1)+'" rx="1.5" style="fill:var(--acc);opacity:'+(m.frozen ? 1 : 0.4)+'"></rect>').join('');
+  const pts = cum.map((v, j) => (band + gap / 2 + j * (bw + gap) + bw / 2).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+  return '<svg viewBox="0 0 '+W+' '+(H + 2)+'" preserveAspectRatio="none" role="img" aria-label="Measured months against the price" style="display:block;width:100%;height:124px;overflow:visible">'
+      + (band ? '<defs><pattern id="lvHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" style="fill:var(--hatch)"></rect><rect width="2" height="6" style="fill:var(--hatch2)"></rect></pattern></defs><rect x="0" y="0" width="'+(band - gap).toFixed(1)+'" height="'+H+'" rx="2" fill="url(#lvHatch)"></rect>' : '')
+      + '<line x1="0" x2="'+W+'" y1="'+H+'" y2="'+H+'" style="stroke:var(--hair2)"></line>'
+      + bars
+      + '<polyline points="'+pts+'" fill="none" style="stroke:var(--fg1);stroke-width:1.6" vector-effect="non-scaling-stroke"></polyline>'
+      + '<line x1="0" x2="'+W+'" y1="'+y(p.price).toFixed(1)+'" y2="'+y(p.price).toFixed(1)+'" style="stroke:var(--fg1);stroke-dasharray:4 3" vector-effect="non-scaling-stroke"></line>'
+    + '</svg>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--fg2)">'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;border-top:1.5px dashed var(--fg1)"></span>'+money0(p.price)+' &middot; '+(p.priceSource === 'owner' ? 'your price' : 'benchmark price')+'</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;border-top:1.5px solid var(--fg1)"></span>earned, added up</span>'
+      + (un > 0 ? '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:9px;border-radius:2px;background:'+HATCH_EST+'"></span>'+un+' month'+(un === 1 ? '' : 's')+' before your data began, not measured</span>' : '')
+      + (months.some(m => !m.frozen) ? '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--acc);opacity:.4"></span>open month</span>' : '')
+    + '</div>';
+}
+function lvPaybackView(){
+  const pay = lvT('PAYBACK') || {};
+  const scope = scopeFilter();
+  const ids = CONFIRM.map((c, i) => i).filter(i => !S.excluded[i] && (scope === null || scope === undefined || robotSite(i) === scope) && lvAt(pay, i));
+  const rows = searchRows(ids.map(i => ({ i, name: robotLabel(i), p: lvAt(pay, i) })), r => r.name);
+  if (!ids.length) return lead('Payback was not reported for any robot at this scope yet.');
+  const order = ['paid','on track','behind','missed','partly measured','no lease','no price'];
+  const counts = order.map(st => [st, ids.filter(i => lvAt(pay, i).status === st).length]).filter(x => x[1]);
+  const nMonths = Math.max(0, ...ids.map(i => (lvAt(pay, i).months || []).length));
+  const card = (r) => '<div style="border:1px solid var(--hair);border-radius:6px;padding:16px 18px 18px;min-width:0;background:var(--card)">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px"><span data-peek="robot:'+r.i+':money" role="link" tabindex="0" style="font-size:14px;font-weight:600;color:var(--fg1);cursor:pointer">'+esc(r.name)+'</span>'+lvPayPill(r.p.status)+'</div>'
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg2);margin-bottom:12px;text-wrap:pretty">'+lvPayLine(r.p)+'</div>'
+    + lvPayChart(r.p)
+  + '</div>';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:8px">'+counts.map(x => '<span style="display:inline-flex;align-items:center;gap:6px"><span style="font-size:15px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+x[1]+'</span>'+lvPayPill(x[0])+'</span>').join('')+'</div>'
+    + '<div style="font-size:12.5px;color:var(--fg2);margin-bottom:20px">Measured on '+nMonths+' month'+(nMonths === 1 ? '' : 's')+' of your data.</div>'
+    + (rows.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:14px;margin-bottom:40px">'+rows.map(card).join('')+'</div>'
+      : lead('No robot matches &ldquo;'+esc(S.search)+'&rdquo;.'));
+}
+
+/* ─── billing day and brief ─── */
+
+function lvBillingField(){
+  const d = Number(S.billingDay) || 1;
+  return '<div><label for="lvBillingDay" style="display:block;font-size:11.5px;font-weight:600;color:var(--fg3);margin-bottom:6px">Periods start on day</label>'
+    + '<select id="lvBillingDay" data-lv-billing style="width:100%;font-size:13.5px;color:var(--fg1);background:transparent;padding:10px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit">'
+      + Array.from({ length:28 }, (x, n) => '<option value="'+(n + 1)+'"'+(n + 1 === d ? ' selected' : '')+'>'+(n + 1)+'</option>').join('')
+    + '</select>'
+    + '<div style="font-size:12px;color:var(--fg3);line-height:1.55;margin-top:8px">Statements run from this day to the day before it next month. Changing it recomputes periods that are not locked yet.</div></div>';
+}
+function lvIsPhone(v){ const s = String(v || '').trim(); return !!s && s.indexOf('@') < 0 && /^\+?[\d\s().-]{7,}$/.test(s); }
+function lvBriefStatus(){
+  const s = S.briefSettings;
+  if (!s) return '';
+  const mails = (s.to || []).map(v => String(v).trim()).filter(v => VALID.test(v));
+  const d = (s.days || []).map(Boolean), all = d.filter(Boolean).length;
+  const when = all === 7 ? 'every day' : d.join() === [1,1,1,1,1,0,0].map(Boolean).join() ? 'on weekdays' : d.join() === [0,0,0,0,0,1,1].map(Boolean).join() ? 'on weekends'
+    : 'on '+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].filter((x, n) => d[n]).join(', ');
+  const on = mails.length && all;
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px">'
+    + (on ? pill('Sending','check','good')+'<span style="font-size:13px;color:var(--fg1)">Emails '+mails.length+' '+(mails.length === 1 ? 'person' : 'people')+' at '+esc(s.time)+' '+when+'.</span>'
+      : pill('Not sending','x')+'<span style="font-size:13px;color:var(--fg1)">'+(mails.length ? 'Not sending: pick at least one day.' : 'Not sending: add an email address.')+'</span>')
+  + '</div>';
+}
+
+/* ─── tickets ─── */
+
+function lvTicketsSync(){
+  const brands = [...new Set(Object.keys(VENDOR_TICKETS).concat(TICKETS.map(t => t.brand)))];
+  brands.forEach(b => {
+    const mine = TICKETS.filter(t => t.brand === b);
+    const waits = mine.filter(t => t.responded).map(t => (Date.parse(t.responded+':00Z') - Date.parse(t.opened+':00Z')) / 864e5).sort((a, c) => a - c);
+    const med = waits.length ? (waits.length % 2 ? waits[(waits.length - 1) / 2] : (waits[waits.length / 2 - 1] + waits[waits.length / 2]) / 2) : null;
+    VENDOR_TICKETS[b] = { open: mine.filter(t => t.status === 'open').length, medianDays: med === null ? null : Math.round(med * 10) / 10 };
+  });
+}
+function lvTicketShape(t, fb){
+  const key = (v) => v ? (typeof v === 'number' ? lvKeyOf(v) : String(v).length > 16 && /Z|[+-]\d\d:?\d\d$/.test(String(v)) ? lvKeyOf(Date.parse(v)) : String(v).slice(0,16)) : '';
+  t = t || {};
+  const idx = typeof t.i === 'number' ? t.i : (t.robotId != null ? (frData().robots || []).findIndex(r => String(r.id) === String(t.robotId)) : -1);
+  return { id: String(t.ref || t.id || fb.ref || ('T-'+Date.now())), serverId: t.id != null ? t.id : null, brand: t.brand || fb.brand, i: idx >= 0 ? idx : (fb.i != null ? fb.i : 0),
+    title: t.title || fb.title, opened: key(t.openedAt || t.opened) || fb.opened, responded: key(t.respondedAt || t.responded), status: t.status === 'closed' ? 'closed' : 'open' };
+}
+function lvTicketBar(key, brand, i){
+  if (S.lv.ticket && S.lv.ticket.from === key) return lvTicketForm(key, brand, i);
+  return '<button type="button" data-act="lvTicketOpen" data-from="'+esc(key)+'" data-brand="'+esc(brand)+'"'+(i != null ? ' data-i="'+i+'"' : '')+' class="hv-ghost" style="'+LV_SMALL+'">'+ic('file-text',13)+'Log a ticket</button>';
+}
+function lvTicketForm(from, brand, i){
+  const t = S.lv.ticket;
+  if (!t || t.from !== from) return '';
+  const robot = t.i != null ? t.i : i;
+  return '<div style="border:1px solid var(--hair2);border-radius:6px;padding:18px 20px;background:var(--card);max-width:560px">'
+    + '<div style="font-size:14px;font-weight:600;color:var(--fg1);margin-bottom:14px">A ticket with '+esc(t.brand || brand)+'</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:14px">'
+      + '<div style="grid-column:1/-1"><label for="lvTkTitle" style="'+LV_LABEL+'">What it is about</label><input id="lvTkTitle" data-lv-f="ticket.title" data-lv-r="1" type="text" value="'+esc(t.title)+'" placeholder="Repeat stalls at aisle 14" autocomplete="off" style="'+LV_INPUT+'"></div>'
+      + '<div><label for="lvTkRef" style="'+LV_LABEL+'">Ticket number <span style="color:var(--fg3)">(optional)</span></label><input id="lvTkRef" data-lv-f="ticket.ref" type="text" value="'+esc(t.ref)+'" autocomplete="off" style="'+LV_INPUT+'"></div>'
+      + '<div><label for="lvTkOpened" style="'+LV_LABEL+'">Opened</label><input id="lvTkOpened" data-lv-f="ticket.opened" type="datetime-local" value="'+esc(t.opened)+'" style="'+LV_INPUT+'"></div>'
+      + (robot != null ? '<div style="grid-column:1/-1;font-size:12.5px;color:var(--fg2)">Robot: <span style="color:var(--fg1);font-weight:500">'+esc(robotLabel(robot))+'</span></div>' : '')
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:16px">'
+      + frButton('lvTicketSave', 'Log the ticket', { disabled: !String(t.title).trim(), reason:'Say what it is about.', pending: t.busy ? 'Logging it…' : '' })
+      + (t.busy ? '' : lvLink('data-act="lvTicketCancel"', 'Cancel'))
+    + '</div>'
+    + lvError(t.err)
+  + '</div>';
+}
+function lvTicketActs(t){
+  if (!lvOn() || t.status === 'closed') return '';
+  const busy = S.lv.tkBusy[t.id], err = S.lv.tkErr[t.id];
+  return '<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px">'
+    + (!t.responded ? lvBtn('data-act="lvTicketReply" data-id="'+esc(t.id)+'"', 'Mark first reply', busy === 'reply' ? 'Saving…' : '') : '')
+    + lvBtn('data-act="lvTicketClose" data-id="'+esc(t.id)+'"', 'Close', busy === 'close' ? 'Closing…' : '')
+    + (err ? '<span role="alert" style="font-size:12px;color:var(--bad);line-height:1.4">'+esc(err)+'</span>' : '')
+  + '</span>';
+}
+
+/* ─── data sources ─── */
+
+function lvSrc(){
+  const L = S.lv;
+  if (!L.src){
+    const d = liveData() || {};
+    L.src = { loaded:false, conns: (d.CONNECTIONS || (d.FIRST_RUN || {}).vendors || []).slice(), connErr:'', keys: (d.KEYS || []).slice(), keysErr:'',
+      vkeys:{}, vbusy:'', verr:{}, vok:{}, disc:null, discBusy:'', discErr:{},
+      keyLabel:'', keyBusy:false, keyErr:'', revoke:null, revBusy:'', revErr:{},
+      up:{ state:'idle', name:'', text:'', headers:[], map:{}, err:'', result:null } };
+  }
+  return L.src;
+}
+async function lvLoadSources(){
+  const s = lvSrc();
+  const [c, k] = await Promise.all([lvFetch('GET','/api/v1/connections'), lvFetch('GET','/api/v1/keys')]);
+  if (c.ok){ s.conns = Array.isArray(c.data) ? c.data : (c.data.connections || c.data.vendors || []); s.connErr = ''; } else s.connErr = c.error;
+  if (k.ok){ s.keys = k.data.keys || []; s.keysErr = ''; } else s.keysErr = k.error;
+  if (lvOn()) render();
+}
+function lvStatePill(st){
+  return st === 'ok' ? pill('syncing','check','good') : st === 'degraded' ? pill('syncing with problems','triangle-alert','warn') : st === 'down' ? pill('not syncing','x','bad') : pill('state not reported','help-circle');
+}
+function lvVendorBlock(v){
+  const s = lvSrc(), keys = s.vkeys[v.vendor] || {};
+  const head = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:10px"><span style="font-size:15px;font-weight:600;color:var(--fg1)">'+esc(v.label || v.vendor)+'</span>'+(v.connected ? lvStatePill(v.state) : '')+'</div>';
+  if (v.connected){
+    const h = v.history, confirming = s.disc === v.vendor;
+    return head
+      + '<div style="font-size:13px;color:var(--fg1);line-height:1.6;font-variant-numeric:tabular-nums">'
+        + [v.robotCount != null ? v.robotCount+' robot'+(v.robotCount === 1 ? '' : 's') : '', v.lastOkAt ? 'last good sync '+lvAgo(v.lastOkAt) : 'no good sync yet'].filter(Boolean).join(' &middot; ')+'</div>'
+      + (h ? (h.state === 'running' ? '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--fg2);margin-top:4px">'+spinner(12)+'Loading your last 90 days</div>'
+          : h.state === 'failed' || h.failed ? '<div style="font-size:12.5px;color:var(--warn);margin-top:4px;line-height:1.55">The 90-day history did not load'+(h.error ? ': '+esc(h.error) : '.')+'</div>'
+          : '<div style="font-size:12.5px;color:var(--fg2);margin-top:4px;font-variant-numeric:tabular-nums">'+(h.days != null ? h.days : 90)+' days loaded'+(h.jobs != null ? ': '+frNum(h.jobs)+' jobs' : '')+(h.robots != null ? ' across '+h.robots+' robot'+(h.robots === 1 ? '' : 's') : '')+'</div>') : '')
+      + (s.vok[v.vendor] ? '<div style="font-size:12.5px;color:var(--good);margin-top:4px">'+esc(s.vok[v.vendor])+'</div>' : '')
+      + (v.error ? lvError(v.error) : '')
+      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:14px">'
+        + (confirming
+          ? '<span style="font-size:13px;color:var(--fg1)">Data already synced stays on your dashboard.</span>'
+            + lvBtn('data-act="lvDisconnect" data-v="'+esc(v.vendor)+'"', 'Disconnect', s.discBusy === v.vendor ? 'Disconnecting…' : '')
+            + (s.discBusy === v.vendor ? '' : lvLink('data-act="lvDisconnectCancel"', 'Keep it'))
+          : lvBtn('data-act="lvDisconnectAsk" data-v="'+esc(v.vendor)+'"', 'Disconnect'))
+      + '</div>'
+      + lvError(s.discErr[v.vendor]);
+  }
+  const fields = v.fields || [];
+  const missing = fields.filter(f => !String(keys[f.key] || '').trim()).length;
+  return head
+    + '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:10px">'
+      + fields.map(f => '<div><label for="lvVk-'+esc(v.vendor)+'-'+esc(f.key)+'" style="'+LV_LABEL+'">'+esc(f.label)+'</label><input id="lvVk-'+esc(v.vendor)+'-'+esc(f.key)+'" data-lv-f="src.vkeys.'+esc(v.vendor)+'.'+esc(f.key)+'" data-lv-r="1" type="'+(f.secret ? 'password' : 'text')+'" autocomplete="off" spellcheck="false" value="'+esc(keys[f.key] || '')+'" style="'+LV_INPUT+'"></div>').join('')
+    + '</div>'
+    + (v.help ? '<div style="font-size:12.5px;color:var(--fg3);line-height:1.6;margin-bottom:14px">'+esc(v.help)+'</div>' : '')
+    + frButton('lvConnect', 'Test and connect', { attrs:' data-v="'+esc(v.vendor)+'"', disabled: missing > 0,
+        reason: missing === fields.length ? 'Paste your '+(v.label || v.vendor)+' keys first.' : missing+' key'+(missing === 1 ? '' : 's')+' still empty.',
+        pending: s.vbusy === v.vendor ? 'Checking your keys with '+(v.label || v.vendor)+'…' : '', error: s.verr[v.vendor] || v.error });
+}
+function lvKeysBlock(){
+  const s = lvSrc(), keys = s.keys || [], full = keys.length >= 5;
+  const snippet = 'POST https://app.botlien.com/api/v1/events\nAuthorization: Bearer blk_...\n{ "events": [ { "robot_id": "AMR-7", "at": "2026-09-23T14:05:00Z",\n                "mission_state": "active", "battery_pct": 81 } ] }';
+  const row = (k) => {
+    const confirming = s.revoke === k.id;
+    return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 0;border-top:1px solid var(--hair)">'
+      + '<span style="font-family:'+LV_MONO+';font-size:12px;color:var(--fg1);background:var(--ghost);border-radius:4px;padding:3px 8px">'+esc(k.prefix || '')+'&hellip;</span>'
+      + '<div style="flex:1 1 180px;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--fg1);overflow-wrap:anywhere">'+esc(k.label || 'No label')+'</div>'
+        + '<div style="font-size:12px;color:var(--fg3);margin-top:2px">made '+(k.createdAt ? lvAgo(k.createdAt) : 'not reported')+' &middot; '+(k.lastUsedAt ? 'last used '+lvAgo(k.lastUsedAt) : 'never used')+'</div></div>'
+      + (confirming
+        ? '<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><span style="font-size:12.5px;color:var(--fg1)">Anything using it stops sending.</span>'
+          + lvBtn('data-act="lvKeyRevoke" data-id="'+esc(k.id)+'"', 'Revoke', s.revBusy === k.id ? 'Revoking…' : '')
+          + (s.revBusy === k.id ? '' : lvLink('data-act="lvKeyRevokeCancel"', 'Keep it'))+'</span>'
+        : lvBtn('data-act="lvKeyRevokeAsk" data-id="'+esc(k.id)+'"', 'Revoke'))
+      + (s.revErr[k.id] ? '<div style="flex:1 1 100%">'+lvError(s.revErr[k.id])+'</div>' : '')
+    + '</div>';
+  };
+  const fresh = s.newKey ? '<div role="dialog" aria-label="Your new API key" style="border:1px solid var(--fg1);border-radius:6px;padding:16px 18px;margin-bottom:16px;background:var(--card)">'
+      + '<div style="font-size:14px;font-weight:600;color:var(--fg1);margin-bottom:10px">Your new key</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px"><input id="lvNewKey" readonly value="'+esc(s.newKey.key)+'" aria-label="API key" style="'+LV_INPUT+';flex:1 1 220px;width:auto;font-family:'+LV_MONO+';font-size:12.5px">'
+        + lvBtn('data-act="lvCopy" data-target="lvNewKey"', ic('copy',13)+'Copy')+'</div>'
+      + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.6;margin:10px 0 12px">Copy it now. For safety we only keep a fingerprint, so it cannot be shown again.</div>'
+      + lvBtn('data-act="lvKeyClose"', 'I have copied it')
+    + '</div>' : '';
+  return '<p style="font-size:13.5px;line-height:1.65;color:var(--fg2);margin:0 0 6px;max-width:70ch">Most shop-floor robots are not on the internet. A small gateway on your network reads them and sends their status here.</p>'
+    + '<p style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:0 0 18px;max-width:70ch">Arms and cells can send cycle_count and program instead of mission ids, and alarms with a description.</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:22px;align-items:start">'
+      + '<div style="min-width:0">' + fresh
+        + (keys.length ? keys.map(row).join('') + '<div style="border-top:1px solid var(--hair)"></div>' : '<div style="font-size:13px;color:var(--fg3);margin-bottom:14px">No keys yet.</div>')
+        + (s.keysErr ? lvError('Could not load your keys: '+s.keysErr) + '<div style="margin-top:6px">'+lvLink('data-act="lvSourcesReload"', 'Try again')+'</div>' : '')
+        + '<div style="margin-top:16px"><label for="lvKeyLabel" style="'+LV_LABEL+'">What it is for <span style="color:var(--fg3)">(optional)</span></label>'
+          + '<input id="lvKeyLabel" data-lv-f="src.keyLabel" type="text" value="'+esc(s.keyLabel)+'" placeholder="Pier 4 gateway" autocomplete="off" style="'+LV_INPUT+';max-width:320px;margin-bottom:12px"></div>'
+        + frButton('lvKeyMake', 'Make an API key', { disabled: full, reason:'An account holds at most five keys. Revoke one first.', pending: s.keyBusy ? 'Making your key…' : '', error: s.keyErr })
+      + '</div>'
+      + '<div style="min-width:0">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><span style="font-size:12.5px;font-weight:600;color:var(--fg1)">How to send</span>'+lvBtn('data-act="lvCopy" data-target="lvSnippet"', ic('copy',13)+'Copy')+'</div>'
+        + '<pre id="lvSnippet" style="margin:0;padding:14px 16px;background:var(--ghost);border:1px solid var(--hair);border-radius:6px;font-family:'+LV_MONO+';font-size:12px;line-height:1.6;color:var(--fg1);white-space:pre;overflow-x:auto">'+esc(snippet)+'</pre>'
+        + '<div style="font-size:12.5px;color:var(--fg2);margin-top:8px">Only robot_id and at are required. Up to 1,000 events a request.</div>'
+      + '</div>'
+    + '</div>';
+}
+function lvUploadBlock(){
+  const u = lvSrc().up;
+  const file = '<input id="lvFile" type="file" accept=".csv,text/csv,text/plain" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">';
+  const again = '<label for="lvFile" class="hv-ghost" style="'+LV_SMALL+'">Use a different file</label>'+file;
+  if (u.state === 'loading'){
+    return '<div style="border:1px solid var(--hair2);border-radius:6px;padding:24px 22px"><div style="display:flex;align-items:center;gap:10px;color:var(--fg1)">'+spinner(14)+'<span style="font-size:14px;font-weight:500;word-break:break-all">'+esc(u.name)+'</span></div>'
+      + '<p style="font-size:13px;color:var(--fg2);margin:10px 0 0">Reading rows. This takes a few seconds for a month of data.</p></div>';
+  }
+  if (u.state === 'read'){
+    const r = u.result || {};
+    return '<div style="border:1px solid var(--hair2);border-radius:6px;padding:22px 22px">'+pill('Read','check','good')
+      + '<div style="font-size:16px;font-weight:600;color:var(--fg1);margin:10px 0 4px;font-variant-numeric:tabular-nums">'+(r.imported != null ? 'Read '+frNum(r.imported)+' rows'+(r.robots != null ? ' across '+frNum(frCount(r.robots))+' robots' : '') : 'Read '+esc(u.name))+'</div>'
+      + '<div style="font-size:12.5px;color:var(--fg2);margin-bottom:14px;word-break:break-all">'+esc(u.name)+(r.skipped ? ' &middot; '+frNum(r.skipped)+' rows skipped' : '')+'</div>'+again+'</div>';
+  }
+  if (u.state === 'map'){
+    const opts = (cur) => '<option value="">Not in this file</option>' + u.headers.map(h => '<option value="'+esc(h)+'"'+(h === cur ? ' selected' : '')+'>'+esc(h)+'</option>').join('');
+    const sel = (f) => '<div><label for="lvMap-'+f[0]+'" style="'+LV_LABEL+'">'+f[1]+'</label><select id="lvMap-'+f[0]+'" data-lv-f="src.up.map.'+f[0]+'" data-lv-r="1" style="'+LV_INPUT+'">'+opts(u.map[f[0]])+'</select></div>';
+    const need = LV_FIELDS.filter(f => f[2]), more = LV_FIELDS.filter(f => !f[2]);
+    const ready = need.every(f => u.map[f[0]]);
+    return '<div style="border:1px solid var(--hair3);border-radius:6px;padding:22px 22px">'
+      + pill('Not read','triangle-alert','bad')
+      + '<div style="font-size:12.5px;color:var(--fg2);margin:10px 0 4px;word-break:break-all">'+esc(u.name)+'</div>'
+      + '<p style="font-size:13.5px;line-height:1.6;color:var(--fg1);margin:0 0 16px">'+esc(u.err)+'</p>'
+      + '<div style="font-size:14px;font-weight:600;color:var(--fg1);margin-bottom:12px">Tell us which columns these are</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;margin-bottom:18px">'+need.map(sel).join('')+'</div>'
+      + '<div style="'+LV_EYEBROW+'">More columns (optional)</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin-bottom:20px">'+more.map(sel).join('')+'</div>'
+      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">'
+        + frButton('lvImportMapped', 'Import with these columns', { disabled: !ready, reason:'Pick the robot id and time columns.', pending: u.busy ? 'Reading rows…' : '', error: u.mapErr })
+        + (u.busy ? '' : again)
+      + '</div></div>';
+  }
+  if (u.state === 'bad'){
+    return '<div style="border:1px solid var(--hair3);border-radius:6px;padding:22px 22px">'+pill('Not read','triangle-alert','bad')
+      + '<div style="font-size:12.5px;color:var(--fg2);margin:10px 0 4px;word-break:break-all">'+esc(u.name)+'</div>'
+      + '<p style="font-size:13.5px;line-height:1.6;color:var(--fg1);margin:0 0 16px">'+esc(u.err)+'</p>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:10px">'+lvBtn('data-act="lvImportRetry"', 'Try again')+again+'</div></div>';
+  }
+  return '<div data-lv-drop style="border:1px dashed var(--hair3);border-radius:6px;padding:30px 22px;text-align:center">'
+    + ic('upload-cloud',26,'color:var(--fg2);display:inline-block')
+    + '<div style="font-size:15px;font-weight:600;color:var(--fg1);margin:10px 0 6px">Drop an export here</div>'
+    + '<p style="font-size:13px;line-height:1.6;color:var(--fg2);margin:0 auto 16px;max-width:46ch">Any make. If we do not recognise a column, you tell us which one it is.</p>'
+    + '<label for="lvFile" class="hv-dim press" style="'+FR_BTN+';cursor:pointer">Choose a file</label>'+file
+    + '<div style="font-size:12px;color:var(--fg3);margin-top:12px">CSV, up to 25 MB.</div>'
+  + '</div>';
+}
+function lvSourcesHtml(){
+  const s = lvSrc();
+  if (!s.loaded){ s.loaded = true; lvLoadSources(); }
+  const section = (title, body) => '<div style="margin-bottom:34px"><h3 style="font-size:15px;font-weight:600;letter-spacing:-0.01em;margin:0 0 14px;color:var(--fg1)">'+title+'</h3>'+body+'</div>';
+  const conns = s.conns || [];
+  return section('Connected vendors',
+      (conns.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px">'+conns.map(v => '<div style="border:1px solid var(--hair2);border-radius:6px;padding:18px 20px;min-width:0;background:var(--card)">'+lvVendorBlock(v)+'</div>').join('')+'</div>'
+        : '<div style="font-size:13px;color:var(--fg3)">No vendor Botlien can connect was reported for this account.</div>')
+      + (s.connErr ? lvError('Could not refresh the list: '+s.connErr) + '<div style="margin-top:6px">'+lvLink('data-act="lvSourcesReload"', 'Try again')+'</div>' : ''))
+    + section('Push from your own system', lvKeysBlock())
+    + section('Upload an export, any make', lvUploadBlock());
+}
+function lvGuess(headers){
+  const map = {}, used = {};
+  LV_FIELDS.forEach(f => { const h = headers.find(x => !used[x] && LV_GUESS[f[0]].test(x)); if (h){ map[f[0]] = h; used[h] = true; } });
+  return map;
+}
+function lvHeadersOf(text){
+  const line = String(text || '').split(/\r?\n/).find(l => l.trim()) || '';
+  const out = []; let cur = '', q = false;
+  for (let n = 0; n < line.length; n++){
+    const ch = line[n];
+    if (ch === '"'){ if (q && line[n + 1] === '"'){ cur += '"'; n++; } else q = !q; }
+    else if (ch === ',' && !q){ out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out.filter(Boolean);
+}
+async function lvSendImport(columns){
+  const u = lvSrc().up;
+  const url = '/api/v1/setup/import?name='+encodeURIComponent(u.name)+(columns ? '&columns='+encodeURIComponent(JSON.stringify(columns)) : '');
+  const r = await lvFetch('POST', url, u.text, true);
+  if (r.ok){ u.state = 'read'; u.result = (r.data && r.data.lastImport) || r.data; u.text = ''; u.busy = false; }
+  else {
+    const headers = (r.data && r.data.headers) || (!LIVE && LIVE_PREVIEW ? lvHeadersOf(u.text) : null);
+    if (headers && headers.length){
+      if (u.state !== 'map') u.map = lvGuess(headers);
+      u.headers = headers; u.err = r.error;
+      if (u.state === 'map' && columns) u.mapErr = r.error;
+      u.state = 'map';
+    } else { u.state = 'bad'; u.err = r.error; }
+    u.busy = false;
+  }
+  render();
+}
+async function lvTakeFile(file){
+  if (!file || !lvOn()) return;
+  const u = lvSrc().up;
+  u.name = file.name; u.err = ''; u.mapErr = ''; u.result = null;
+  if (file.size > 25 * 1024 * 1024){ u.state = 'bad'; u.err = 'This file is over 25 MB. Export a shorter date range and try again.'; render(); return; }
+  u.state = 'loading'; render();
+  try { u.text = await file.text(); } catch(e){ u.state = 'bad'; u.err = 'We could not open that file.'; render(); return; }
+  lvSendImport(null);
+}
+
+/* ─── preview data, from the demo's own tables ─── */
+
+function lvPreviewData(){
+  const now = Date.now(), ids = CONFIRM.map((c, i) => i);
+  const con = withScope('all', () => computeContract());
+  const pb = withScope('all', () => computePayback());
+  const noPromise = 2;
+  const figs = PERIODS.map((p, k) => {
+    const robots = {}, t = { robots:0, units:0, workCents:0, invoiceCents:0, downtimeMinutes:0, incidents:0, creditCents:0 };
+    con.rows.forEach(r => {
+      const wob = k === 0 ? 0 : ((r.i * 7 + k * 3) % 9 - 3) * 0.12;
+      const delivered = r.delivered == null ? null : Math.min(100, r.delivered + wob);
+      const promised = r.i === noPromise ? null : r.promised;
+      const credit = promised == null || delivered == null ? null : Math.round(Math.max(0, promised - delivered) * 0.01 * r.invoice * 100);
+      const mins = Math.max(0, Math.round(r.minutes * (1 - wob)));
+      robots[r.i] = { name: r.name, site: robotSite(r.i), work: r.work, invoiceCents: Math.round(r.invoice * 100), downtimeMinutes: mins,
+        incidents: Math.max(0, r.incidents.length + ((r.i + k) % 3) - 1), scheduledMinutes: r.scheduled, deliveredUptimePct: delivered, promisedUptimePct: promised, creditCents: credit };
+      t.robots++; t.invoiceCents += robots[r.i].invoiceCents; t.downtimeMinutes += mins; t.incidents += robots[r.i].incidents; if (credit) t.creditCents += credit;
+    });
+    t.coverage = covForPeriod(p, 'all');
+    return { frozen: k > 0, closedAt: k > 0 ? Date.parse(addDaysKey(p.end, 1)+'T12:00:00Z') : null, totals: t, robots };
+  });
+  const past = {};
+  ids.forEach(i => {
+    past[i] = [];
+    for (let k = 1; k <= 3; k++){
+      (DOWNTIME[i] || []).filter((x, j) => (j + k) % 2 === 0).forEach(x => {
+        const off = daysBetweenInclusive(PERIODS[0].start, x.date) - 1;
+        const d = addDaysKey(PERIODS[k].start, Math.min(off, daysBetweenInclusive(PERIODS[k].start, PERIODS[k].end) - 1));
+        past[i].push({ period: PERIODS[k].start, date: d, start: x.start, minutes: x.minutes, cause: x.cause, spot: x.spot || null });
+      });
+    }
+  });
+  const pay = {};
+  pb.rows.forEach(r => {
+    const n = Math.min(r.series.length, PERIODS.length);
+    const months = r.series.slice(-n).map((v, j) => { const p = PERIODS[n - 1 - j]; return { start: p.start, end: p.end, work: Math.round(v), frozen: p.status !== 'open' }; });
+    const earned = months.reduce((a, m) => a + m.work, 0), un = Math.max(0, r.elapsed - n);
+    const last3 = months.slice(-3).reduce((a, m) => a + m.work, 0) / Math.max(1, Math.min(3, months.length));
+    const pace = earned >= r.price ? null : (last3 > 0 ? r.elapsed + Math.ceil((r.price - earned) / last3) : null);
+    const status = !(r.price > 0) ? 'no price' : earned >= r.price ? 'paid' : un > n ? 'partly measured'
+      : r.elapsed >= r.contract.payback ? 'missed' : pace !== null && pace <= r.contract.payback ? 'on track' : 'behind';
+    pay[r.i] = { status, price: r.price, priceSource:'benchmark', earned, monthsSinceStart: r.elapsed, monthsUnmeasured: un, paceMonths: pace, promisedMonths: r.contract.payback, months };
+  });
+  const nowRow = {};
+  ids.forEach(i => {
+    const at = i === 12 ? now - 3 * 3600000 : now - ((i * 37) % 9 + 1) * 60000;
+    nowRow[i] = { at: new Date(at).toISOString(), atMs: at, connection: i === 10 ? 'offline' : 'online', mission: [0,2,3,6,8,9,11].indexOf(i) >= 0 ? 'M-'+(4100 + i) : null,
+      battery: 30 + (i * 17) % 65, charging: i === 5, stuck: i === 1, eStop: false,
+      faults: i === 1 ? [{ code:'NAV-12', severity:'warning', description:'Path blocked' }] : [],
+      baselineDays: i === 11 ? 6 : i === 12 ? 9 : 14, baselineReady: !(i === 11 || i === 12) };
+  });
+  const gau = ((liveData().FIRST_RUN || {}).vendors || [])[0];
+  return {
+    PERIOD_FIGURES: figs, DOWNTIME_PAST: past, PAYBACK: pay, NOW: nowRow, BILLING_DAY: Number(PERIODS[0].start.slice(8)) || 1, TICKETS: [],
+    CONNECTIONS: gau ? [Object.assign({}, gau, { connected:true, state:'ok', robotCount:2, lastOkAt: now - 4 * 60000, error:null, history:{ state:'done', days:90, jobs:212, robots:2 } })] : [],
+    KEYS: [{ id:'k1', prefix:'blk_7Hq2', label:'Pier 4 gateway', createdAt: now - 3 * 864e5, lastUsedAt: now - 2 * 60000 }]
+  };
+}
+
+/* ─── boot and actions ─── */
+
+function lvBoot(){
+  S.lv = { ticket:null, tkBusy:{}, tkErr:{}, spotEdit:null, spotDraft:'', nowSort:false, src:null };
+  if (!isLiveAccount()) return;
+  const d = liveData();
+  if (!LIVE && LIVE_PREVIEW){
+    const fixed = {};
+    DOWNTIME.forEach((list, i) => (list || []).forEach(x => {
+      const m = /^stuck \u00b7 (.+)$/.exec(x.cause);
+      if (!m) return;
+      const place = m[1], site = robotSite(i), a = aisleNo(place);
+      x.spot = a ? a+','+(6 + site * 2) : (fixed[place] || (fixed[place] = (20 + Object.keys(fixed).length * 3)+',2'));
+      if (a && a !== 14 && !S.fixes[fixKey(site, place)]) x.cause = 'stuck \u00b7 '+lvSpotLabel(x.spot);
+    }));
+    PERIODS.forEach((p, k) => { if (k > 0) p.locked = true; });
+    Object.assign(d, Object.assign(lvPreviewData(), d));
+  }
+  if (d.BILLING_DAY != null) S.billingDay = Number(d.BILLING_DAY) || S.billingDay;
+  if (Array.isArray(d.TICKETS)){ TICKETS.length = 0; d.TICKETS.forEach(t => TICKETS.push(lvTicketShape(t, {}))); lvTicketsSync(); }
+  COPY.creds = ['Data sources', 'Every way data reaches this account: vendors we connect, data your systems push, and exports you upload.'];
+}
+
+function lvSetPath(path, value){
+  const parts = path.split('.');
+  let o = S.lv;
+  for (let n = 0; n < parts.length - 1; n++){ if (o[parts[n]] == null || typeof o[parts[n]] !== 'object') o[parts[n]] = {}; o = o[parts[n]]; }
+  o[parts[parts.length - 1]] = value;
+}
+function lvTicketById(id){ return TICKETS.find(t => t.id === id); }
+async function lvTicketPatch(id, body, kind){
+  const t = lvTicketById(id);
+  if (!t || S.lv.tkBusy[id]) return;
+  S.lv.tkBusy[id] = kind; delete S.lv.tkErr[id]; render();
+  const r = await lvFetch('PATCH', '/api/v1/tickets/'+encodeURIComponent(t.serverId != null ? t.serverId : t.id), body);
+  delete S.lv.tkBusy[id];
+  if (r.ok){
+    if (body.respondedAt) t.responded = lvKeyOf(Date.parse(body.respondedAt));
+    if (body.status) t.status = body.status;
+    lvTicketsSync();
+  } else S.lv.tkErr[id] = r.status === 404 ? 'This ticket is not on this account any more.' : r.error;
+  render();
+}
+
+Object.assign(ACTIONS, {
+  lvNoop: () => {},
+  lvNowSort: () => { S.lv.nowSort = !S.lv.nowSort; render(); },
+  lvSpotEdit: (el) => { S.lv.spotEdit = el.dataset.key; S.lv.spotDraft = el.dataset.v || ''; render(); const f = document.getElementById('lvSpotIn'); if (f){ f.focus(); f.select(); } },
+  lvSpotCancel: () => { S.lv.spotEdit = null; render(); },
+  lvSpotSave: (el) => {
+    const site = Number(el.dataset.site), spot = el.dataset.spot, oldPlace = el.dataset.old;
+    const name = String(S.lv.spotDraft || '').trim(), ss = siteSlug(site);
+    S.placeNames = S.placeNames || {};
+    (S.placeNames[ss] = S.placeNames[ss] || {})[spot] = name;
+    const newPlace = name || lvSpotLabel(spot);
+    if (newPlace !== oldPlace){
+      const ok = fixKey(site, oldPlace), nk = fixKey(site, newPlace);
+      if (S.fixes[ok]){ S.fixes[nk] = S.fixes[ok]; delete S.fixes[ok]; }
+      if (S.fixHighlight === ok) S.fixHighlight = nk;
+      const from = '"'+ss+'.'+slug(oldPlace)+'"', to = '"'+ss+'.'+slug(newPlace)+'"';
+      S.tabs = lvRekey(S.tabs, from, to); S.peek = lvRekey(S.peek, from, to); S.peekStack = lvRekey(S.peekStack, from, to);
+    }
+    S.lv.spotEdit = null; S.lv.spotDraft = '';
+    render();
+  },
+  lvTicketOpen: (el) => {
+    S.lv.ticket = { from: el.dataset.from, brand: el.dataset.brand, i: el.dataset.i != null ? Number(el.dataset.i) : null, title:'', ref:'', opened: lvLocalNow(), busy:false, err:'' };
+    render(); const f = document.getElementById('lvTkTitle'); if (f) f.focus();
+  },
+  lvTicketCancel: () => { S.lv.ticket = null; render(); },
+  lvTicketSave: async () => {
+    const t = S.lv.ticket;
+    if (!t || t.busy || !String(t.title).trim()) return;
+    t.busy = true; t.err = ''; render();
+    const robots = frData().robots || [];
+    const robotId = t.i != null ? (robots[t.i] ? robots[t.i].id : t.i) : null;
+    const openedAt = t.opened ? new Date(t.opened).toISOString() : new Date().toISOString();
+    const r = await lvFetch('POST', '/api/v1/tickets', { title: String(t.title).trim(), ref: String(t.ref || '').trim() || null, brand: t.brand, robotId, openedAt });
+    if (!S.lv.ticket) return;
+    if (r.ok){
+      TICKETS.push(lvTicketShape(r.data.ticket, { ref: String(t.ref || '').trim(), brand: t.brand, i: t.i, title: String(t.title).trim(), opened: t.opened }));
+      lvTicketsSync(); S.lv.ticket = null;
+      if (typeof showTabToast === 'function') showTabToast({ text:'Ticket logged.' });
+    } else { t.busy = false; t.err = r.error; }
+    render();
+  },
+  lvTicketReply: (el) => lvTicketPatch(el.dataset.id, { respondedAt: new Date().toISOString() }, 'reply'),
+  lvTicketClose: (el) => lvTicketPatch(el.dataset.id, { status:'closed' }, 'close'),
+  lvSourcesReload: () => { const s = lvSrc(); s.connErr = ''; s.keysErr = ''; render(); lvLoadSources(); },
+  lvConnect: async (el) => {
+    const s = lvSrc(), key = el.dataset.v, v = (s.conns || []).find(x => x.vendor === key);
+    if (!v || s.vbusy) return;
+    const keys = s.vkeys[key] || {};
+    if ((v.fields || []).some(f => !String(keys[f.key] || '').trim())) return;
+    s.vbusy = key; delete s.verr[key]; v.error = null; render();
+    const credentials = {};
+    (v.fields || []).forEach(f => { credentials[f.key] = String(keys[f.key]).trim(); });
+    const r = await lvFetch('POST', '/api/v1/connections', { vendor:key, credentials });
+    s.vbusy = '';
+    if (r.ok){
+      s.vkeys[key] = {};
+      Object.assign(v, { connected:true, state:'ok', robotCount: r.data.robotCount, lastOkAt: Date.now(), history:{ state:'running' } });
+      s.vok[key] = 'Connected. '+(r.data.robotCount != null ? r.data.robotCount+' robot'+(r.data.robotCount === 1 ? '' : 's')+' found.' : '');
+      render(); lvLoadSources();
+    } else { s.verr[key] = r.error; render(); }
+  },
+  lvDisconnectAsk: (el) => { const s = lvSrc(); s.disc = el.dataset.v; delete s.discErr[el.dataset.v]; render(); },
+  lvDisconnectCancel: () => { lvSrc().disc = null; render(); },
+  lvDisconnect: async (el) => {
+    const s = lvSrc(), key = el.dataset.v;
+    if (s.discBusy) return;
+    s.discBusy = key; delete s.discErr[key]; render();
+    const r = await lvFetch('DELETE', '/api/v1/connections/'+encodeURIComponent(key));
+    s.discBusy = '';
+    if (r.ok || r.status === 404){
+      const v = (s.conns || []).find(x => x.vendor === key);
+      if (v) Object.assign(v, { connected:false, state:null, robotCount:null, lastOkAt:null, error:null, history:null });
+      delete s.vok[key]; s.disc = null;
+    } else s.discErr[key] = r.error;
+    render();
+  },
+  lvKeyMake: async () => {
+    const s = lvSrc();
+    if (s.keyBusy || (s.keys || []).length >= 5) return;
+    s.keyBusy = true; s.keyErr = ''; render();
+    const label = String(s.keyLabel || '').trim();
+    const r = await lvFetch('POST', '/api/v1/keys', { label });
+    s.keyBusy = false;
+    if (r.ok){
+      s.newKey = { key: r.data.key };
+      s.keys = (s.keys || []).concat([{ id: r.data.id, prefix: r.data.prefix, label, createdAt: Date.now(), lastUsedAt: null }]);
+      s.keyLabel = '';
+    } else s.keyErr = r.error;
+    render();
+  },
+  lvKeyClose: () => { const s = lvSrc(); delete s.newKey; render(); },
+  lvKeyRevokeAsk: (el) => { const s = lvSrc(); s.revoke = el.dataset.id; delete s.revErr[el.dataset.id]; render(); },
+  lvKeyRevokeCancel: () => { lvSrc().revoke = null; render(); },
+  lvKeyRevoke: async (el) => {
+    const s = lvSrc(), id = el.dataset.id;
+    if (s.revBusy) return;
+    s.revBusy = id; delete s.revErr[id]; render();
+    const r = await lvFetch('DELETE', '/api/v1/keys/'+encodeURIComponent(id));
+    s.revBusy = '';
+    if (r.ok || r.status === 404){ s.keys = (s.keys || []).filter(k => String(k.id) !== String(id)); s.revoke = null; }
+    else s.revErr[id] = r.error;
+    render();
+  },
+  lvCopy: (el) => {
+    const t = document.getElementById(el.dataset.target);
+    if (!t) return;
+    const text = t.value != null && t.tagName === 'INPUT' ? t.value : t.textContent;
+    const done = () => { if (typeof showTabToast === 'function') showTabToast({ text:'Copied.' }); };
+    try { navigator.clipboard.writeText(text).then(done, () => { if (t.select){ t.select(); document.execCommand('copy'); done(); } }); }
+    catch(e){ if (t.select){ t.select(); document.execCommand('copy'); done(); } }
+  },
+  lvImportMapped: () => {
+    const u = lvSrc().up;
+    if (u.busy || !LV_FIELDS.filter(f => f[2]).every(f => u.map[f[0]])) return;
+    const columns = {};
+    LV_FIELDS.forEach(f => { if (u.map[f[0]]) columns[f[0]] = u.map[f[0]]; });
+    u.busy = true; u.mapErr = ''; render();
+    lvSendImport(columns);
+  },
+  lvImportRetry: () => { const u = lvSrc().up; if (!u.text){ u.state = 'idle'; render(); return; } u.state = 'loading'; render(); lvSendImport(null); }
+});
+
+document.addEventListener('input', (e) => {
+  if (!lvOn() || !e.target || !e.target.dataset) return;
+  const t = e.target;
+  if (t.dataset.lvF && t.tagName !== 'SELECT'){ lvSetPath(t.dataset.lvF, t.value); if (t.dataset.lvR) render(); }
+});
+document.addEventListener('change', (e) => {
+  if (!lvOn() || !e.target) return;
+  const t = e.target, ds = t.dataset || {};
+  if (t.id === 'lvFile'){ const f = t.files && t.files[0]; t.value = ''; lvTakeFile(f); return; }
+  if (ds.lvBilling !== undefined){ S.billingDay = Number(t.value) || 1; render(); return; }
+  if (ds.lvF && t.tagName === 'SELECT'){ lvSetPath(ds.lvF, t.value); render(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (!lvOn() || !e.target) return;
+  if (e.target.id === 'lvSpotIn'){
+    if (e.key === 'Enter'){ e.preventDefault(); const b = document.querySelector('[data-act="lvSpotSave"]'); if (b) ACTIONS.lvSpotSave(b); }
+    if (e.key === 'Escape') ACTIONS.lvSpotCancel();
+  }
+});
+document.addEventListener('dragover', (e) => {
+  if (!lvOn() || !document.querySelector('[data-lv-drop]')) return;
+  if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) e.preventDefault();
+});
+document.addEventListener('drop', (e) => {
+  if (!lvOn() || !document.querySelector('[data-lv-drop]') || !e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  lvTakeFile(e.dataTransfer.files[0]);
+});
+
 bootScreen();
+lvBoot();
 if (LIVE && !S.demoMode) persistBase = persistSnapshot();
 render();
 try { history.replaceState(Object.assign({}, history.state, { tabKey: currentTabKey() }), '', location.href); } catch(e){}
