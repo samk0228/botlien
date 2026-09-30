@@ -206,6 +206,9 @@ body.bl-dragging, body.bl-dragging *{cursor:ew-resize !important;user-select:non
   [data-fleet-head] > div:nth-child(3),[data-fleet-head] > div:nth-child(4),[data-fleet-head] > div:nth-child(5),
   [data-fleet-row] > [data-row-secondary],[data-fleet-head] > [data-now-head]{display:none !important}
   [data-fleet-head] > [data-head-secondary]{display:none !important}
+  [data-rc-row],[data-rc-head]{grid-template-columns:minmax(0,1fr) minmax(64px,.6fr) minmax(88px,.8fr) 24px !important}
+  [data-rc-row] > [data-rc-sec],[data-rc-head] > [data-rc-sec]{display:none !important}
+  [data-rc-restate]{display:flex !important}
   /* Numbers: no ranking figure, so the row is name, source pill, chevron. */
   [data-numbers-table] [data-fleet-head],[data-numbers-table] [data-fleet-row]{grid-template-columns:minmax(0,1fr) 110px 24px !important}
   [data-numbers-table] [data-fleet-head] > div:nth-child(2){display:none !important}
@@ -757,7 +760,7 @@ const LIVE = (typeof window !== 'undefined' && window.BOTLIEN_LIVE && !/[?&]demo
 // built from the demo's own tables; ?livepreview=business, =import or
 // =confirm opens that sample account at that first-run step. A real account
 // never takes this path.
-const LIVE_PREVIEW = (location.search.match(/[?&]livepreview=([a-z0-9]+)/) || [])[1] || null; // only with ?livepreview=1|business|import|confirm
+const LIVE_PREVIEW = (location.search.match(/[?&]livepreview=([a-z0-9]+)/) || [])[1] || null; // only with ?livepreview=1|mfg|business|import|confirm
 let previewLiveCache = null;
 function liveData(){ return LIVE || (LIVE_PREVIEW ? (previewLiveCache || (previewLiveCache = previewLive())) : null); }
 function isLiveAccount(){ return !!liveData() && !S.demoMode; }
@@ -1478,6 +1481,14 @@ function computeStatement(full, scope){
   const rows = entries.map(({c,i}) => {
     const work = S.confirmWork[i] ?? c.work;
     const b = workDef(work);
+    const arm = rcArm(i);
+    if (arm){
+      const units = range ? unitsInRange(i, range.start, range.end) : c.units;
+      const invoice = Math.round((S.robotInvoice[i] ?? (arm.perHour * arm.hoursYear / 12 / 100)) * (rangeDays / periodDays) * 100) / 100;
+      const value = Math.round(units * arm.perHour) / 100;
+      return { i, name: (S.confirmName[i] ?? c.name) || c.name, work, basis:'active_hour', units, unit: units === 1 ? 'working hour' : 'working hours',
+        rate: arm.perHour / 100, value, invoice, excluded: !!S.excluded[i], wage: null, benchmarkWage: arm.estimated, cov: invoice > 0 ? value / invoice : null, arm: true };
+    }
     // Wage and invoice come from Setup's per-robot overrides when one
     // exists, the category benchmark otherwise, this is what makes an edit
     // on Setup actually move the number here instead of just saving text
@@ -1823,7 +1834,7 @@ function computeIncidents(){
       const linked = safety.find(s => s.linked && s.date === x.date);
       out.push({
         i: r.i, name: r.name, site, siteName: SITES[site].name, date: x.date, time: x.start, hour,
-        kind: lvCause(site, x), spot: x.spot || null, rawKind: x.cause, family: x.cause.indexOf('stuck') === 0 ? 'Stuck' : x.cause.indexOf('error') === 0 ? 'Error E-217' : x.cause.indexOf('collision') === 0 ? 'Collision' : x.cause.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
+        kind: lvCause(site, x), spot: x.spot || null, rawKind: x.cause, family: x.cause.indexOf('stuck') === 0 ? 'Stuck' : x.cause.indexOf('error') === 0 ? 'Error '+(x.cause.slice(6).trim() || 'E-217') : x.cause.indexOf('wait') === 0 ? 'Waiting' : x.cause.indexOf('collision') === 0 ? 'Collision' : x.cause.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
         minutes: x.minutes, cost: isStall ? Math.round(S.stallMinutes / 60 * wage * 100) / 100 : null,
         safetyNote: linked ? linked.note : '', shift: shiftOf(hour).label, kindClass:'downtime'
       });
@@ -2408,7 +2419,7 @@ const S = {
   // benchmark," present means "this robot's own number," read by
   // computeStatement() so an edit here is the one calculation the rest of
   // the app already reads from, not a second copy of the math.
-  robotInvoice: {}, robotHours: {}, setupSaved: {},
+  robotInvoice: {}, robotHours: {}, setupSaved: {}, robotCost: {},
   // Per work category, not per robot: what a person is paid and how much of
   // that work they get through in an hour. Undefined means "still on our
   // published benchmark", which is what the benchmark badge reads.
@@ -2935,7 +2946,7 @@ function appRail(){
     + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:'+(collapsed?'4px 12px':'8px')+';overflow-y:auto;overflow-x:hidden">'
       + item('dashv2','equal','Dashboard')
       + item('robots','boxes','Fleet', badge)
-      + item('costs','ruler','Costs')
+      + (rcOn() ? '' : item('costs','ruler','Costs'))
       + item('trends','trending-up','Trends')
       + item('payback','coins','Payback')
       + item('contract','file-text','Contract')
@@ -3356,6 +3367,7 @@ function sparklineChart(points, opts){
 // grid, and a trend footer, the shadcn line-chart look.
 function recapCard(opts){
   const o = opts || {};
+  if (rcOn()) return rcRecapCard(o);
   const s = computeStatement();
   if (s.mode === 'estimate'){
     const none = '<div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:8px">Coverage over time</div>'
@@ -3484,6 +3496,7 @@ function noRobotNote(){
 // looked fine at 6 robots on Pier 4 alone but read as "here's the entire
 // fleet" once All 3 sites pulled in the full 13.
 function attentionCard(){
+  if (rcOn()) return rcAttentionCard();
   const s = computeStatement();
   const withCov = s.included.filter(r => r.cov !== null);
   const sorted = withCov.slice().sort((a,b) => b.cov - a.cov);
@@ -3622,8 +3635,8 @@ function viewDashV2(){
   const layout = S.dashLayout.filter(id => DASH_BLOCKS[id] && DASH_ANCHOR.indexOf(id) < 0);
   const hidden = layout.filter(id => S.dashHidden.includes(id));
   const visible = layout.filter(id => !S.dashHidden.includes(id));
-  const band3 = visible.filter(id => DASH_BAND3.indexOf(id) >= 0);
-  const band2 = visible.filter(id => DASH_BAND3.indexOf(id) < 0 && id !== 'brief');
+  const band3 = rcOn() ? [] : visible.filter(id => DASH_BAND3.indexOf(id) >= 0);
+  const band2 = visible.filter(id => DASH_BAND3.indexOf(id) < 0 && id !== 'brief' && !(rcOn() && id === 'work'));
   const showBrief = visible.indexOf('brief') >= 0;
   // Real masonry (see layoutDashMasonry below), not a row/column layout.
   // Grid and flexbox both size a whole row by its tallest member, so a
@@ -3642,14 +3655,15 @@ function viewDashV2(){
   const s = computeStatement();
   const util = utilSummary(), cost = costSummary();
   const pb = computePayback();
-  const tabs = [
+  const payTab = { id:'payback', label:'Payback', value: pb.rows.length ? pb.paid+' of '+pb.rows.length : '–', unit:'paid back' };
+  const tabs = rcOn() ? rcDashTabs().concat([payTab]) : [
     { id:'kpi',       label:'Coverage',               value: s.coverage === null ? '–' : s.coverage.toFixed(2)+'x', unit: s.mode === 'estimate' ? 'estimate' : 'this period' },
     { id:'cost',      label:'A person vs your robots', value: cost.value, unit: cost.unit },
     { id:'util',      label:'Utilization',            value: util.value, unit: util.unit },
-    { id:'payback',   label:'Payback',                value: pb.rows.length ? pb.paid+' of '+pb.rows.length : '–', unit:'paid back' }
+    payTab
   ];
-  const current = tabs.some(t => t.id === S.dashTab) ? S.dashTab : 'kpi';
-  const panel = current === 'kpi'
+  const current = tabs.some(t => t.id === S.dashTab) ? S.dashTab : tabs[0].id;
+  const panel = rcOn() ? rcDashPanel(current, pb) : current === 'kpi'
     ? '<div data-split style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.4fr);gap:32px;align-items:start">'
         + '<div style="min-width:0">'+coverageKpiCard({ bare:true, big:true })+'</div>'
         + '<div style="min-width:0">'+recapCard({ bare:true })+'</div>'
@@ -4241,16 +4255,16 @@ function viewSwitcher(views, current, act){
 /** Everything a card or row needs about one robot, computed once. */
 function robotFacts(s){
   const r = ROBOTS[s.i];
-  const short = s.cov !== null && s.cov < 1;
+  const short = !s.arm && s.cov !== null && s.cov < 1;
   const spentParts = (r.parts || []).filter(p => p.left <= 0).length;
   return {
     s, r, i: s.i, short,
     covLabel: s.cov === null ? '–' : s.cov.toFixed(2)+'x',
-    chip: short ? 'under its lease' : (s.benchmarkWage ? 'benchmark rate' : 'covered'),
+    chip: s.arm ? (s.benchmarkWage ? 'estimated' : 'your numbers') : short ? 'under its lease' : (s.benchmarkWage ? 'benchmark rate' : 'covered'),
     chipIcon: short ? 'triangle-alert' : (s.benchmarkWage ? 'sliders-horizontal' : 'check'),
     // The verdict's colour travels with the verdict, so no call site has
     // to work out what red means on its own.
-    chipTone: short ? 'bad' : (s.benchmarkWage ? 'warn' : 'good'),
+    chipTone: s.arm ? undefined : short ? 'bad' : (s.benchmarkWage ? 'warn' : 'good'),
     condTone: !r.parts ? undefined : (spentParts ? 'bad' : 'good'),
     dutyPct: String(r.duty).replace(/^duty\s*/, ''),
     condition: !r.parts ? 'not reported' : spentParts ? spentParts+(spentParts === 1 ? ' part past life' : ' parts past life') : 'within rated life',
@@ -4508,6 +4522,7 @@ function setupOwnEdit(s, i){  return S.robotInvoice[i] !== undefined || S.robotH
 }
 
 function viewRobots(){
+  if (rcOn()) return rcFleet();
   // Coverage, chip, and the equation used to be a hardcoded string per
   // robot. Now they're read off computeStatement(), the one calculation
   // Dashboard already trusted, so a wage or invoice edit on Setup moves
@@ -4913,7 +4928,7 @@ function setupRobotForm(s){
       + (S.workDeleteBlocked
           ? note('triangle-alert', '&ldquo;'+esc(S.workDeleteBlocked)+'&rdquo; is still what some robots do. Move them to something else first, then delete it.')
           : note('', isCustomWork(s.work) ? 'Your own category. Set what a unit of it is called, and its rate, on Numbers.' : 'Type your own if none of these fit.')), true)
-    + block(label('Monthly invoice')
+    + (rcOn() && rcArm(i) ? rcSetupInputs(i) : block(label('Monthly invoice')
       + numInput('setupInvoice-'+i, s.invoice.toFixed(2), '', 'prefix')
       + note('user', 'yours to correct &middot; what the lease charges for this robot'))
     // Both sides of the comparison, labelled by WHO, because "rate: $0.40
@@ -4928,7 +4943,7 @@ function setupRobotForm(s){
       + note('check', '<span style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:1.5px 5px;border-radius:3px;color:var(--fg3);border:1px dashed var(--hair2);margin-right:6px">worked out</span><span id="setupRobotDerive-'+i+'">'+robotUnitCostDerivation(s, b)+'</span>'))
     + block(label('Operating hours / day')
       + numInput('setupHours-'+i, hoursVal, '0.5', 'h / day')
-      + note('user', 'yours to correct &middot; what you schedule it for'))
+      + note('user', 'yours to correct &middot; what you schedule it for')))
     + '<div style="display:flex;align-items:center;gap:12px;padding:16px 0 4px;border-top:1px solid var(--hair)">'
       + setupSaveButton(i)
       + '<span style="font-size:12.5px;color:var(--fg3)">Saving moves every figure built on these.</span>'
@@ -4962,18 +4977,19 @@ function viewNumbersRobot(){
   + '</div>';
 
   const formCard = '<div style="border:1px solid var(--hair);border-radius:6px;padding:20px 22px 12px;min-width:0">'
-    + '<div style="font-size:15px;font-weight:600;color:var(--fg1);padding-bottom:12px;border-bottom:1px solid var(--hair)">Five inputs for '+esc(r.name)+'</div>'
+    + '<div style="font-size:15px;font-weight:600;color:var(--fg1);padding-bottom:12px;border-bottom:1px solid var(--hair)">'+(rcOn() && rcArm(i) ? 'What '+esc(r.name)+' costs you' : 'Five inputs for '+esc(r.name))+'</div>'
     + setupRobotForm(s)
   + '</div>';
 
   return subhead
     + '<div data-dash-cols style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start">'
       + formCard
-      + robotStatsPanel(s, { view:'robots', act:'toggleRobot', label:'See it on Fleet' })
+      + (rcOn() && rcArm(i) ? '<div style="border:1px solid var(--hair);border-radius:6px;padding:20px 22px;min-width:0">'+rcCostBlock(i, true)+'</div>' : robotStatsPanel(s, { view:'robots', act:'toggleRobot', label:'See it on Fleet' }))
     + '</div>';
 }
 
 function viewSetup(){
+  if (rcOn()) return rcSetupView();
   // Scope follows S.dashScope now, the same control Dashboard and Fleet
   // already share (see scopeToggle below), so editing a robot's wage or
   // invoice here always happens against the same set of robots you can
@@ -6005,6 +6021,7 @@ function methodItems(){
    labour detail. */
 
 function viewCosts(){
+  if (rcOn()) return viewDashV2();
   const k = computeKeeping(S.stallMinutes);
   // Absent has to look absent, never like zero. Two stalls in a month is a
   // Tuesday, not a staffing cost, so the section does not render at all
@@ -6745,6 +6762,7 @@ function viewTrends(){
  *  room to be read per site and per robot instead of as one line. Nothing
  *  here is a second calculation. */
 function viewCoverage(){
+  if (rcOn()) return rcWorkingPanel();
   const stmt = computeStatement(true, scopeFilter());
   const rows = stmt.rows.filter(r => !r.excluded);
   if (!rows.length || computeStatement().mode === 'estimate'){
@@ -7089,7 +7107,7 @@ function appStage(){
       + (tabOn ? '' : appHeader())
       + body
       + '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-top:36px;padding-top:28px;border-top:1px solid var(--hair)">'
-        + '<div style="font-size:12.5px;color:var(--fg3)">Counts are mission starts reported by the robot, so they read as picks started. Work is valued at replacement rates, never at what an order was worth.</div>'
+        + '<div style="font-size:12.5px;color:var(--fg3)">'+(rcOn() ? 'Working time is what the arms reported. Every dollar is what the robot costs to own and run, never what a part is worth.' : 'Counts are mission starts reported by the robot, so they read as picks started. Work is valued at replacement rates, never at what an order was worth.')+'</div>'
         + '<div style="display:flex;gap:20px;align-items:center">'
           + '<a href="mailto:info@botlien.com" style="font-size:13px;font-weight:500;text-decoration:none">info@botlien.com</a>'
           + '<span style="font-size:12.5px;color:var(--fg3)">© 2026 Botlien</span></div>'
@@ -7257,6 +7275,7 @@ const PEEK_ROBOT_TABS = [
 function peekRobotBody(i, tab){
   const s = computeStatement(true, null).rows.find(x => x.i === i);
   if (!s) return '<div style="font-size:13px;color:var(--fg3)">This robot is not in the statement.</div>';
+  if (rcOn() && rcArm(i)){ const x = rcPeekBody(i, tab, s); if (x !== null) return x; }
   const f = robotFacts(s);
   if (tab === 'verdict'){
     return (lvOn() ? lvNowBlock(i) : '') + '<div style="font-size:13.5px;line-height:1.7;color:var(--fg2);margin-bottom:18px">'
@@ -7351,6 +7370,7 @@ function peekSummary(p){
   if (p.kind !== 'robot') return '';
   const s = computeStatement(true, null).rows.find(x => x.i === Number(p.id));
   if (!s) return '';
+  if (rcOn() && rcArm(s.i)) return rcPeekSummary(s.i);
   const f = robotFacts(s);
   const stats = [
     ['Coverage', f.covLabel, 'verdict'],
@@ -7803,6 +7823,7 @@ L3.robot = {
   head(id){
     const i = Number(id), s = stmtRow(i);
     if (!s) return null;
+    if (rcOn() && rcArm(i)) return rcRobotHead(i, s);
     const f = robotFacts(s), site = robotSite(i);
     const d = f.delta ? (f.delta.indexOf('\u2212') === 0 ? 'down '+f.delta.slice(1) : 'up '+f.delta.replace('+','')) : '';
     return { name: s.name, dot: f.short, sub: lvBase(i) ? lvBaseLine(i) : '',
@@ -7820,7 +7841,7 @@ L3.robot = {
     { id:'broke', label:'What broke', icon:'triangle-alert' }, { id:'money', label:'Money', icon:'coins' }, { id:'contract', label:'Contract', icon:'file-text' },
     { id:'condition', label:'Condition', icon:'sliders-horizontal' }, { id:'decision', label:'Decision', icon:'route' }, { id:'inputs', label:'Inputs', icon:'user' } ]; },
   see(id){ return [['payback','Payback'],['contract','Contract'],['decisions','Decisions'],['costs','Costs'],['incidents','Incidents'],['setup','Numbers']]; },
-  body(id, tab){ return robotBody(Number(id), tab); }
+  body(id, tab){ const i = Number(id); if (rcOn() && rcArm(i) && (tab === 'verdict' || tab === 'time' || tab === 'money')) return rcPeekBody(i, tab, stmtRow(i)); return robotBody(i, tab); }
 };
 function robotBody(i, tab){
   const s = stmtRow(i), f = robotFacts(s), r = ROBOTS[i];
@@ -7947,7 +7968,7 @@ L3.site = {
         { id:'incidents', label:'Incidents', value: String(nInc), unit:'this period' }
       ] };
   },
-  inner(){ return [{ id:'robots', label:'Robots', icon:'boxes' }, { id:'stall', label:'Where they stall', icon:'anchor' }, { id:'demand', label:'Demand', icon:'trending-up' }, { id:'people', label:'People', icon:'users' }, { id:'incidents', label:'Incidents', icon:'list' }]; },
+  inner(){ return [{ id:'robots', label:'Robots', icon:'boxes' }, { id:'stall', label:'Where they stall', icon:'anchor' }, { id:'demand', label:'Demand', icon:'trending-up' }].concat(rcOn() ? [] : [{ id:'people', label:'People', icon:'users' }]).concat([ { id:'incidents', label:'Incidents', icon:'list' }]); },
   see(){ return [['robots','Fleet'],['incidents','Incidents'],['costs','Costs'],['decisions','Decisions']]; },
   body(id, tab){
     const n = siteIdx(id);
@@ -8171,9 +8192,10 @@ L3.work = {
         { id:'brands', label:'Share of fleet', value: total > 0 ? Math.round(value / total * 100)+'%' : 'not reported', unit:'of work value' }
       ] };
   },
-  inner(){ return [{ id:'rate', label:'Rate', icon:'sliders-horizontal' }, { id:'robots', label:'Robots', icon:'boxes' }, { id:'brands', label:'Brand against brand', icon:'building' }]; },
+  inner(){ return (rcOn() ? [{ id:'rate', label:'Robot cost', icon:'sliders-horizontal' }] : [{ id:'rate', label:'Rate', icon:'sliders-horizontal' }]).concat([{ id:'robots', label:'Robots', icon:'boxes' }, { id:'brands', label:'Brand against brand', icon:'building' }]); },
   see(){ return [['setup','Numbers'],['costs','Costs'],['benchmark','Benchmark']]; },
   body(id, tab){
+    if (rcOn() && tab === 'rate') return lead('Each arm is priced at what it costs to own and run, not at anyone&#39;s hours.') + rcCostSummary();
     const w = workById(id), b = workDef(w);
     if (tab === 'robots') return robotTable(computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.work === w));
     if (tab === 'brands'){
@@ -8214,7 +8236,7 @@ L3.shift = {
         { id:'_worst', tab:'stops', label:'Worst hour', value: worst != null && all.hours[worst] > 0 ? hourLabel(worst) : 'none', unit: worst != null && all.hours[worst] > 0 ? fmtDownFor(all.hours[worst])+' stopped' : 'no stops' }
       ] };
   },
-  inner(){ return [{ id:'stops', label:'Stops', icon:'list' }, { id:'staff', label:'Staff time', icon:'users' }, { id:'robots', label:'Robots', icon:'boxes' }]; },
+  inner(){ return [{ id:'stops', label:'Stops', icon:'list' }].concat(rcOn() ? [] : [{ id:'staff', label:'Staff time', icon:'users' }]).concat([{ id:'robots', label:'Robots', icon:'boxes' }]); },
   see(){ return [['incidents','Incidents'],['settings','Settings']]; },
   body(id, tab){
     const sh = shiftById(id);
@@ -8985,11 +9007,12 @@ function briefData(){
   const claims = computeContract().owed.filter(r => claimStatus(r.i) === 'not claimed');
   const tickets = TICKETS.filter(t => ticketLate(t) && stmt.some(r => r.i === t.i));
   const fix = fixRows().find(f => f.status !== 'done') || null;
-  return { multi, watch: under[0] || null, spots, parts, silent, claims, tickets, fix };
+  return { multi, watch: rcOn() ? null : (under[0] || null), spots, parts, silent, claims: rcOn() ? [] : claims, tickets, fix };
 }
 function briefBlocks(d, cardMode){
   const siteOf = n => d.multi ? ', '+esc(SITES[n].name) : '';
   const blocks = [];
+  if (rcOn()) blocks.push({ id:'stops', title:'Yesterday', html:'<div style="font-size:13px;line-height:1.6;color:var(--fg1);padding:6px 0">'+rcStopsLine()+'</div>' });
   if (d.watch){
     const w = d.watch, f = robotFacts(w.r);
     blocks.push({ id:'watch', title:'Watch today', html: rowLink('data-peek="robot:'+w.r.i+':broke"', 'boxes', esc(w.r.name)+siteOf(robotSite(w.r.i)),
@@ -9044,6 +9067,7 @@ function briefCard(){
 function briefSms(){
   const d = briefData(), lines = ['Botlien, '+briefDateLabel()+'.'];
   const siteOf = n => d.multi ? ', '+SITES[n].name : '';
+  if (rcOn()) lines.push('Yesterday: '+rcStopsLine().replace(/&#39;/g, "'"));
   if (d.watch) lines.push('Watch: '+d.watch.r.name+siteOf(robotSite(d.watch.r.i))+', under its lease, stuck '+d.watch.stuck+'x in 7 days, '+fmtDownFor(d.watch.mins)+' down.');
   if (d.spots[0]) lines.push('Stuck most: '+capFirst(d.spots[0].place)+siteOf(d.spots[0].site)+', '+d.spots[0].n+' stall'+(d.spots[0].n === 1 ? '' : 's')+'.');
   if (d.fix) lines.push('Do: clear the path '+(d.fix.place.indexOf('near ') === 0 ? '' : 'at ')+d.fix.place+siteOf(d.fix.site)+'.');
@@ -10826,6 +10850,7 @@ function frInit(){
   };
   if (d.step === 'confirm') frSeedFleet();
   if ((d.vendors || []).some(v => v.connected && (!v.history || v.history.state === 'running'))) frStartPoll();
+  else if (d.step === 'import' || d.step === 'business') frWatchPush();
 }
 
 /* The fleet step's editable copy of the server's robots. A site that is not
@@ -10855,11 +10880,12 @@ async function frCall(method, url, body, csv){
   return data;
 }
 function frTake(reply){ if (reply && reply.step && liveData()) liveData().FIRST_RUN = reply; }
-function frGo(view){ S.fr.err = {}; if (view === 'confirm') frSeedFleet(); set({ view }); try { window.scrollTo(0, 0); } catch(e){} }
+function frGo(view){ S.fr.err = {}; if (view === 'confirm') frSeedFleet(); if (view === 'start') frWatchPush(); set({ view }); try { window.scrollTo(0, 0); } catch(e){} }
 
 /* ?livepreview only: a sample account filled from the demo's own tables, so
    the live screens can be seen here. Server calls fail, on purpose. */
 function previewLive(){
+  if (LIVE_PREVIEW === 'mfg') return rcPreviewLive();
   const benchKey = (w) => Object.keys(BENCH).find(k => k.toLowerCase().split(' ')[0] === String(w).toLowerCase().split(' ')[0]);
   const businessTypes = BUSINESSES.filter(b => b[0] !== 'Something else').map(b => {
     const works = b[1].split(', ');
@@ -11146,6 +11172,23 @@ async function frSendFile(file){
   render();
 }
 
+/* Data can also arrive pushed from the owner's own gateway with an API key,
+   which no button on this screen starts. A slow check moves on to the fleet
+   step when it lands, instead of waiting for a reload. */
+let frPushTimer = null;
+function frWatchPush(){
+  clearInterval(frPushTimer);
+  frPushTimer = setInterval(async () => {
+    if (!frOn()){ clearInterval(frPushTimer); return; }
+    // A vendor's history pull has its own, faster poll.
+    if (S.view !== 'start' || (frData().vendors || []).some(v => v.connected && (!v.history || v.history.state === 'running'))) return;
+    let reply;
+    try { reply = await frCall('GET', '/api/v1/setup'); } catch(e){ return; }
+    if (reply.step === 'import') return;
+    clearInterval(frPushTimer); frTake(reply);
+    if (reply.step === 'confirm') frGo('confirm'); else location.href = '/app';
+  }, 10000);
+}
 function frStartPoll(){
   clearInterval(frPollTimer);
   frPollTimer = setInterval(async () => {
@@ -11485,7 +11528,7 @@ function lvPastRows(){
       const hour = Number(String(x.start).split(':')[0]), c = String(x.cause || '');
       out.push({ i, name: robotLabel(i), site, siteName: SITES[site].name, date: x.date, time: x.start, hour,
         kind: lvCause(site, x), spot: x.spot || null, rawKind: c,
-        family: c.indexOf('stuck') === 0 ? 'Stuck' : c.indexOf('error') === 0 ? 'Error E-217' : c.indexOf('collision') === 0 ? 'Collision' : c.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
+        family: c.indexOf('stuck') === 0 ? 'Stuck' : c.indexOf('error') === 0 ? 'Error '+(c.slice(6).trim() || 'E-217') : c.indexOf('wait') === 0 ? 'Waiting' : c.indexOf('collision') === 0 ? 'Collision' : c.indexOf('offline') === 0 ? 'Offline' : 'Low battery',
         minutes: x.minutes, cost: null, safetyNote:'', shift: shiftOf(hour).label, kindClass:'downtime', periodKey: x.period });
     });
   });
@@ -11936,6 +11979,7 @@ function lvBoot(){
   if (d.BILLING_DAY != null) S.billingDay = Number(d.BILLING_DAY) || S.billingDay;
   if (Array.isArray(d.TICKETS)){ TICKETS.length = 0; d.TICKETS.forEach(t => TICKETS.push(lvTicketShape(t, {}))); lvTicketsSync(); }
   COPY.creds = ['Data sources', 'Every way data reaches this account: vendors we connect, data your systems push, and exports you upload.'];
+  if (isRobotCostAccount()) rcBoot();
 }
 
 function lvSetPath(path, value){
@@ -12109,6 +12153,568 @@ document.addEventListener('drop', (e) => {
   if (!lvOn() || !document.querySelector('[data-lv-drop]') || !e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
   e.preventDefault();
   lvTakeFile(e.dataTransfer.files[0]);
+});
+
+/* ─────────────  ROBOT COST: MANUFACTURING ACCOUNTS  ─────────────
+
+   Every dollar comes from the robot: what it costs to own and run per
+   scheduled hour, and how much of that time turned into work. Numbers come
+   from liveData().COST; the owner's own price and hours recompute them here
+   with the same formula the server uses. Everything is behind
+   isRobotCostAccount(). */
+
+function isRobotCostAccount(){
+  const d = liveData();
+  if (!d || !isLiveAccount()) return false;
+  if (d.FIRST_RUN && d.FIRST_RUN.business === 'manufacturing') return true;
+  return (d.COST || []).some(Boolean);
+}
+function rcOn(){ return isRobotCostAccount() && !S.onboarding; }
+
+const UR = { UR3e:[3301100,150], UR5e:[3836300,250], UR10e:[4959600,350],
+             UR16e:[5775400,350], UR20:[6299000,500], UR30:[6141500,500] }; // cents, watts
+function armCost({ arm, armPrice, install, hoursYear }){
+  const [list, watts] = UR[arm];
+  const price = armPrice > 0 ? armPrice * 100 : list, hrs = hoursYear || 4000;
+  const deployed = price * (1 + install);
+  const life = Math.min(7 * hrs, 35000);
+  const own = (deployed - price * 0.40) / life;
+  const maint = price * 0.05 / hrs;
+  const energy = watts / 1000 * 9.77;
+  return { deployed, own, maint, energy, perHour: own + maint + energy };
+}
+const RC_INSTALL = [[1,'Simple cell 1.0x'], [1.5,'Complex cell 1.5x'], [2,'Welding cell 2.0x']];
+const RC_CEILING = 'Idle cost is the most you could win back, not a promise. Some waiting is built into the line.';
+const RC_SOURCES = 'List prices from Devonics. Life 7 years or 35,000 hours, maintenance 5% a year, resale 40%, power from UR&#39;s manuals, electricity 9.77 cents per kWh.';
+
+function rcHr(c){ return c == null ? 'not reported' : money(c / 100); }
+function rcPct(p){ return p == null ? 'not reported' : Math.round(p)+'%'; }
+function rcYr(c){ return c == null ? 'not reported' : money0(c / 100); }
+function rcDerive(arm, x){
+  return money(x.perHour / 100)+' per working hour = what a '+arm+' costs to own and run per scheduled hour ('+money(x.own / 100)+' ownership + '+money(x.maint / 100)+' maintenance + '+money(x.energy / 100)+' energy)';
+}
+function rcCost(i){ const d = liveData(); return d && d.COST ? (lvAt(d.COST, i) || null) : null; }
+
+/** One arm's cost, from the server, or recomputed from the owner's inputs. */
+function rcArm(i){
+  if (!isRobotCostAccount()) return null;
+  const c = rcCost(i);
+  if (!c) return null;
+  const own = (S.robotCost || {})[i] || {};
+  const hrs0 = c.hoursPerYear || 4000;
+  if (!Object.keys(own).length){
+    return { i, arm: c.armLabel, priceCents: c.armPriceCents, ownPrice: false, install: c.installMultiple, deployed: c.deployedCents, hoursYear: hrs0,
+      perHour: c.perHourCents, own: c.ownershipCents, maint: c.maintenanceCents, energy: c.energyCents,
+      workingPct: c.workingPct, perWorking: c.perWorkingHourCents, idleYear: c.idleCostYearCents, derivation: c.derivation, estimated: !!c.estimated };
+  }
+  const arm = UR[own.arm] ? own.arm : (UR[c.armLabel] ? c.armLabel : 'UR10e');
+  const install = own.install != null ? own.install : c.installMultiple;
+  const hoursYear = own.hoursYear || hrs0;
+  const x = armCost({ arm, armPrice: own.armPrice, install, hoursYear });
+  const w = c.workingPct == null ? null : Math.min(100, c.workingPct * hrs0 / hoursYear);
+  return { i, arm, priceCents: own.armPrice > 0 ? own.armPrice * 100 : UR[arm][0], ownPrice: own.armPrice > 0, install, deployed: x.deployed, hoursYear,
+    perHour: x.perHour, own: x.own, maint: x.maint, energy: x.energy,
+    workingPct: w, perWorking: w > 0 ? x.perHour / (w / 100) : null, idleYear: w == null ? null : x.perHour * hoursYear * (1 - w / 100),
+    derivation: rcDerive(arm, x), estimated: !!c.estimated && !(own.armPrice > 0 && own.hoursYear > 0) };
+}
+// The period so far, not the whole open period: a live open period's lease
+// is prorated to today (see computeStatement), so day 8 of a month is not
+// read as 8 days of work against 30 days of robot cost.
+function rcRows(){
+  return computeStatement(false, scopeFilter()).rows.filter(r => !r.excluded && rcArm(r.i)).map(r => ({ i: r.i, s: r, a: rcArm(r.i), name: r.name }));
+}
+/** The line: arms added up. Working is the statement's own coverage over
+ *  the arms, because a working hour is priced at the arm's own cost. */
+function rcLine(){
+  const rows = rcRows();
+  if (!rows.length) return { rows, n:0, perHour:null, working:null, perWorking:null, idle:null, estimated:false };
+  const perHour = rows.reduce((a, r) => a + r.a.perHour, 0);
+  const inv = rows.reduce((a, r) => a + r.s.invoice, 0), val = rows.reduce((a, r) => a + r.s.value, 0);
+  const cov = inv > 0 ? val / inv : null;
+  const idles = rows.filter(r => r.a.idleYear != null);
+  return { rows, n: rows.length, perHour, working: cov == null ? null : cov * 100, perWorking: cov > 0 ? perHour / cov : null,
+    idle: idles.length ? idles.reduce((a, r) => a + r.a.idleYear, 0) : null, estimated: rows.some(r => r.a.estimated) };
+}
+function rcEst(){ return pill('estimated','sliders-horizontal'); }
+function rcOwnLink(i){ return lvLink('data-act="rcOwn"'+(i != null ? ' data-i="'+i+'"' : ''), 'Use your own numbers'); }
+function rcEstLine(i){
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:14px">'+rcEst()+'<span style="font-size:12.5px;color:var(--fg2)">Built on list prices and two shifts.</span>'+rcOwnLink(i)+'</div>';
+}
+
+/* ─── dashboard ─── */
+
+function rcDashTabs(){
+  const L = rcLine();
+  return [
+    { id:'rcost',   label:'Robot cost', value: L.perHour == null ? 'not reported' : money(L.perHour / 100)+'/hr', unit:'to own and run' },
+    { id:'working', label:'Working',    value: rcPct(L.working), unit:'of scheduled time' },
+    { id:'idle',    label:'Idle cost',  value: rcYr(L.idle), unit:'a year, at most' }
+  ];
+}
+function rcDashPanel(current, pb){
+  if (current === 'payback') return paybackDashPanel(pb);
+  if (current === 'working') return rcWorkingPanel();
+  if (current === 'idle') return rcIdlePanel();
+  return '<div data-split style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.3fr);gap:32px;align-items:start">'
+    + '<div style="min-width:0">'+rcCostSummary()+'</div>'
+    + '<div style="min-width:0">'+rcRecapCard({ bare:true })+'</div>'
+  + '</div>';
+}
+function rcCostSummary(){
+  const L = rcLine();
+  if (!L.n) return '<div style="font-size:13px;color:var(--fg2)">No arm is included at this scope yet.</div>';
+  const n = L.n+' arm'+(L.n === 1 ? '' : 's');
+  const say = 'Your '+n+' cost '+money(L.perHour / 100)+' an hour to own and run. '
+    + (L.working == null ? 'Working time was not reported yet.'
+      : L.perWorking == null ? (L.n === 1 ? 'It' : 'They')+' did not report any working time this period.'
+      : (L.n === 1 ? 'It' : 'They')+' worked '+rcPct(L.working)+' of '+(L.n === 1 ? 'its' : 'their')+' scheduled time, so each hour of real work cost '+money(L.perWorking / 100)+'.');
+  const parts = L.rows.map(r => esc(r.name)+' '+money(r.a.perHour / 100)).join(' + ');
+  return '<div style="font-size:48px;font-weight:600;letter-spacing:-0.03em;line-height:1;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:14px">'+money(L.perHour / 100)+'<span style="font-size:18px;font-weight:500;color:var(--fg2);letter-spacing:0">/hr</span></div>'
+    + '<p style="font-size:14px;line-height:1.65;color:var(--fg1);margin:0 0 10px;max-width:52ch;text-wrap:pretty">'+say+'</p>'
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg3);max-width:52ch">'+RC_CEILING+'</div>'
+    + (L.estimated ? rcEstLine(null) : '')
+    + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--hair)">'
+      + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg2);margin-bottom:8px">'+money(L.perHour / 100)+' = '+parts+'. Open an arm for how its figure is worked out.</div>'
+      + L.rows.map(r => '<div data-peek="robot:'+r.i+':verdict" role="link" tabindex="0" class="hv-ghost" style="display:flex;align-items:baseline;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+          + '<span style="font-size:13px;font-weight:500;color:var(--fg1)">'+esc(r.name)+'</span><span style="font-size:12px;color:var(--fg3)">'+esc(r.a.arm)+'</span>'
+          + '<span style="margin-left:auto;font-size:13px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+money(r.a.perHour / 100)+'/hr</span>'+ic('chevron-right',13,'color:var(--fg3);align-self:center')
+        + '</div>').join('')
+    + '</div>';
+}
+function rcRecapCard(o){
+  o = o || {};
+  const points = PERIODS.slice().reverse().map(p => ({ value: (covForPeriod(p, S.dashScope) || 0) * 100, label: p.label.slice(0,3), current: p.status === 'open', peek:'period:'+PERIODS.indexOf(p) }));
+  const avg = points.reduce((a, p) => a + p.value, 0) / points.length;
+  const d = points[points.length - 1].value - points[0].value;
+  const inner = '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px">'
+      + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Working over time</div>'
+      + '<span style="font-size:12px;font-weight:500;color:var(--fg2);font-variant-numeric:tabular-nums">6-month average '+Math.round(avg)+'%</span>'
+    + '</div>'
+    + sparklineChart(points, { formatValue: v => Math.round(v)+'%', reference:0 })
+    + '<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--fg1);padding:14px 0 4px;border-top:1px solid var(--hair);margin-top:4px">'
+      + (Math.abs(d) < 0.5 ? 'Level over 6 months' : ic(d >= 0 ? 'trending-up' : 'trending-down',14)+(d >= 0 ? 'Up ' : 'Down ')+Math.abs(d).toFixed(0)+' point'+(Math.round(Math.abs(d)) === 1 ? '' : 's')+' over 6 months')
+    + '</div>'
+    + '<div style="font-size:11.5px;color:var(--fg3);padding-bottom:14px">Share of scheduled time the arms were working, last 6 periods</div>';
+  return o.bare ? inner : '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 0;overflow:hidden">'+inner+'</div>';
+}
+function rcBar(pct, tone){
+  return '<div style="flex:1;min-width:60px;height:8px;background:var(--ghost);border-radius:2px;overflow:hidden"><div style="height:100%;width:'+Math.max(0, Math.min(100, pct || 0)).toFixed(1)+'%;background:'+(tone || 'var(--fg1)')+'"></div></div>';
+}
+function rcWorkingPanel(){
+  const L = rcLine();
+  const rows = L.rows.slice().sort((a, b) => (a.a.workingPct ?? 101) - (b.a.workingPct ?? 101));
+  return '<div data-split style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1.3fr);gap:32px;align-items:start">'
+    + '<div style="min-width:0">'
+      + '<div style="font-size:48px;font-weight:600;letter-spacing:-0.03em;line-height:1;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:14px">'+rcPct(L.working)+'</div>'
+      + '<p style="font-size:14px;line-height:1.65;color:var(--fg1);margin:0 0 16px;max-width:52ch">Of the time you scheduled them, the arms were working '+rcPct(L.working)+'. The rest they were waiting, stopped or idle.</p>'
+      + rows.map(r => '<div data-peek="robot:'+r.i+':time" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+          + '<span style="width:96px;flex:none;font-size:12.5px;font-weight:500;color:var(--fg1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name)+'</span>'
+          + rcBar(r.a.workingPct)
+          + '<span style="width:40px;flex:none;text-align:right;font-size:12.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+rcPct(r.a.workingPct)+'</span></div>').join('')
+    + '</div>'
+    + '<div style="min-width:0">'+rcRecapCard({ bare:true })+'</div>'
+  + '</div>';
+}
+function rcIdlePanel(){
+  const L = rcLine();
+  const rows = L.rows.slice().sort((a, b) => (b.a.idleYear ?? -1) - (a.a.idleYear ?? -1));
+  const max = Math.max(1, ...rows.map(r => r.a.idleYear || 0));
+  return '<div style="font-size:48px;font-weight:600;letter-spacing:-0.03em;line-height:1;color:var(--fg1);font-variant-numeric:tabular-nums;margin-bottom:14px">'+rcYr(L.idle)+'<span style="font-size:18px;font-weight:500;color:var(--fg2);letter-spacing:0"> a year</span></div>'
+    + '<p style="font-size:14px;line-height:1.65;color:var(--fg1);margin:0 0 6px;max-width:64ch">What the arms cost while they were not working, at this period&#39;s pace, over a year.</p>'
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin-bottom:18px;max-width:64ch">'+RC_CEILING+'</div>'
+    + '<div style="max-width:620px">'+rows.map(r => '<div data-peek="robot:'+r.i+':verdict" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+        + '<span style="width:96px;flex:none;font-size:12.5px;font-weight:500;color:var(--fg1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name)+'</span>'
+        + rcBar((r.a.idleYear || 0) / max * 100, 'var(--acc)')
+        + '<span style="width:72px;flex:none;text-align:right;font-size:12.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+rcYr(r.a.idleYear)+'</span></div>').join('')+'</div>'
+    + (L.estimated ? rcEstLine(null) : '');
+}
+function rcAttentionCard(){
+  const L = rcLine();
+  const rows = L.rows.slice().sort((a, b) => (b.a.idleYear ?? -1) - (a.a.idleYear ?? -1));
+  const low = L.rows.filter(r => r.a.workingPct != null).sort((a, b) => a.a.workingPct - b.a.workingPct)[0];
+  return '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 18px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:2px">'
+      + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Works the least</div>'
+      + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:500;color:var(--acc);background:none;border:none;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">All robots →</button>'
+    + '</div>'
+    + (low ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(low.name)+' worked '+rcPct(low.a.workingPct)+' of its schedule</div>' : '')
+    + (rows.length ? rows.map(r => '<div data-peek="robot:'+r.i+':verdict" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+        + '<span style="width:96px;flex:none;font-size:12.5px;font-weight:500;color:var(--acc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">'+esc(r.name)+'</span>'
+        + rcBar(r.a.workingPct)
+        + '<span style="width:40px;flex:none;text-align:right;font-size:12.5px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+rcPct(r.a.workingPct)+'</span></div>').join('')
+      : '<div style="font-size:13px;color:var(--fg3);padding:6px 0">No arm is included at this scope yet.</div>')
+    + lvBaselineAttn(computeStatement(true, scopeFilter()).included)
+  + '</div>';
+}
+
+/* ─── fleet ─── */
+
+function rcLowestEvery(rows){
+  if (rows.length < 2) return null;
+  const per = rows.map(r => ({ i: r.i, v: robotPeriodCoverage(r.s).slice(0, -1) }));
+  const n = Math.min(...per.map(x => x.v.length));
+  if (!n) return null;
+  let who = null;
+  for (let k = 0; k < n; k++){
+    const known = per.filter(x => x.v[k] != null);
+    if (known.length < 2) return null;
+    const lo = known.slice().sort((a, b) => a.v[k] - b.v[k])[0].i;
+    if (who === null) who = lo; else if (who !== lo) return null;
+  }
+  return who;
+}
+function rcFleet(){
+  const stmt = computeStatement(true, scopeFilter());
+  const L = rcLine();
+  const arms = searchRows(L.rows, r => r.name+' '+r.a.arm).sort((a, b) => (b.a.idleYear ?? -1) - (a.a.idleYear ?? -1));
+  const others = searchRows(stmt.rows.filter(r => !rcArm(r.i)), r => r.name);
+  const lowest = rcLowestEvery(L.rows);
+  const cols = 'minmax(170px,1.7fr) minmax(64px,.6fr) minmax(88px,.8fr) minmax(64px,.6fr) minmax(110px,1fr) minmax(88px,.8fr) 24px';
+  const th = (t, sec, right) => '<div'+(sec ? ' data-rc-sec' : '')+' style="font-size:12.5px;font-weight:500;color:var(--fg2);'+(right ? 'text-align:right;' : '')+'">'+t+'</div>';
+  const cell = (html, sec, right) => '<div'+(sec ? ' data-rc-sec' : '')+' style="font-size:12.5px;color:var(--fg1);font-variant-numeric:tabular-nums;min-width:0;'+(right ? 'text-align:right;' : '')+'">'+html+'</div>';
+  const row = (r) => {
+    const a = r.a, tile = '<div style="flex:none;width:34px;height:34px;border-radius:7px;background:var(--ghost);display:flex;align-items:center;justify-content:center;color:var(--fg2)">'+ic('boxes',16)+'</div>';
+    return '<div data-peek="robot:'+r.i+':verdict" data-rc-row class="hv-ghost" role="link" tabindex="0" style="display:grid;grid-template-columns:'+cols+';gap:14px;align-items:center;padding:13px 18px;border-top:1px solid var(--hair);cursor:pointer">'
+      + '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+tile+'<div style="min-width:0">'
+        + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:14px;font-weight:500;color:var(--fg1)">'+esc(r.name)+(r.i === lowest ? pill('lowest every period','trending-down') : '')+(a.estimated ? rcEst() : '')+'</div>'
+        + '<div data-rc-restate style="display:none;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums"><span>'+esc(a.arm)+'</span><span>'+rcHr(a.perHour)+'/hr</span><span>'+rcPct(a.workingPct)+' working</span><span>'+(a.perWorking == null ? 'never worked' : rcHr(a.perWorking)+' per hour of real work')+'</span></div>'
+      + '</div></div>'
+      + cell(esc(a.arm), true)
+      + cell(rcHr(a.perHour)+'<span style="color:var(--fg3)">/hr</span>', true)
+      + cell(rcPct(a.workingPct))
+      + cell(a.perWorking == null ? '<span style="color:var(--fg3)">never worked</span>' : rcHr(a.perWorking), true)
+      + '<div style="text-align:right;font-size:15px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+rcYr(a.idleYear)+'</div>'
+      + '<span style="display:flex;justify-content:flex-end;color:var(--fg3)">'+ic('chevron-right',16)+'</span>'
+    + '</div>';
+  };
+  const scopeName = S.dashScope === 'all' ? SITES.map(s => s.name).join(', ') : (SITES[S.dashScope] || {}).name || '';
+  return '<div style="border:1px solid var(--hair);border-radius:6px;overflow:hidden;margin-bottom:24px">'
+      + '<div style="padding:20px 18px 16px">'
+        + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px"><h2 style="font-size:16px;font-weight:600;letter-spacing:-0.01em;margin:0;color:var(--fg1)">Robots that work the least</h2><span style="font-size:13px;color:var(--fg3)">'+esc(scopeName)+' &middot; '+L.n+' arm'+(L.n === 1 ? '' : 's')+', most idle cost first</span></div>'
+        + '<p style="font-size:13.5px;line-height:1.6;color:var(--fg1);margin:8px 0 0">The arm at the top is the one to speed up or re-plan first.</p>'
+      + '</div>'
+      + '<div data-rc-head style="display:grid;grid-template-columns:'+cols+';gap:14px;align-items:center;padding:12px 18px;background:var(--ghost);border-bottom:1px solid var(--hair)">'
+        + th('Robot') + th('Arm', true) + th('Cost per hour', true) + th('Working') + th('Per hour of real work', true) + th('Idle a year', false, true) + '<div></div>'
+      + '</div>'
+      + (arms.length ? arms.map(row).join('') : '<div style="padding:24px 18px;font-size:13.5px;color:var(--fg3)">'+(S.search ? 'No robot matches &ldquo;'+esc(S.search)+'&rdquo;.' : 'No arm is included at this scope yet.')+'</div>')
+    + '</div>'
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin:0 0 '+(others.length ? 24 : 48)+'px;max-width:80ch">'+RC_CEILING+'</div>'
+    + (others.length ? '<div style="border:1px solid var(--hair);border-radius:6px;overflow:hidden;margin-bottom:48px"><div style="padding:16px 18px;font-size:14px;font-weight:600;color:var(--fg1)">Priced per unit</div>'
+        + others.map(r => '<div data-peek="robot:'+r.i+':verdict" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--hair);cursor:pointer"><span style="font-size:13.5px;color:var(--fg1)">'+esc(r.name)+'</span><span style="font-size:12px;color:var(--fg3)">'+esc(r.work)+'</span><span style="margin-left:auto;color:var(--fg3)">'+ic('chevron-right',14)+'</span></div>').join('')
+      + '</div>' : '');
+}
+
+/* ─── the drawer and the robot page ─── */
+
+function rcRobotHead(i, s){
+  const a = rcArm(i), site = robotSite(i), f = robotFacts(s);
+  return { name: s.name, dot: false, sub: lvBase(i) ? lvBaseLine(i) : '',
+    crumb: [{ label:'Fleet', attrs:'data-act="go" data-view="robots"' }, { label: SITES[site].name, attrs: openAttrs('site', siteSlug(site)) }, { label: s.name }],
+    headline: esc(s.name)+' costs '+rcHr(a.perHour)+' an hour to own and run and worked '+rcPct(a.workingPct)+' of its scheduled time.',
+    tiles: [
+      { id:'verdict', label:'Cost per hour', value: rcHr(a.perHour)+'/hr', unit: a.estimated ? 'estimated' : 'your numbers' },
+      { id:'time', label:'Working', value: rcPct(a.workingPct), unit:'of scheduled time' },
+      { id:'condition', label:'Condition', value: f.condition, unit:'from the vendor' },
+      { id:'money', label:'Idle a year', value: rcYr(a.idleYear), unit:'at most' }
+    ] };
+}
+
+function rcCostBlock(i, big){
+  const a = rcArm(i);
+  if (!a) return '';
+  const fig = (label, value, note) => '<div style="min-width:0"><div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);margin-bottom:4px">'+label+'</div>'
+    + '<div style="font-size:'+(big ? 18 : 16)+'px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;line-height:1.2">'+value+'</div>'
+    + (note ? '<div style="font-size:12px;color:var(--fg3);margin-top:3px;line-height:1.45">'+note+'</div>' : '')+'</div>';
+  const grid = (cells) => '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:14px 16px;margin-bottom:14px">'+cells+'</div>';
+  return '<div style="'+LV_EYEBROW+'">Cost</div>'
+    + grid(fig('Deployed', money0(a.deployed / 100), esc(a.arm)+' '+money0(a.priceCents / 100)+(a.ownPrice ? ' (yours)' : '')+' + install '+(Math.round(a.install * 10) / 10).toFixed(1)+'x'))
+    + grid(fig('Ownership', money(a.own / 100)) + fig('Maintenance', money(a.maint / 100)) + fig('Energy', money(a.energy / 100)) + fig('Total', money(a.perHour / 100)+'/hr'))
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg3);margin-bottom:16px">'+esc(a.derivation || '')+'</div>'
+    + grid(fig('Working', rcPct(a.workingPct), 'of scheduled time') + fig('Per hour of real work', a.perWorking == null ? 'never worked' : money(a.perWorking / 100)) + fig('Idle a year', rcYr(a.idleYear), 'at most'))
+    + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg3)">'+RC_CEILING+'</div>'
+    + (a.estimated ? rcEstLine(i) : '');
+}
+function rcPeekBody(i, tab, s){
+  const a = rcArm(i), r = ROBOTS[i] || {};
+  if (tab === 'verdict'){
+    return (lvOn() ? lvNowBlock(i) : '')
+      + '<div style="font-size:13.5px;line-height:1.7;color:var(--fg2);margin-bottom:18px">'
+        + (a.workingPct == null ? 'Working time was not reported for it yet.' : 'It worked '+rcPct(a.workingPct)+' of its scheduled time this period.')
+        + ' '+esc(s.work)+' on a '+esc(a.arm)+'.</div>'
+      + rcCostBlock(i);
+  }
+  if (tab === 'time'){
+    const vals = robotPeriodCoverage(s);
+    const pts = PERIODS.slice().reverse().map((p, k) => ({ value: vals[k] == null ? 0 : vals[k] * 100, label: p.label.split(' ')[0], current: k === vals.length - 1 }));
+    return (vals.filter(v => v != null).length > 1
+        ? sparklineChart(pts, { formatValue: v => Math.round(v)+'%', gradientId:'rcTime'+i, reference:0 })
+        : '<div style="font-size:13px;color:var(--fg3)">Not enough closed periods to draw a line yet.</div>')
+      + '<div style="font-size:12.5px;line-height:1.7;color:var(--fg2);margin-top:16px">Share of its scheduled time it was working, each period.</div>';
+  }
+  if (tab === 'money'){
+    const pay = computePayback().rows.find(x => x.i === i);
+    return (pay ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:18px;margin-bottom:22px">'
+        + statRow('Earned back', Math.round(pay.pct * 100)+'%', 'of '+money0(pay.price))
+        + statRow('At your pace', pay.crossed !== null ? 'month '+pay.crossed : (pay.pace !== null ? 'month '+pay.pace : 'not yet'), 'quoted month '+pay.contract.payback)
+      + '</div>' : '')
+      + rcCostBlock(i);
+  }
+  return null;
+}
+function rcPeekSummary(i){
+  const a = rcArm(i);
+  const stats = [['Working', rcPct(a.workingPct), 'time'], ['Cost per hour', rcHr(a.perHour), 'verdict'], ['Real work', a.perWorking == null ? 'never worked' : rcHr(a.perWorking)+'/hr', 'verdict'], ['Idle a year', rcYr(a.idleYear), 'verdict']];
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:16px;padding:16px 22px;border-bottom:1px solid var(--hair);background:var(--ghost)">'
+    + stats.map(t => '<div data-act="peekTab" data-tab="'+t[2]+'" style="cursor:pointer;min-width:0">'
+        + '<div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);margin-bottom:4px">'+t[0]+'</div>'
+        + '<div style="font-size:14px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+esc(t[1])+'</div>'
+      + '</div>').join('')
+  + '</div>';
+}
+
+/* ─── Numbers: the owner's own cost ─── */
+
+function rcRaw(i, f){ const r = ((S.lv.rcRaw || {})[i] || {})[f]; return r == null ? '' : r; }
+function rcSetupInputs(i){
+  const a = rcArm(i), own = S.robotCost[i] || {}, other = !!(S.lv.rcOther || {})[i] || !RC_INSTALL.some(x => Math.abs(x[0] - a.install) < 1e-9);
+  const label = (f, t) => '<label for="rc'+f+'-'+i+'" style="display:block;font-size:13px;font-weight:500;color:var(--fg2);margin-bottom:6px">'+t+'</label>';
+  const block = (inner) => '<div style="padding:16px 0;border-top:1px solid var(--hair)">'+inner+'</div>';
+  const seg = (v, text, on) => '<button type="button" data-act="rcInstall" data-i="'+i+'" data-v="'+v+'" aria-pressed="'+on+'" class="'+(on ? '' : 'hv-ghost')+'" style="min-height:36px;padding:0 12px;border-radius:6px;border:1px solid '+(on ? 'var(--fg1)' : 'var(--hair2)')+';background:'+(on ? 'var(--ghost2)' : 'var(--card)')+';cursor:pointer;font-size:12.5px;font-weight:'+(on ? 600 : 500)+';color:var(--fg1);font-family:inherit">'+text+'</button>';
+  const monthly = S.robotInvoice[i] !== undefined ? null : a.perHour * a.hoursYear / 12;
+  return block(label('Arm', 'Arm')
+      + '<select id="rcArm-'+i+'" data-rc-f="arm" data-i="'+i+'" style="'+LV_INPUT+';max-width:240px">'+Object.keys(UR).map(k => '<option value="'+k+'"'+(k === a.arm ? ' selected' : '')+'>'+k+'</option>').join('')+'</select>')
+    + block(label('Price', 'What you paid for the arm')
+      + '<input id="rcPrice-'+i+'" data-rc-f="armPrice" data-i="'+i+'" type="text" inputmode="decimal" autocomplete="off" value="'+esc(rcRaw(i, 'armPrice'))+'" placeholder="'+money0(UR[a.arm][0] / 100)+' list" style="'+LV_INPUT+';max-width:240px">')
+    + block('<div style="font-size:13px;font-weight:500;color:var(--fg2);margin-bottom:6px">Install</div>'
+      + '<div role="group" aria-label="Install" style="display:flex;flex-wrap:wrap;gap:8px">'
+        + RC_INSTALL.map(x => seg(x[0], x[1], !other && Math.abs(x[0] - a.install) < 1e-9)).join('') + seg('other', 'Other', other)
+      + '</div>'
+      + (other ? '<div style="display:flex;align-items:center;gap:8px;margin-top:10px"><input id="rcInstall-'+i+'" data-rc-f="install" data-i="'+i+'" type="text" inputmode="decimal" autocomplete="off" aria-label="Install as a multiple of the arm" value="'+esc(rcRaw(i, 'install'))+'" placeholder="0 to 5" style="'+LV_INPUT+';width:110px"><span style="font-size:12.5px;color:var(--fg2)">times the arm price</span></div>' : '')
+      + '<div style="font-size:12.5px;color:var(--fg3);margin-top:8px">Integration on top of the arm, as a multiple of its price.</div>')
+    + block(label('Hours', 'Hours scheduled a year')
+      + '<input id="rcHours-'+i+'" data-rc-f="hoursYear" data-i="'+i+'" type="text" inputmode="numeric" autocomplete="off" value="'+esc(rcRaw(i, 'hoursYear'))+'" placeholder="4,000 (two shifts)" style="'+LV_INPUT+';max-width:240px">')
+    + block('<div style="font-size:13px;font-weight:500;color:var(--fg2);margin-bottom:6px">Cost per hour</div>'
+      + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><span style="font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--fg1);font-variant-numeric:tabular-nums">'+money(a.perHour / 100)+'<span style="font-size:13px;font-weight:500;color:var(--fg3)">/hr</span></span>'
+        + (a.estimated ? rcEst() : pill('yours','user')) + '</div>'
+      + '<div style="font-size:12.5px;line-height:1.6;color:var(--fg2);margin-top:6px">'+esc(a.derivation)+'</div>'
+      + (monthly != null ? '<div style="font-size:12.5px;color:var(--fg2);margin-top:4px;font-variant-numeric:tabular-nums">'+money(monthly / 100)+' a month at '+frNum(Math.round(a.hoursYear))+' hours a year.</div>' : '')
+      + (a.estimated ? '<div style="font-size:12.5px;color:var(--fg2);margin-top:6px">Estimated until you enter both the price and the hours.</div>' : '')
+      + '<div style="font-size:12px;line-height:1.6;color:var(--fg3);margin-top:12px">'+RC_SOURCES+'</div>');
+}
+function rcSetupView(){
+  const stmt = computeStatement(true, scopeFilter());
+  const rows = searchRows(stmt.rows, s => (SETUP[s.i] || {}).name+' '+s.name+' '+s.work);
+  const cols = 'minmax(180px,2fr) minmax(110px,1.1fr) minmax(90px,.9fr) minmax(90px,.9fr) minmax(64px,.6fr) 110px 24px';
+  const th = (t) => '<div style="font-size:13px;font-weight:400;color:var(--fg2);white-space:nowrap">'+t+'</div>';
+  const cell = (html) => '<div data-row-secondary style="font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+html+'</div>';
+  const row = (s) => {
+    const a = rcArm(s.i), r = SETUP[s.i] || {};
+    const tile = '<div style="flex:none;width:34px;height:34px;border-radius:7px;background:var(--ghost);display:flex;align-items:center;justify-content:center;color:var(--fg2)">'+ic('sliders-horizontal',16)+'</div>';
+    return '<div style="border-top:1px solid var(--hair)"><div data-act="openNumbersRobot" data-i="'+s.i+'" data-fleet-row class="hv-ghost" style="display:grid;grid-template-columns:'+cols+';gap:14px;align-items:center;padding:13px 18px;cursor:pointer">'
+      + '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+tile+'<div style="min-width:0"><div style="font-size:14px;font-weight:500;color:var(--fg1)">'+esc(s.name)+'</div><div style="font-size:12px;color:var(--fg3);margin-top:2px">'+esc(r.model || '')+'</div></div></div>'
+      + cell(esc(s.work))
+      + cell(a ? esc(a.arm) : 'priced per unit')
+      + cell(a ? money(a.perHour / 100)+' <span style="color:var(--fg3)">/ hr</span>' : money(s.invoice)+' <span style="color:var(--fg3)">/ mo</span>')
+      + cell(a ? frNum(Math.round(a.hoursYear))+' <span style="color:var(--fg3)">h / yr</span>' : '')
+      + '<div data-row-status>'+(a ? (a.estimated ? rcEst() : pill('yours','user')) : pill(setupOwnEdit(s, s.i) ? 'yours' : 'benchmark', setupOwnEdit(s, s.i) ? 'user' : 'sliders-horizontal'))+'</div>'
+      + '<span style="display:flex;justify-content:flex-end;color:var(--fg3)">'+ic('chevron-right',16)+'</span></div></div>';
+  };
+  return '<div data-numbers-table style="border:1px solid var(--hair);border-radius:6px;overflow:hidden;margin-bottom:24px">'
+      + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:20px 18px 16px">'
+        + '<h2 style="font-size:16px;font-weight:600;letter-spacing:-0.01em;margin:0;color:var(--fg1)">What each robot costs you</h2>'
+        + '<span style="font-size:13px;color:var(--fg3)">Open an arm to enter what you paid, the install and the hours you run it. Until then it uses list prices and two shifts.</span></div>'
+      + '<div data-fleet-head style="display:grid;grid-template-columns:'+cols+';gap:14px;align-items:center;padding:12px 18px;background:var(--ghost);border-bottom:1px solid var(--hair)">'
+        + th('Robot') + th('What it does') + th('Arm') + th('Cost per hour') + th('Hours a year') + th('Source') + '<div></div></div>'
+      + (rows.length ? rows.map(row).join('') : '<div style="padding:24px 18px;font-size:13.5px;color:var(--fg3)">'+(S.search ? 'No robot matches &ldquo;'+esc(S.search)+'&rdquo;.' : noRobotNote())+'</div>')
+    + '</div>'
+    + '<div style="font-size:12px;line-height:1.6;color:var(--fg3);margin:0 0 20px;max-width:80ch">'+RC_SOURCES+'</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">'
+      + '<button type="button" data-act="save" class="hv-dim press" style="display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:4px;border:none;background:var(--acc);color:var(--acc-fg);cursor:pointer;font-size:14px;font-weight:600;opacity:'+(S.saving ? 0.8 : 1)+'">'
+        + (S.saving ? spinner(13) : '') + (S.saving ? 'Saving your inputs…' : 'Save and see my numbers') + '</button>'
+      + '<span style="font-size:13px;color:var(--fg3)">Figures move as you type. Saving keeps them for next time.</span></div>';
+}
+function rcSetField(i, f, raw){
+  S.lv.rcRaw = S.lv.rcRaw || {};
+  (S.lv.rcRaw[i] = S.lv.rcRaw[i] || {})[f] = raw;
+  const o = Object.assign({}, S.robotCost[i] || {});
+  if (f === 'arm'){ if (UR[raw]) o.arm = raw; }
+  else {
+    const s = String(raw).replace(/[^\d.]/g, ''), n = Number(s);
+    const v = s === '' || !isFinite(n) ? null : n;
+    // Kept inside what the server accepts. A value it refuses would reject
+    // the whole save batch, and every other input with it.
+    if (f === 'install'){ if (v == null) delete o.install; else o.install = Math.max(0, Math.min(5, v)); }
+    else if (v == null || !(v > 0)) delete o[f];
+    else if (f === 'hoursYear') o.hoursYear = Math.max(100, Math.min(8760, v));
+    else if (f === 'armPrice') o.armPrice = Math.min(5000000, v);
+    else o[f] = v;
+  }
+  if (Object.keys(o).length) S.robotCost[i] = o; else delete S.robotCost[i];
+}
+
+/* ─── brief ─── */
+
+function rcStopsLine(){
+  const day = lastDataKey();
+  const parts = [];
+  computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded).forEach(r => {
+    const ev = (DOWNTIME[r.i] || []).filter(x => x.date === day);
+    const wait = ev.filter(x => /^wait/.test(x.cause)).reduce((a, x) => a + (x.minutes || 0), 0);
+    const stop = ev.filter(x => !/^wait/.test(x.cause)).reduce((a, x) => a + (x.minutes || 0), 0);
+    if (stop) parts.push({ t: esc(r.name)+' stopped '+stop+' min', n: stop });
+    if (wait) parts.push({ t: esc(r.name)+' waited '+wait+' min', n: wait });
+  });
+  parts.sort((a, b) => b.n - a.n);
+  return parts.length ? parts.map(p => p.t).join(', ')+'.' : 'No arm stopped or waited on '+esc(shortDate(day))+'.';
+}
+
+/* ─── words ─── */
+
+const RC_SWAPS = [
+  [/(\$[\d,.]+) of work against (\$[\d,.]+) leased/g, '$1 of working time against $2 of robot cost'],
+  [/\bLabor beyond the lease\b/g, 'Clearing stops'],
+  [/\bLease cost\b/g, 'Robot cost'], [/\blease cost\b/g, 'robot cost'],
+  [/\bof lease\b/g, 'of robot cost'], [/\bleased\b/g, 'robot cost'],
+  [/\bleases\b/g, 'contracts'], [/\bLeases\b/g, 'Contracts'], [/\blease (ends?|end|terms?|start|starts|term)\b/g, 'contract $1'], [/\bLease (ends?|end|terms?|start|starts|term)\b/g, 'Contract $1'],
+  [/\bno lease\b/g, 'no contract'], [/\bleasing\b/g, 'owning'], [/\bLease\b/g, 'Robot cost'], [/\blease\b/g, 'robot cost'],
+  [/\bCoverage\b/g, 'Working'], [/\bcoverage\b/g, 'working'], [/\bCOVERAGE\b/g, 'WORKING']
+];
+function rcScrubText(s){ let out = s; RC_SWAPS.forEach(x => { out = out.replace(x[0], x[1]); }); return out; }
+function rcScrub(root){
+  if (!root || !rcOn()) return;
+  if (root.nodeType === 3){ const v = rcScrubText(root.nodeValue); if (v !== root.nodeValue) root.nodeValue = v; return; }
+  if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA)$/.test(root.tagName)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())){
+    const p = n.parentNode;
+    if (p && /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.tagName)) continue;
+    const v = rcScrubText(n.nodeValue);
+    if (v !== n.nodeValue) n.nodeValue = v;
+  }
+}
+
+/* ─── preview: the benchmark's CNC line ─── */
+
+let rcShaped = false;
+function rcPreviewReshape(){
+  if (rcShaped) return;
+  rcShaped = true;
+  const sched = 4000 / 12;
+  const arms = [
+    ['Loader 1', 'UR10e', 23, [['2026-08-12','10:05',6,'error C153'], ['2026-08-26','14:20',5,'waiting for the machine']]],
+    ['Loader 2', 'UR10e', 8,  [['2026-08-07','07:30',12,'error C153'], ['2026-08-19','09:10',8,'error C153'], ['2026-09-03','06:40',4,'error C153']]],
+    ['Deburr', 'UR5e', 38,    [['2026-08-21','11:15',5,'error C207'], ['2026-09-03','07:10',3,'waiting for parts']]],
+    ['Inspection', 'UR3e', 21,[['2026-08-14','13:40',7,'error C153']]]
+  ];
+  [CONFIRM, ROBOTS, SETUP, KEEPING, CONTRACT, DOWNTIME, SAFETY, DAILY, DAILY_BY_DATE].forEach(a => { a.length = arms.length; });
+  const hist = [0.2162, 0.23, 0.22, 0.21, 0.23, 0.22];
+  PERIODS.forEach((p, k) => { p.siteCov = [hist[k]]; p.siteUtil = [hist[k] * 100]; });
+  SITES.length = 1; SITES[0] = { name:'CNC cell 1' };
+  SITE_ROBOT_COUNTS.length = 1; SITE_ROBOT_COUNTS[0] = arms.length;
+  PLACES.length = 1; PLACES[0] = { aisles:0, docks:[] };
+  TICKETS.length = 0;
+  BENCH['CNC machine tending'] = { wageCentsHour:437, humanUnitsPerHour:1, invoiceCentsMonth:145797, unit:'working hour', unitPlural:'working hours', basis:'active_hour' };
+  EQUIP_COST['CNC machine tending'] = 12399000;
+  if (WORK_CATEGORIES.indexOf('CNC machine tending') < 0) WORK_CATEGORIES.unshift('CNC machine tending');
+  arms.forEach((x, i) => {
+    const units = x[2] / 100 * sched, model = 'Universal Robots '+x[1];
+    const stops = x[3].map(s => ({ date:s[0], start:s[1], minutes:s[2], cause:s[3] }));
+    ROBOTS[i] = { name:x[0], model, site:0, duty:'duty '+x[2]+'%', dutyPct:x[2]+'%', hours:units.toFixed(1)+'h of '+Math.round(sched)+'h' };
+    SETUP[i] = { name:x[0], model, hours:'11.0 h' };
+    CONFIRM[i] = { name:x[0], units, seen: units.toFixed(1)+' working hours · Aug 4 – Sep 3', work:'CNC machine tending', site:0 };
+    KEEPING[i] = { stalls: stops.length, hand:0, stalled: Math.round(stops.reduce((a, s) => a + s.minutes, 0) / 6) / 10 };
+    CONTRACT[i] = { start:'2025-07-01', term:36, payback:24, uptime:95 };
+    DOWNTIME[i] = stops; SAFETY[i] = [];
+    ROBOT_DELTA[x[0]] = '';
+    const series = [];
+    PERIODS.forEach((p, pi) => {
+      const scale = pi === 0 ? 1 : p.siteCov[0] / PERIODS[0].siteCov[0];
+      splitAcrossDays(Math.round(units * scale * 10) / 10, daysBetweenInclusive(p.start, p.end)).forEach((u, d) => series.push({ date: addDaysKey(p.start, d), units: u }));
+    });
+    series.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    DAILY[i] = series;
+    const m = {}; series.forEach(d => { m[d.date] = d.units; }); DAILY_BY_DATE[i] = m;
+  });
+  return arms;
+}
+function rcPreviewLive(){
+  const arms = rcPreviewReshape() || [];
+  const spec = { 'Loader 1':[1902,1347100,12399000], 'Loader 2':[5467,1609600,12399000], 'Deburr':[890,838500,9590750], 'Inspection':[1382,917400,8252750] };
+  const COST = CONFIRM.map((c, i) => {
+    const arm = ROBOTS[i].model.split(' ').pop(), pct = parseFloat(ROBOTS[i].dutyPct);
+    const x = armCost({ arm, install:1.5, hoursYear:4000 }), sp = spec[c.name] || [];
+    return { arm: arm.toLowerCase(), armLabel: arm, armPriceCents: UR[arm][0], installMultiple:1.5, deployedCents: sp[2] || Math.round(x.deployed), hoursPerYear:4000,
+      perHourCents: x.perHour, ownershipCents: x.own, maintenanceCents: x.maint, energyCents: x.energy,
+      workingPct: pct, perWorkingHourCents: sp[0] != null ? sp[0] : x.perHour / (pct / 100), idleCostYearCents: sp[1] != null ? sp[1] : x.perHour * 4000 * (1 - pct / 100),
+      derivation: rcDerive(arm, x), estimated: true };
+  });
+  return { COST, FIRST_RUN: {
+    step:'done', business:'manufacturing',
+    businessTypes: [{ key:'manufacturing', label:'Manufacturing', blurb:'Starts on CNC machine tending.', works:['CNC machine tending','Welding'], unit:'working hour', rateCents:null, derivation:null, operatingHoursDay:11 }],
+    robots: CONFIRM.map((c, i) => ({ id:'r'+i, name:c.name, brand:'Universal Robots', model: ROBOTS[i].model.split(' ').pop(), category:c.work, excluded:false, seen:c.seen, site:'CNC cell 1' })),
+    categories: [{ key:'CNC machine tending', label:'CNC machine tending' }, { key:'Welding', label:'Welding' }],
+    sites: ['CNC cell 1'], lastImport: null, vendors: []
+  } };
+}
+
+function rcBoot(){
+  S.robotCost = S.robotCost || {};
+  S.lv.rcRaw = {}; S.lv.rcOther = {};
+  if (!LIVE && LIVE_PREVIEW === 'mfg'){
+    S.dashScope = 0;
+    const now = liveData().NOW || {};
+    Object.keys(now).forEach(k => { const n = now[k], i = Number(k);
+      Object.assign(n, { stuck:false, charging:false, battery:null, connection:'online', mission: i === 1 ? null : 'CNC_LOAD_'+(i + 1),
+        faults: i === 1 ? [{ code:'C153', severity:'warning', description:'Protective stop, waiting for a reset' }] : [] }); });
+  }
+  COPY.coverage = ['Working over time', 'Six periods of the same one figure: the share of scheduled time the arms were working.'];
+  if (!/^(rcost|working|idle|payback)$/.test(S.dashTab)) S.dashTab = 'rcost';
+  S.dashHidden = (S.dashHidden || []).filter(id => id !== 'recap');
+  BUTTON_STATES.push(
+    { action:'Use your own numbers', disabled:'Never disabled. Shown only while an arm is still estimated.', pending:'Opens the arm on Numbers at once. Nothing is sent.', failed:'Cannot fail. It only moves you to the inputs.' },
+    { action:'Install: Simple cell, Complex cell, Welding cell, Other', disabled:'Never disabled.', pending:'The cost per hour moves the moment one is picked. Other opens a field for 0 to 5.', failed:'A number over 5 is read as 5, and one under 0 as 0.' }
+  );
+  const obs = new MutationObserver(list => {
+    if (!rcOn()) return;
+    list.forEach(m => {
+      if (m.type === 'characterData') rcScrub(m.target);
+      else m.addedNodes.forEach(n => rcScrub(n));
+    });
+  });
+  obs.observe(document.body, { childList:true, subtree:true, characterData:true });
+}
+
+Object.assign(ACTIONS, {
+  rcOwn: (el) => {
+    let i = el.dataset.i != null ? Number(el.dataset.i) : null;
+    if (i == null){ const r = rcRows().find(x => x.a.estimated); i = r ? r.i : null; }
+    S.peek = null; S.peekStack = [];
+    if (i == null){ goView('setup'); return; }
+    S.detailRobot = i; goView('numbersRobot');
+    try { window.scrollTo(0, 0); } catch(e){}
+  },
+  rcInstall: (el) => {
+    const i = Number(el.dataset.i), v = el.dataset.v;
+    S.lv.rcOther = S.lv.rcOther || {};
+    if (v === 'other'){ S.lv.rcOther[i] = true; render(); const f = document.getElementById('rcInstall-'+i); if (f) f.focus(); return; }
+    S.lv.rcOther[i] = false;
+    if (S.lv.rcRaw && S.lv.rcRaw[i]) delete S.lv.rcRaw[i].install;
+    S.robotCost[i] = Object.assign({}, S.robotCost[i] || {}, { install: Number(v) });
+    render();
+  }
+});
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  if (!t || !t.dataset || !t.dataset.rcF || t.tagName === 'SELECT' || !rcOn()) return;
+  rcSetField(Number(t.dataset.i), t.dataset.rcF, t.value);
+  render();
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t || !t.dataset || !t.dataset.rcF || t.tagName !== 'SELECT' || !rcOn()) return;
+  rcSetField(Number(t.dataset.i), t.dataset.rcF, t.value);
+  render();
 });
 
 bootScreen();
