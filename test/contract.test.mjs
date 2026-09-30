@@ -98,6 +98,32 @@ test("an e-stop outranks stuck on the same sample", () => {
   assert.equal(ep.kind, "e-stop");
 });
 
+test("an episode ends at the next sample the robot sent, not at a guessed interval", () => {
+  // A sparse first hour puts the average spacing at 4 minutes, but the robot
+  // was seen healthy 30 seconds after its one stuck sample.
+  const t = at("2026-08-14T18:20:00Z");
+  const [brief] = downtimeEpisodes([{ ...snap("2026-08-14T18:20:00Z", { stuck: 1 }), next_at: t + 30_000 }], { tz: TZ, sampleMs: 4 * MIN });
+  assert.equal(brief.minutes, 1);
+  // Stuck across three samples a minute apart, then seen moving 20 seconds
+  // after the last one: 2m20s, not 3 samples plus 4 minutes.
+  const eps = downtimeEpisodes(
+    [
+      { ...snap("2026-08-14T19:00:00Z", { stuck: 1 }), next_at: at("2026-08-14T19:01:00Z") },
+      { ...snap("2026-08-14T19:01:00Z", { stuck: 1 }), next_at: at("2026-08-14T19:02:00Z") },
+      { ...snap("2026-08-14T19:02:00Z", { stuck: 1 }), next_at: at("2026-08-14T19:02:20Z") },
+    ],
+    { tz: TZ, sampleMs: 4 * MIN }
+  );
+  assert.equal(eps.length, 1);
+  assert.equal(eps[0].minutes, 2);
+  // Nothing after the last sample (still down), or the next sample only an
+  // hour later (it dropped offline): one interval is credited, as before.
+  const [still] = downtimeEpisodes([{ ...snap("2026-08-14T20:00:00Z", { stuck: 1 }), next_at: null }], { tz: TZ, sampleMs: MIN });
+  assert.equal(still.minutes, 1);
+  const [dropped] = downtimeEpisodes([{ ...snap("2026-08-14T21:00:00Z", { stuck: 1 }), next_at: at("2026-08-14T22:00:00Z") }], { tz: TZ, sampleMs: MIN });
+  assert.equal(dropped.minutes, 1);
+});
+
 // ---- the whole contract ----
 
 function seededStore() {

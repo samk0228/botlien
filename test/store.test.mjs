@@ -144,3 +144,20 @@ test("heartbeats, outcomes, kv", () => {
   assert.equal(s.getKV("cursor"), "def");
   assert.equal(s.getKV("missing"), null);
 });
+
+test("abnormalSnapshots carries the time of the sample that followed each one", () => {
+  const s = tempStore();
+  const robotId = s.upsertRobot({ connector: "sim", externalId: "a1" }, NOW);
+  const other = s.upsertRobot({ connector: "sim", externalId: "a2" }, NOW);
+  const row = (id, at, o = {}) => ({ robotId: id, at, receivedAt: at, connector: "sim", source: "sim", connectionState: "online", missionState: "active", moving: true, stuck: false, ...o });
+  s.insertSnapshot(row(robotId, NOW, { stuck: true, moving: false }));
+  s.insertSnapshot(row(other, NOW + 5_000));
+  s.insertSnapshot(row(robotId, NOW + 30_000));
+  s.insertSnapshot(row(robotId, NOW + 60_000, { errors: [{ code: "sim:E1", severity: "ERROR" }] }));
+  const rows = s.abnormalSnapshots(robotId, NOW - 1, NOW + 120_000);
+  assert.equal(rows.length, 2);
+  // The other robot's sample five seconds later does not end this one's stall.
+  assert.equal(rows[0].next_at, NOW + 30_000);
+  // The last sample on record has nothing after it yet.
+  assert.equal(rows[1].next_at, null);
+});
