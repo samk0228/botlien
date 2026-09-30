@@ -26,6 +26,8 @@ import { fleetContract, closePeriods } from "./contract.mjs";
 import { verifyStop, stopBriefFor, KV_ALERTS_STOPPED } from "./brief-job.mjs";
 import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { newApiKey, hashApiKey, pushEvents, MAX_KEYS } from "./push.mjs";
+import { publicSlackSettings, saveSlackSettings, clearSlackSettings } from "./slack.mjs";
+import { incidentOut } from "./incidents.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { addTicket, updateTicket } from "./tickets.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -300,6 +302,21 @@ export function createTenancy({
       add: (body) => addTicket(store, body, now()),
       update: (id, body) => updateTicket(store, id, body),
     };
+    // Stop alerts in Slack: the channel and who to escalate to, with the bot
+    // token sealed in the account's store, and the stops posted so far.
+    const slack = {
+      get: () => ({ slack: publicSlackSettings(store), incidents: store.listIncidents({ sinceMs: now() - 30 * 86_400_000, limit: 100 }).map(incidentOut) }),
+      save: async (input) => {
+        const out = await saveSlackSettings(store, vault ?? { ready: false }, input, now(), { fetchImpl });
+        log(`account ${account.id} connected Slack (#${out.channel})`);
+        return out;
+      },
+      disconnect: () => {
+        const had = clearSlackSettings(store, now());
+        if (had) log(`account ${account.id} disconnected Slack`);
+        return had;
+      },
+    };
     // Where this account is in first run, read from its data. /app sends an
     // account that has no fleet yet to the step that gets it one.
     const step = () => onboardingStep(store);
@@ -336,7 +353,7 @@ export function createTenancy({
       });
       return setupState();
     };
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets };
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the
