@@ -13,6 +13,7 @@
 // robot_contracts, because the server computes closed periods and (soon)
 // sends the morning brief from those. Everything else is page state only.
 import { economicsFor } from "./rates.mjs";
+import { validateLineMap } from "./line.mjs";
 
 // The two settings the server's own clock reads: the account's time zone
 // (its days, periods and shifts, the brief's send time) and the day of the
@@ -63,6 +64,10 @@ export const ACCOUNT_INPUTS = [
   // The day of the month a billing period starts on, 1 to 28. Null means the
   // day the first telemetry was seen, as before.
   "billingDay",
+  // The line map (line.mjs): lines of stations in order, robots by id with
+  // machines and buffers between them. Checked against the account's robots
+  // on save; null puts the drafted map back.
+  "lineMap",
 ];
 
 /** True for a zone name the clock knows ("America/Chicago"), so a typo can
@@ -134,9 +139,16 @@ export function saveInputs(store, changes, nowMs, by = null) {
   const rates = validRates(changes?.rates);
   const writes = [];
 
-  for (const [key, value] of Object.entries(account)) {
+  for (let [key, value] of Object.entries(account)) {
     if (!ACCOUNT_INPUTS.includes(key)) throw new InputError(`${key} is not something the dashboard saves`);
     if (ACCOUNT_CHECKS[key] && !ACCOUNT_CHECKS[key](value ?? null)) throw new InputError(`${key} is not a value it can take`);
+    if (key === "lineMap") {
+      try {
+        value = validateLineMap(value ?? null, new Set([...robotsById.keys()].map(Number)));
+      } catch (err) {
+        throw new InputError(err.message);
+      }
+    }
     const json = JSON.stringify(value ?? null);
     if (json.length > MAX_VALUE_BYTES) throw new InputError(`${key} is too large to save`);
     writes.push([`account.${key}`, json]);

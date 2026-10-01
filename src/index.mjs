@@ -120,6 +120,7 @@ async function main() {
   let briefInterval = null;
   let alertsInterval = null;
   let slackInterval = null;
+  let lineInterval = null;
   let backupInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
@@ -233,6 +234,23 @@ async function main() {
       }
     }, 30_000);
     if (!slackSend) console.log("Slack alerts are logged, not sent (set BOTLIEN_SLACK_SEND=1 to send)");
+    // The line: machine jams and what each stop left waiting, for accounts
+    // with a confirmed line map, every two minutes. Jams go to Slack under
+    // the same flag as stop alerts.
+    const { createLineJob } = await import("./line-job.mjs");
+    const lineJob = createLineJob({ control, tenants, vault, config, send: slackSend, log: genesisLog });
+    let lining = false;
+    lineInterval = setInterval(async () => {
+      if (lining) return;
+      lining = true;
+      try {
+        await lineJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`line job error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        lining = false;
+      }
+    }, 120_000);
     // The backups check: emails ops (BOTLIEN_OPS_EMAILS) once a day while the
     // last verified offsite backup is more than 36 hours old.
     const { createBackupCheck } = await import("./backup-check.mjs");
@@ -344,6 +362,7 @@ async function main() {
     if (briefInterval) clearInterval(briefInterval);
     if (alertsInterval) clearInterval(alertsInterval);
     if (slackInterval) clearInterval(slackInterval);
+    if (lineInterval) clearInterval(lineInterval);
     if (backupInterval) clearInterval(backupInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
