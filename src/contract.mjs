@@ -14,7 +14,8 @@
 //   array with its provenance marked "missing", never a row of zeros.
 // - Pure with respect to the injected clock, like every other read path.
 import { robotFinancials, taskCount } from "./finance.mjs";
-import { BENCHMARKS, EQUIP_COST_CENTS, economicsFor, taskLabelFor } from "./rates.mjs";
+import { BENCHMARKS, EQUIP_COST_CENTS, economicsFor, taskLabelFor, robotCostFor } from "./rates.mjs";
+import { costPerWorkingHour, idleCostPerYear } from "./robot-cost.mjs";
 import { robotInterventions, MINUTES_PER_CLEAR } from "./interventions.mjs";
 import { loadInputs, KV_TZ, KV_BILLING_DAY } from "./inputs.mjs";
 
@@ -245,7 +246,20 @@ export function fleetContract(store, nowMs, config = {}) {
     if (excluded.has(r.id)) continue;
     const siteName = siteNameById.get(r.site_id) ?? fleetsById.get(r.fleet_id)?.name ?? DEFAULT_SITE;
     const siteId = addSite(siteName);
-    const econ = economicsFor(r, econRows.get(r.id) ?? null);
+    // A robot arm is priced from its own cost model, with the owner's arm,
+    // price, install and hours laid over the benchmark. Its rate always
+    // follows that model; its invoice does too unless the owner typed one.
+    const ownCost = inputs.robots.robotCost?.[r.id] ?? null;
+    const cost = robotCostFor(r.category, r.model, ownCost);
+    let econ = economicsFor(r, econRows.get(r.id) ?? null, ownCost);
+    if (cost && econ && !econ.isDefault) {
+      econ = {
+        ...econ,
+        rateCents: Math.round(cost.perHour),
+        rateDerivation: cost.derivation,
+        invoiceCentsMonth: inputs.robots.robotInvoice?.[r.id] != null ? econ.invoiceCentsMonth : Math.round((cost.perHour * cost.hoursPerYear) / 12),
+      };
+    }
     const all = rollupsByRobot.get(r.id) ?? [];
     const bench = BENCHMARKS[r.category] ?? null;
 
@@ -405,6 +419,32 @@ export function fleetContract(store, nowMs, config = {}) {
       capacityHours: fin?.capacityMs ? Math.round((fin.capacityMs / 3_600_000) * 10) / 10 : null,
       dutyPct: fin?.utilizationPct ?? null,
       coverage: fin?.coverage ?? null,
+      // What the arm costs per scheduled hour and what its waiting costs, for
+      // manufacturing accounts, which lead with this. Null for other work.
+      cost: cost
+        ? (() => {
+            const share = fin?.utilizationPct != null ? fin.utilizationPct / 100 : null;
+            const perWork = share !== null ? costPerWorkingHour(cost.perHour, share) : null;
+            const idle = idleCostPerYear(cost.perHour, share, cost.hoursPerYear);
+            return {
+              arm: cost.arm,
+              armLabel: cost.armLabel,
+              armPriceCents: cost.armPriceCents,
+              installMultiple: cost.installMultiple,
+              deployedCents: Math.round(cost.deployedCents),
+              hoursPerYear: cost.hoursPerYear,
+              perHourCents: Math.round(cost.perHour),
+              ownershipCents: Math.round(cost.ownership),
+              maintenanceCents: Math.round(cost.maintenance),
+              energyCents: Math.round(cost.energy),
+              workingPct: share === null ? null : Math.round(share * 1000) / 10,
+              perWorkingHourCents: perWork === null ? null : Math.round(perWork),
+              idleCostYearCents: idle === null ? null : Math.round(idle),
+              derivation: cost.derivation,
+              estimated: cost.estimated,
+            };
+          })()
+        : null,
       coverageDelta: (() => {
         // Against last period as it closed, when it has.
         const was = periods[1] && frozenFor(periods[1]) ? frozenFor(periods[1]).robots[r.id]?.coverage ?? null : prev?.coverage ?? null;
