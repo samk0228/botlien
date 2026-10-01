@@ -9,7 +9,7 @@
       "name": "Loader 1",
       "model": "UR10e",
       "category": "machine_tending",
-      "cycleRegister": 24,
+      "cycleRegister": 25,
       "program": "op10"
     },
     {
