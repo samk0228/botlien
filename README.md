@@ -21,7 +21,7 @@ product work is the operator-facing `/owner` statement.
 | [`src/`](src/) | The served app. Plain Node 22 ESM, `node:sqlite`, `node:http`, no framework. `index.mjs` boots, `engine.mjs` owns time, `store.mjs` is the schema, `owner.mjs` renders the statement, `finance.mjs` / `tips.mjs` / `variance.mjs` / `interventions.mjs` / `brands.mjs` are the pure math. |
 | [`src/connectors/`](src/connectors/) | `sim` (demo fleet), `bear` (gRPC, protos in `proto/`), `gausium` (REST). One duck-typed interface. |
 | [`test/`](test/) | `node --test`, deterministic: fixed epochs, seeded PRNG, temp databases, injected clocks. |
-| [`scripts/`](scripts/) | Backtest replay, rollup rebuild, e2e check, mail test, backups. |
+| [`scripts/`](scripts/) | Backtest replay, benchmark replay (a gateway recording through the push path), rollup rebuild, e2e check, mail test, backups. |
 | [`prototype/`](prototype/README.md) | The clickable prototype: `src/botlien.part.html` is the source, `botlien-prototype.html` the build, `design/` holds design-canvas sources. |
 | [`docs/`](docs/README.md) | Company brief, product specs, the Costs design briefs v1 to v3, calculations, the deploy runbook. Start with [`docs/company-brief.md`](docs/company-brief.md). |
 | [`proto/`](proto/) | Vendored Bear Robotics protos (MPL-2.0). |
@@ -55,6 +55,7 @@ npm run e2e       # end-to-end pipeline check, exits 0/1
 npm start         # live mode; connectors only if credentials exist, otherwise no robots until an import
 
 node scripts/rebuild-rollups.mjs [--dry-run]   # recompute rollups from snapshots
+node scripts/benchmark-replay.mjs run.jsonl --expect benchmark/cnc-shop-v1.1.json   # a gateway recording, replayed and checked against Line Lab
 ```
 
 ## Onboarding

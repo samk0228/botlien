@@ -13,6 +13,7 @@
     "start": "node src/index.mjs",
     "demo": "node src/index.mjs --demo",
     "e2e": "BOTLIEN_NO_GENESIS=1 node scripts/e2e-check.mjs",
+    "benchmark": "BOTLIEN_NO_GENESIS=1 node scripts/benchmark-replay.mjs",
     "mail-test": "node scripts/mail-test.mjs",
     "backup": "node scripts/backup.mjs"
   },

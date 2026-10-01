@@ -216,3 +216,19 @@ test("a simulated CNC cell reaches Botlien as a priced arm with cycles and a wor
   assert.equal(c.robots[0].cost.armLabel, "UR10e");
   assert.equal(c.robots[0].cost.perHourCents, 437);
 });
+
+test("--record hands every event to the recorder exactly as it is queued for Botlien", async () => {
+  const sim = await startFakeUrsim({ port: 0, cell: simulateCell({ cycleSeconds: 2, moveSeconds: 0.5 }) });
+  const queued = [], recorded = [];
+  const sender = { enqueue: (ev) => queued.push(...ev), flush: async () => {}, stop() {}, stats: { sent: 0, rejected: 0, dropped: 0 }, queued: 0 };
+  const gw = runGateway(loadConfig(JSON.stringify({ botlien: "https://x", heartbeatSeconds: 1, arms: [{ id: "a", host: "127.0.0.1", port: sim.port, cycleRegister: 24 }] })), { sender, record: (ev) => recorded.push(...ev), log: () => {}, connect: (o) => connectRtde({ ...o, frequency: 20 }) });
+  try {
+    await sleep(2600);
+    assert.ok(queued.length >= 2, `queued ${queued.length}`);
+    assert.deepEqual(recorded, queued, "the recording is the queue, event for event");
+    assert.equal(recorded[0].robot_id, "a");
+  } finally {
+    await gw.stop();
+    await sim.close();
+  }
+});
