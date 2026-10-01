@@ -205,6 +205,9 @@ function liveTables(c) {
     return min < 1 ? 'just now' : min < 60 ? min + ' min ago' : min < 1440 ? Math.round(min / 60) + ' h ago' : Math.round(min / 1440) + ' days ago';
   }
   var connected = (c.sources || []).filter(function (x) { return x.connected; });
+  // True once any vendor feed or push key is connected, so copy can stop
+  // saying the numbers came from an export.
+  T.LIVE_FEED = connected.length > 0;
   T.SOURCES = connected.length
     ? connected.map(function (x) {
         var word = { ok: 'syncing', degraded: 'syncing with problems', down: 'not syncing' }[x.state] || 'waiting for first sync';

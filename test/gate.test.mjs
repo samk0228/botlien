@@ -389,9 +389,20 @@ test("/app sends a brand-new account to first run, and old pages forward once it
   const app = await boot();
   try {
     const cookie = await app.signIn("new@example.com");
+    // The built page runs first run itself (it declares LIVE_FIRST_RUN), so a
+    // brand-new account is served /app, opening on its first-run step, rather
+    // than redirected to the plain server pages.
+    const { pageRunsFirstRun } = await import("../src/app.mjs");
     const first = await app.get("/app", cookie);
-    assert.equal(first.status, 303);
-    assert.equal(first.headers.get("location"), "/owner/business", "no business chosen yet");
+    if (pageRunsFirstRun()) {
+      assert.equal(first.status, 200);
+      const html = await first.text();
+      assert.match(html, /window\.BOTLIEN_LIVE=/);
+      assert.match(html, /"step":"business"/, "no business chosen yet");
+    } else {
+      assert.equal(first.status, 303);
+      assert.equal(first.headers.get("location"), "/owner/business", "no business chosen yet");
+    }
     const demo = await app.get("/app?demo=1", cookie);
     assert.equal(demo.status, 200, "the demo is always reachable");
   } finally {
