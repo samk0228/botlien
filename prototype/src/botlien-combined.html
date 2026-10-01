@@ -12206,7 +12206,7 @@ function rcHr(c){ return c == null ? 'not reported' : money(c / 100); }
 function rcPct(p){ return p == null ? 'not reported' : Math.round(p)+'%'; }
 function rcYr(c){ return c == null ? 'not reported' : money0(c / 100); }
 function rcDerive(arm, x){
-  return money(x.perHour / 100)+' per working hour = what a '+arm+' costs to own and run per scheduled hour ('+money(x.own / 100)+' ownership + '+money(x.maint / 100)+' maintenance + '+money(x.energy / 100)+' energy)';
+  return money(x.perHour / 100)+' per scheduled hour = what a '+arm+' costs to own and run, working or waiting ('+money(x.own / 100)+' ownership + '+money(x.maint / 100)+' maintenance + '+money(x.energy / 100)+' energy)';
 }
 function rcCost(i){ const d = liveData(); return d && d.COST ? (lvAt(d.COST, i) || null) : null; }
 
