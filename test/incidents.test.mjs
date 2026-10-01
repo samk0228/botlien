@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openStore } from "../src/store.mjs";
-import { classify, reconcile, escalationDue, incidentView, usualPace, REOPEN_MS, ESCALATE_AFTER_MS } from "../src/incidents.mjs";
+import { classify, reconcile, escalationDue, incidentView, usualPace, REOPEN_MS, ESCALATE_AFTER_MS, SILENT_MS } from "../src/incidents.mjs";
 
 const TZ = "America/Los_Angeles";
 const MIN = 60_000;
@@ -128,4 +128,25 @@ test("the usual pace comes from the last two weeks of rollups", () => {
   const pace = usualPace(s, id, T0);
   assert.equal(Math.round(pace.perHour), 70);
   assert.equal(usualPace(s, id, T0 - 4 * 3_600_000), null);
+});
+
+test("a pushed robot that goes quiet is offline after ten minutes, and back with its next sample", () => {
+  const { s, robot, push } = robotStore();
+  push(T0);
+  assert.equal(reconcile(s, robot, T0 + SILENT_MS - 1).change, null);
+  const quiet = reconcile(s, robot, T0 + SILENT_MS);
+  assert.equal(quiet.change, "opened");
+  assert.deepEqual([quiet.incident.kind, quiet.incident.description, quiet.incident.started_at], ["offline", "The gateway stopped sending", T0]);
+  assert.equal(reconcile(s, robot, T0 + SILENT_MS + 5 * MIN).change, null, "still quiet, still the same incident");
+  push(T0 + 20 * MIN);
+  const back = reconcile(s, robot, T0 + 20 * MIN + 1000);
+  assert.deepEqual([back.change, back.incident.ended_at], ["closed", T0 + 20 * MIN]);
+  assert.equal(incidentView(quiet.incident, { robot, tz: TZ, nowMs: T0 + 12 * MIN }).headline, "Cell 2 UR10e went offline at 2:14 pm");
+
+  // Not for an arm last seen powered off, and not for a vendor sync.
+  push(T0 + 30 * MIN, { missionState: "off", moving: false });
+  assert.equal(reconcile(s, robot, T0 + 30 * MIN + SILENT_MS).change, null);
+  const imported = s.upsertRobot({ connector: "import", externalId: "p1", displayName: "Picker 1", category: "picking" }, T0);
+  s.insertSnapshot({ robotId: imported, at: T0, receivedAt: T0, connector: "import", source: "import", connectionState: "online", missionState: "active", moving: true, stuck: false });
+  assert.equal(reconcile(s, s.listRobots().find((r) => r.id === imported), T0 + 2 * SILENT_MS).change, null);
 });

@@ -1,0 +1,10 @@
+{
+  "source": "Overnight Line Benchmark v1.1 (Sep 30 2026), section 3, CNC machine shop. The shape scripts/benchmark-replay.mjs --expect reads. Replace the values with what Line Lab reported for the run being replayed: working and idle figures only match the same recording, while costPerHour is the arm's list-price cost and matches any run.",
+  "robots": {
+    "Loader 1": { "model": "UR10e", "costPerHour": 4.37, "working": 0.23, "perWorkingHour": 19, "idleCostYear": 13534 },
+    "Loader 2": { "model": "UR10e", "costPerHour": 4.37, "working": 0.08, "perWorkingHour": 56, "idleCostYear": 16139 },
+    "Deburr": { "model": "UR5e", "costPerHour": 3.38, "working": 0.38, "perWorkingHour": 9, "idleCostYear": 8403 },
+    "Inspection": { "model": "UR3e", "costPerHour": 2.90, "working": 0.21, "perWorkingHour": 14, "idleCostYear": 9210 }
+  },
+  "line": { "costPerHour": 15.02, "idleCostYear": 47285, "shareIdle": 0.79, "outputPerHour": 275 }
+}

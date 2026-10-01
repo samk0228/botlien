@@ -27,6 +27,10 @@ const RANK = { "e-stop": 3, fault: 2, stop: 1, offline: 0 };
 export const REOPEN_MS = 10 * 60_000;
 // Unclaimed for this long: the lead is told; this long again: the manager.
 export const ESCALATE_AFTER_MS = 10 * 60_000;
+// A pushed robot that was up and has sent nothing for this long is offline:
+// the gateway box died, or lost its uplink. A vendor sync is not held to
+// this (it may poll hourly), and an arm last seen powered off is not either.
+export const SILENT_MS = 10 * 60_000;
 const MIN = 60_000;
 const DAY = 86_400_000;
 const BASELINE_DAYS = 14;
@@ -62,10 +66,13 @@ export function classify(s) {
 /** Bring a robot's incident record in line with its latest sample. Returns
  *  { incident, change } with change one of opened, reopened, closed,
  *  updated, or null when nothing moved. */
-export function reconcile(store, robot, nowMs) {
+export function reconcile(store, robot, nowMs, { silentMs = SILENT_MS } = {}) {
   const latest = store.latestSnapshot(robot.id);
   if (!latest) return { incident: null, change: null };
-  const found = classify(latest);
+  let found = classify(latest);
+  if (!found && silentMs && robot.connector === "push" && latest.connection_state === "online" && latest.mission_state !== "off" && nowMs - latest.at >= silentMs) {
+    found = { kind: "offline", code: null, description: "The gateway stopped sending", severity: "critical" };
+  }
   const open = store.openIncidentFor(robot.id);
   if (!open && found) {
     const last = store.lastIncidentFor(robot.id);
