@@ -243,6 +243,11 @@ function liveTables(c) {
   // Per row: what a robot arm costs per hour and what its waiting costs a
   // year (manufacturing), or null for work priced per unit.
   T.COST = robots.map(function (r) { return r.cost || null; });
+  // The line map (stations in order; drafted until the owner confirms it),
+  // the jams and stop impacts in the open period, and what limits each line.
+  T.LINE_MAP = c.lineMap || null;
+  T.LINE_EVENTS = c.lineEvents || [];
+  T.LINE_SUMMARY = c.lineSummary || [];
   // What the owner saved, back in the page's own shape.
   var saved = c.inputs || { account: {}, robots: {} };
   T.SAVED = { account: saved.account || {}, robots: {} };
@@ -263,7 +268,7 @@ var PERSIST_ROBOT = ['robotInvoice', 'robotHours', 'confirmWork', 'excluded', 'c
 var PERSIST_ACCOUNT = ['workWage', 'workThroughput', 'customWork', 'hiddenWork', 'employees', 'nextEmployeeId',
   'stallMinutes', 'taxRate', 'taxDepMethod', 'taxInterestRate',
   'dashLayout', 'dashHidden', 'fixes', 'plans', 'briefSettings', 'claims',
-  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames', 'billingDay'];
+  'ownerName', 'siteName', 'businessName', 'timezone', 'avatarColor', 'avatarIcon', 'placeNames', 'billingDay', 'lineMap'];
 
 /* The changes between two snapshots of the page state, in the shape
    POST /api/v1/inputs takes. Robot maps go out by robot id; a row the owner

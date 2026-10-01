@@ -15,6 +15,7 @@
 // - Pure with respect to the injected clock, like every other read path.
 import { robotFinancials, taskCount } from "./finance.mjs";
 import { BENCHMARKS, EQUIP_COST_CENTS, economicsFor, taskLabelFor, robotCostFor } from "./rates.mjs";
+import { draftLineMap, resolveLineMap, lineEventOut, summarizeLines } from "./line.mjs";
 import { costPerWorkingHour, idleCostPerYear } from "./robot-cost.mjs";
 import { robotInterventions, MINUTES_PER_CLEAR } from "./interventions.mjs";
 import { loadInputs, KV_TZ, KV_BILLING_DAY } from "./inputs.mjs";
@@ -570,6 +571,16 @@ export function fleetContract(store, nowMs, config = {}) {
   });
 
   const filled = (arr) => (arr.length ? "present" : "missing");
+  // The line: the owner's map, or one drafted from the connected robots
+  // until they confirm it; the machine jams and stop impacts found in the
+  // open period; and what limited each line most.
+  const lineRobots = store.listRobots().filter((r) => !excluded.has(r.id));
+  const savedMap = inputs.account.lineMap ?? null;
+  const lineMap = resolveLineMap(savedMap ? { ...savedMap, drafted: false } : draftLineMap(lineRobots, store.listSites()), lineRobots);
+  const lineRobotName = (id) => lineRobots.find((r) => r.id === id)?.display_name ?? lineRobots.find((r) => r.id === id)?.external_id ?? `Robot ${id}`;
+  const lineEvents = store.listLineEvents({ sinceMs: open.fromMs, untilMs: open.toMs }).map((e) => lineEventOut(e, lineRobotName, asOfMs));
+  const lineSummary = summarizeLines(lineMap, lineEvents);
+
   return {
     version: CONTRACT_VERSION,
     asOf: asOfMs,
@@ -590,6 +601,9 @@ export function fleetContract(store, nowMs, config = {}) {
     tickets,
     // Stops in the closed periods shown, each tagged with its period's start.
     pastDowntime,
+    lineMap,
+    lineEvents,
+    lineSummary,
     // What the owner typed on the dashboard, restored into the page on load.
     inputs,
     // When each alert rule last actually emailed the owner (alerts.mjs).
@@ -615,6 +629,8 @@ export function fleetContract(store, nowMs, config = {}) {
       contracts: contracts.length ? "owner" : "missing",
       tickets: tickets.length ? "owner" : "missing",
       economics: robots.some((r) => r.configured) ? "owner" : "benchmark",
+      lineMap: savedMap ? "owner" : "drafted",
+      lineEvents: lineEvents.length ? "derived" : "missing",
     },
   };
 }

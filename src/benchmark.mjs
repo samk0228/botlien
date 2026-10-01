@@ -14,22 +14,12 @@ import { rebuildRollupsForRobot } from "./rollup.mjs";
 import { fleetContract, downtimeEpisodes } from "./contract.mjs";
 import { setBusinessType, KV_CONFIRMED } from "./owner.mjs";
 import { COST_DEFAULTS, idleCostPerYear, costPerWorkingHour } from "./robot-cost.mjs";
+import { stateOf } from "./line.mjs";
 
+export { stateOf };
 // The same cap the rollups use: a gap longer than this is dark time.
 const MAX_GAP_MS = 5 * 60_000;
 export const STATES = ["working", "waiting", "stopped", "paused", "idle", "off", "offline"];
-
-function parseErrors(raw) {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try {
-    const l = JSON.parse(raw);
-    return Array.isArray(l) ? l : [];
-  } catch {
-    return [];
-  }
-}
-const stopping = (e) => !/^(WARN|WARNING|INFO)$/i.test(String(e?.severity ?? ""));
 
 /** The lines of a recording as events in time order. Bad lines are listed,
  *  not fatal: a recording cut off mid-line still replays. */
@@ -49,20 +39,6 @@ export function parseRecording(text) {
   });
   events.sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0));
   return { events, bad };
-}
-
-/** What a stored sample says the arm was doing, in the benchmark's words. */
-export function stateOf(s) {
-  if (s.connection_state === "offline") return "offline";
-  if (s.e_stop === 1 || s.e_stop === true || s.stuck === 1 || s.stuck === true) return "stopped";
-  if (parseErrors(s.errors).some(stopping)) return "stopped";
-  switch (s.mission_state) {
-    case "active": return "working";
-    case "waiting": return "waiting";
-    case "paused": return "paused";
-    case "off": return "off";
-    default: return "idle";
-  }
 }
 
 /** Integrate one robot's samples: milliseconds in each state, cycles,

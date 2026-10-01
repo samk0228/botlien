@@ -294,6 +294,34 @@ export const MIGRATIONS = [
      updated_at INTEGER NOT NULL
    );
    CREATE INDEX IF NOT EXISTS incidents_robot ON incidents(robot_id, status, started_at);`,
+  // 6. Line events: what the line map lets Botlien say (src/line.mjs). A
+  //    jam is a machine that is not a robot holding the line (the robots
+  //    on both sides of it waiting, no robot stopped); a stop impact is a
+  //    robot's stop with the other robots it left waiting. One row each,
+  //    open while it goes on, with the robots idle and the robot-minutes
+  //    and cents that came to, and where its Slack message is.
+  `CREATE TABLE IF NOT EXISTS line_events (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     line TEXT NOT NULL,
+     kind TEXT NOT NULL,
+     station TEXT NOT NULL,
+     robot_id INTEGER,
+     confidence TEXT,
+     started_at INTEGER NOT NULL,
+     ended_at INTEGER,
+     idle TEXT NOT NULL DEFAULT '{}',
+     idle_minutes INTEGER NOT NULL DEFAULT 0,
+     cost_cents INTEGER NOT NULL DEFAULT 0,
+     priced INTEGER NOT NULL DEFAULT 1,
+     status TEXT NOT NULL DEFAULT 'open',
+     channel TEXT,
+     message_ts TEXT,
+     notified_at INTEGER,
+     rendered_at INTEGER,
+     updated_at INTEGER NOT NULL,
+     UNIQUE(line, kind, station, started_at)
+   );
+   CREATE INDEX IF NOT EXISTS line_events_time ON line_events(started_at);`,
 ];
 
 export function migrate(db) {
@@ -918,6 +946,47 @@ export class Store {
     vals.push(nowMs, id);
     this.db.prepare(`UPDATE incidents SET ${sets.join(", ")} WHERE id=?`).run(...vals);
     return this.incident(id);
+  }
+
+  // ---- line events (migration 6) ----
+  /** Insert or refresh the event with this line, kind, station and start. */
+  upsertLineEvent({ line, kind, station, robotId = null, confidence = null, startedAt, endedAt = null, idle = {}, idleMinutes = 0, costCents = 0, priced = true, status = "open" }, nowMs) {
+    this.db
+      .prepare(
+        `INSERT INTO line_events (line, kind, station, robot_id, confidence, started_at, ended_at, idle, idle_minutes, cost_cents, priced, status, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(line, kind, station, started_at) DO UPDATE SET ended_at=excluded.ended_at, idle=excluded.idle,
+           idle_minutes=excluded.idle_minutes, cost_cents=excluded.cost_cents, priced=excluded.priced, status=excluded.status,
+           confidence=excluded.confidence, updated_at=excluded.updated_at`
+      )
+      .run(line, kind, station, robotId, confidence, startedAt, endedAt, JSON.stringify(idle), idleMinutes, costCents, priced ? 1 : 0, status, nowMs);
+    return this.db.prepare(`SELECT * FROM line_events WHERE line=? AND kind=? AND station=? AND started_at=?`).get(line, kind, station, startedAt);
+  }
+
+  lineEvent(id) {
+    return this.db.prepare(`SELECT * FROM line_events WHERE id=?`).get(id) ?? null;
+  }
+
+  openLineEvents() {
+    return this.db.prepare(`SELECT * FROM line_events WHERE status='open' ORDER BY started_at, id`).all();
+  }
+
+  listLineEvents({ sinceMs = 0, untilMs = Number.MAX_SAFE_INTEGER, limit = 500 } = {}) {
+    return this.db.prepare(`SELECT * FROM line_events WHERE started_at>=? AND started_at<? ORDER BY started_at DESC, id DESC LIMIT ?`).all(sinceMs, untilMs, limit);
+  }
+
+  updateLineEvent(id, fields, nowMs) {
+    const cols = { endedAt: "ended_at", idle: "idle", idleMinutes: "idle_minutes", costCents: "cost_cents", priced: "priced", status: "status", channel: "channel", messageTs: "message_ts", notifiedAt: "notified_at", renderedAt: "rendered_at" };
+    const sets = [], vals = [];
+    for (const [k, v] of Object.entries(fields ?? {})) {
+      if (!(k in cols) || v === undefined) continue;
+      sets.push(`${cols[k]}=?`);
+      vals.push(k === "idle" ? JSON.stringify(v) : k === "priced" ? (v ? 1 : 0) : v);
+    }
+    sets.push("updated_at=?");
+    vals.push(nowMs, id);
+    this.db.prepare(`UPDATE line_events SET ${sets.join(", ")} WHERE id=?`).run(...vals);
+    return this.lineEvent(id);
   }
 
   /** Only the samples where something was wrong, each with the time of the
