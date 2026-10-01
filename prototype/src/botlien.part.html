@@ -12489,7 +12489,8 @@ async function slLoad(){
 }
 function slRestoreTok(){ const f = document.getElementById('slTok'); if (f) f.value = slTok; }
 
-function slIdx(id){ const i = ROBOTS.findIndex(r => r && r.id != null && r.id === id); return i >= 0 ? i : Number(id); }
+// The server's robot id to the page's row: ROBOT_IDS is the join the adapter keeps (a row carries no id of its own).
+function slIdx(id){ const ids = (liveData() || {}).ROBOT_IDS || []; let i = ids.findIndex(v => String(v) === String(id)); if (i < 0) i = ROBOTS.findIndex(r => r && r.id != null && String(r.id) === String(id)); return i >= 0 ? i : Number(id); }
 function slName(id){ const i = slIdx(id); return robotLabel ? robotLabel(i) : ((ROBOTS[i] || {}).name || 'Robot '+id); }
 function slIsArm(i){ const c = (liveData() || {}).COST; const m = String((ROBOTS[i] || {}).model || ''); return !!(c && c[i]) || /^UR/.test(m) || /\sUR/.test(m); }
 function slKind(x){ return x.kind === 'stop' ? (slIsArm(slIdx(x.robotId)) ? 'protective stop' : 'stuck') : x.kind === 'e-stop' ? 'emergency stop' : x.kind === 'offline' ? 'went offline' : 'fault'; }
