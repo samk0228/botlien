@@ -1,10 +1,35 @@
 # Running the Botlien UR gateway against URSim (for Antonio's agent)
 
-Written 9/30/26. The gateway is on the `slack-alerts` branch of
-github.com/samk0228/botlien (it contains the `ur-gateway` work). Nothing is
-deployed yet, so today the gateway pushes to a Botlien server you run on
-the same laptop as URSim. Once Sam deploys, only the `botlien` URL and the
-API key change.
+Written 9/30/26, updated the same evening: **the new server is deployed**,
+so the gateway can push straight to https://app.botlien.com. The gateway
+code is on `main` of github.com/samk0228/botlien. The local-server path
+below still works if you would rather keep everything on one laptop.
+
+## Shortest path (deployed server)
+
+1. `git clone https://github.com/samk0228/botlien.git` (main). Only
+   `gateway/ur/` is needed; it has no dependencies, Node 18+.
+2. Sign in at https://app.botlien.com/signin with Antonio's email. The
+   sign-in link arrives by email. Pick `Manufacturing` as the business
+   type. Skip the upload; the gateway is the data source.
+3. Make an API key: Settings > Data sources > Make an API key, or from the
+   browser console on any app page:
+
+   ```js
+   fetch('/api/v1/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ label: 'URSim' }), credentials: 'same-origin' })
+     .then(r => r.json()).then(console.log)
+   ```
+
+   Copy the `key` (`blk_...`). It is shown once.
+4. Copy `gateway/ur/config.example.json` to `gateway.json`, keep
+   `"botlien": "https://app.botlien.com"`, list the URSim arm as in
+   section 3 below, and run
+   `BOTLIEN_API_KEY=blk_... node gateway/ur/gateway.mjs gateway.json`.
+5. Section 4 below says what to look for. The dashboard is the account you
+   signed in with.
+
+## Local server instead (everything on one laptop)
 
 ## What you need
 
@@ -12,14 +37,13 @@ API key change.
   runs on Node 18+.
 - URSim running, reachable on its IP, RTDE enabled (it is by default) on
   port 30004.
-- git access to the repo (Antonio is a collaborator).
+- The repo is public; no access needed to clone.
 
 ## 1. Start a local Botlien server
 
 ```
 git clone https://github.com/samk0228/botlien.git
 cd botlien
-git checkout slack-alerts
 npm install
 BOTLIEN_NO_GENESIS=1 BOTLIEN_PORT=3240 npm start
 ```
