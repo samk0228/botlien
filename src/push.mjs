@@ -26,7 +26,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createEngine } from "./engine.mjs";
 import { toEpochMs } from "./normalize.mjs";
 import { computeRollups } from "./rollup.mjs";
-import { BENCHMARKS } from "./rates.mjs";
+import { BENCHMARKS, defaultWorkFor } from "./rates.mjs";
 
 export const PUSH_CONNECTOR = "push";
 export const MAX_EVENTS = 1000;
@@ -111,9 +111,13 @@ export function pushEvents(store, body, nowMs, config = {}) {
     else good.push(n);
   });
   const touched = new Map(); // robot id -> [minAt, maxAt]
+  // A robot sent without a kind of work starts as the business's main one
+  // (an arm in a manufacturing account is CNC tending, not tray delivery).
+  // Read from the key owner.mjs writes, so this module need not import it.
+  const fallback = defaultWorkFor(store.getKV("owner.business_type"));
   store.transaction(() => {
     for (const { event, robot } of good) {
-      const id = store.upsertRobot({ connector: PUSH_CONNECTOR, externalId: event.externalId, ...robot, category: robot.category ?? "delivery" }, nowMs);
+      const id = store.upsertRobot({ connector: PUSH_CONNECTOR, externalId: event.externalId, ...robot, category: robot.category ?? fallback }, nowMs);
       const span = touched.get(id) ?? [event.at, event.at];
       touched.set(id, [Math.min(span[0], event.at), Math.max(span[1], event.at)]);
     }

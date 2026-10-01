@@ -1,0 +1,85 @@
+# Botlien UR gateway
+
+Reads Universal Robots arms on the shop network and sends their status to
+Botlien. One small program, no dependencies, Node 18 or newer. It runs on any
+box that can reach the arms: a mini PC, a Raspberry Pi 5, the cell's own
+industrial PC.
+
+## What it never does
+
+It reads RTDE on port 30004 and sets up outputs only. It has no code that
+sends RTDE inputs, and it refuses to connect to 29999 (dashboard server) or
+30001-30003 (URScript). It cannot move an arm, load a program, or change a
+setting. It opens no port of its own; every connection goes out.
+
+## Set it up
+
+1. In Botlien, Settings > Data sources > Make an API key. Copy it once.
+2. Copy `config.example.json` to `gateway.json` and list the arms: a stable
+   `id` (never change it, it is how Botlien knows the arm), the arm's IP as
+   `host`, and its `name`, `model` (`UR10e`, `UR5e`...) and `category`
+   (`machine_tending` or `welding`).
+3. Run it:
+
+   ```
+   BOTLIEN_API_KEY=blk_... node gateway/ur/gateway.mjs gateway.json
+   ```
+
+The key is read from the environment only, so it is never saved in a file
+someone might share.
+
+## Counting cycles
+
+RTDE has no cycle counter. If the robot program increments an output
+integer register once per part (for example
+`write_output_integer_register(24, cycle)` at the end of the loop), set
+`"cycleRegister": 24` and Botlien counts exact cycles. Without it, Botlien
+still measures working time, which is what the cost figures use.
+
+## What it sends
+
+An event whenever something that matters changes, and a heartbeat every 15
+seconds:
+
+| Botlien field | From the controller |
+|---|---|
+| `mission_state` `active` | program playing and the arm moved in the last 2 s |
+| `mission_state` `waiting` | program playing, arm still (waiting on a machine) |
+| `mission_state` `paused`, `idle`, `off` | runtime state and robot mode |
+| `stuck` | protective stop or safeguard stop |
+| `e_stop` | system or robot emergency stop |
+| `errors` | the safety mode, for any stop, violation or fault |
+| `cycle_count` | the configured output register |
+| `connection_state` `offline` | the gateway lost the arm (not counted as downtime) |
+| `ur.*` | robot, safety and runtime mode, speed slider and scaling, joint current mean and max, joint temperature max, since the last event |
+
+If the internet drops, events are held in order (up to 200,000) and sent when
+it returns.
+
+## Run it as a service (Linux)
+
+```
+[Unit]
+Description=Botlien UR gateway
+After=network-online.target
+
+[Service]
+Environment=BOTLIEN_API_KEY=blk_...
+ExecStart=/usr/bin/node /opt/botlien/gateway/ur/gateway.mjs /opt/botlien/gateway.json
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Testing without a robot
+
+`fake-ursim.mjs` speaks the RTDE handshake and streams a simulated CNC
+tending cell. It is not URSim: no kinematics, no safety system. The real
+check is the gateway against URSim or a real arm.
+
+```
+node gateway/ur/fake-ursim.mjs --port 31004 --cycle 40 --move 10 --stop-every 3
+```
+
+and in `gateway.json`, `"host": "127.0.0.1", "port": 31004`.

@@ -36,7 +36,10 @@ export const CLOSE_GRACE_MS = DAY_MS;
 // half of its own sample intervals, so an export sampled every 10 minutes does
 // not split one long stall into a stall per row.
 const EPISODE_GAP_MS = 3 * 60_000;
-// Credited to a one-sample episode, and added to every episode's span so a
+// An episode ends at the next sample the robot sent after its last abnormal
+// one, so a 30-second stop in a sparse first hour reads as a minute, not as
+// that hour's average spacing. Only when nothing followed (the robot is still
+// down, or dropped offline) is one sample interval credited instead, so a
 // robot stuck across 4 samples at 15s reads as a minute, not 45 seconds.
 const DEFAULT_SAMPLE_MS = 15_000;
 
@@ -122,8 +125,10 @@ const siteSlug = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-"
 
 /** Downtime episodes from abnormal samples: stuck, e-stop, or reporting an
  *  error. Consecutive abnormal samples of the same kind within EPISODE_GAP_MS
- *  are one episode. The pose where it began is kept so a place can be named
- *  once the site has a map. */
+ *  are one episode. A row's next_at (the following sample of any kind, from
+ *  store.abnormalSnapshots) ends the episode where the robot was next seen.
+ *  The pose where it began is kept so a place can be named once the site has
+ *  a map. */
 export function downtimeEpisodes(rows, { tz = DEFAULT_TZ, sampleMs = DEFAULT_SAMPLE_MS } = {}) {
   // A warning does not stop a robot, so it is not downtime. Only an error or
   // critical fault counts, and a fault with no severity is taken at its word.
@@ -144,6 +149,7 @@ export function downtimeEpisodes(rows, { tz = DEFAULT_TZ, sampleMs = DEFAULT_SAM
     if (!kind) continue;
     if (cur && cur.kind === kind && r.at - cur.lastAt <= gapMs) {
       cur.lastAt = r.at;
+      cur.nextAt = r.next_at ?? null;
       continue;
     }
     if (cur) out.push(cur);
@@ -156,15 +162,19 @@ export function downtimeEpisodes(rows, { tz = DEFAULT_TZ, sampleMs = DEFAULT_SAM
         code = null;
       }
     }
-    cur = { kind, firstAt: r.at, lastAt: r.at, code, poseX: r.pose_x ?? null, poseY: r.pose_y ?? null };
+    cur = { kind, firstAt: r.at, lastAt: r.at, nextAt: r.next_at ?? null, code, poseX: r.pose_x ?? null, poseY: r.pose_y ?? null };
   }
   if (cur) out.push(cur);
+  // Ends where the robot was next seen, if that was soon. A stop followed by
+  // nothing (still down, or offline for longer than the gap) ends one sample
+  // interval after its last abnormal sample.
+  const endOf = (e) => (e.nextAt !== null && e.nextAt > e.lastAt && e.nextAt - e.lastAt <= gapMs ? e.nextAt : e.lastAt + sampleMs);
   return out.map((e) => ({
     kind: e.kind,
     date: dateKey(e.firstAt, tz),
     start: hhmm(e.firstAt, tz),
     at: e.firstAt,
-    minutes: Math.max(1, Math.round((e.lastAt - e.firstAt + sampleMs) / 60_000)),
+    minutes: Math.max(1, Math.round((endOf(e) - e.firstAt) / 60_000)),
     cause: e.kind === "error" ? `error ${e.code ?? "unknown"}` : e.kind,
     place: null,
     pose: e.poseX === null ? null : { x: e.poseX, y: e.poseY },

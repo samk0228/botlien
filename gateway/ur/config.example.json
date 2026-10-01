@@ -1,0 +1,23 @@
+{
+  "botlien": "https://app.botlien.com",
+  "heartbeatSeconds": 15,
+  "frequency": 10,
+  "arms": [
+    {
+      "id": "cell1-loader1",
+      "host": "192.168.1.21",
+      "name": "Loader 1",
+      "model": "UR10e",
+      "category": "machine_tending",
+      "cycleRegister": 24,
+      "program": "op10"
+    },
+    {
+      "id": "cell2-welder1",
+      "host": "192.168.1.31",
+      "name": "Welder 1",
+      "model": "UR16e",
+      "category": "welding"
+    }
+  ]
+}

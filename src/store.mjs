@@ -840,15 +840,21 @@ export class Store {
     return this.ticket(id);
   }
 
-  /** Only the samples where something was wrong. Downtime episodes are built
-   *  from these alone: a healthy robot at 15-second sampling writes ~180k rows
-   *  a month, and none of them change the answer. */
+  /** Only the samples where something was wrong, each with the time of the
+   *  sample that followed it (of any kind), so an episode can end where the
+   *  robot was next seen instead of at a guessed sample interval. Downtime
+   *  episodes are built from these alone: a healthy robot at 15-second
+   *  sampling writes ~180k rows a month, and none of them change the answer.
+   *  The next-sample lookup is one index seek per abnormal row. */
   abnormalSnapshots(robotId, sinceMs, untilMs) {
     return this.db
       .prepare(
-        `SELECT at, stuck, e_stop, errors, connection_state, pose_x, pose_y FROM status_snapshots
-         WHERE robot_id=? AND at>=? AND at<=? AND (stuck=1 OR e_stop=1 OR (errors IS NOT NULL AND errors != '[]'))
-         ORDER BY at`
+        `SELECT s.at, s.stuck, s.e_stop, s.errors, s.connection_state, s.pose_x, s.pose_y,
+                (SELECT MIN(n.at) FROM status_snapshots n WHERE n.robot_id=s.robot_id AND n.at>s.at) AS next_at
+         FROM status_snapshots s
+         WHERE s.robot_id=? AND s.at>=? AND s.at<=?
+           AND (s.stuck=1 OR s.e_stop=1 OR (s.errors IS NOT NULL AND s.errors != '[]'))
+         ORDER BY s.at`
       )
       .all(robotId, sinceMs, untilMs);
   }
