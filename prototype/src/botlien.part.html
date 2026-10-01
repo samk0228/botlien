@@ -2177,7 +2177,7 @@ const S = {
   demoMode: false,
   dashLayout: ['brief','attn','work','taxshield','sens'], dashHidden: [], dashEdit: false,
   // Which tile on each metric strip is open, and which sub-nav item.
-  dashTab: 'kpi', costsTab: '', setupTab: 'robots', settingsTab: 'site', appsOpen: false,  // The three statement pages worked out from the contract inputs. contract
+  dashTab: 'kpi', lineMap: null, costsTab: '', setupTab: 'robots', settingsTab: 'site', appsOpen: false,  // The three statement pages worked out from the contract inputs. contract
   // is the per-robot overlay over CONTRACT, same shape as robotInvoice:
   // undefined on a field means "as imported".
   paybackTab: 'behind', contractTab: 'uptime', openPayback: -1, openContract: -1,
@@ -3226,6 +3226,7 @@ function attentionCard(){
       + '<div data-peek="card:attn" style="font-size:13.5px;font-weight:600;color:var(--fg1);cursor:pointer">Needs attention</div>'
       + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:500;color:var(--acc);background:none;border:none;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">All robots →</button>'
     + '</div>'
+    + lnAttn() + slAttn()
     + (flagged ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(flagged.name)+' is running under its lease</div>' : '')
     + '<div style="margin-top:6px">'+(rows || '<div style="font-size:13px;color:var(--fg3);padding:6px 0">Nothing under its lease right now, every included robot is covering its cost.</div>')+'</div>'
     + lvBaselineAttn(s.included)
@@ -3397,6 +3398,7 @@ function viewDashV2(){
       + '</div>'
       + '<div id="dashGrid" data-dash-single style="position:relative;min-width:0">' + band2.map(dashBlockWrap).join('') + '</div>'
     + '</div>'
+    + lnDash()
     // Band three: real work, not what the page is for. Four tiles is the
     // limit on a strip, so the tax position and the rate assumption live
     // here, collapsed to a title and their one figure until asked for.
@@ -5109,15 +5111,17 @@ function viewStates(){
 }
 
 function viewAlerts(){
-  return '<div style="padding:0;margin-bottom:48px">'
+  const slLive = lvOn(), nRules = ALERT_RULES.length + (slLive ? 1 : 0);
+  return (slLive ? slSection() : '') + '<div style="padding:0;margin-bottom:48px">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:26px">'
       + '<h2 style="font-size:20px;font-weight:600;letter-spacing:-0.02em;margin:0;color:var(--fg1)">What Botlien will tell you about</h2>'
       // Counted off the rows themselves. A hardcoded "Four" above six rows
       // is the kind of small wrongness that makes a reader doubt the
       // figures too.
-      + '<span style="font-size:13px;color:var(--fg3)">'+countWord(ALERT_RULES.length)+' rules. Each one names its trigger, so nothing arrives unexplained.</span></div>'
+      + '<span style="font-size:13px;color:var(--fg3)">'+countWord(nRules)+' rules. Each one names its trigger, so nothing arrives unexplained.</span></div>'
     + '<div style="overflow-x:auto;min-width:0"><div style="min-width:760px">'
       + '<div style="display:grid;grid-template-columns:1.2fr 1.5fr .7fr .9fr 1.1fr;gap:20px;padding:0 4px 14px;font-size:11.5px;font-weight:600;color:var(--fg3)"><div>Rule</div><div>Fires when</div><div>Goes to</div><div>Cadence</div><div>Last time</div></div>'
+      + (slLive ? slRuleRow() : '')
       + ALERT_RULES.map(a => '<div style="display:grid;grid-template-columns:1.2fr 1.5fr .7fr .9fr 1.1fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:start">'
         + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">'+a.name+'</div>'
         + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">'+a.trigger+'</div>'
@@ -5127,7 +5131,7 @@ function viewAlerts(){
     + '</div></div></div>'
     + '<div style="padding-top:28px;border-top:1px solid var(--hair)">'
       + '<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 12px;color:var(--fg1)">Why there is no alert for a good month</h2>'
-      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0;max-width:86ch">A tool you open monthly earns nothing by pinging you weekly. These ' + countWord(ALERT_RULES.length).toLowerCase() + ' fire on things you would want interrupted for: a unit that stopped paying for itself, a unit that missed its payback promise, a credit you are owed, a unit that stopped working, the statement being ready, and an import that failed. Everything else waits for you.</p></div>';
+      + '<p style="font-size:14.5px;line-height:1.7;color:var(--fg2);margin:0;max-width:86ch">A tool you open monthly earns nothing by pinging you weekly. These ' + countWord(nRules).toLowerCase() + ' fire on things you would want interrupted for: '+(slLive ? 'a robot that stopped, ' : '')+'a unit that stopped paying for itself, a unit that missed its payback promise, a credit you are owed, a unit that stopped working, the statement being ready, and an import that failed. Everything else waits for you.</p></div>';
 }
 
 function viewSettings(){
@@ -5229,12 +5233,14 @@ function viewSettings(){
     + '</div>';
   };
   Object.keys(panes).forEach(k => { panes[k] = twoCol(panes[k]); });
+  if (lnOn()) panes.line = lnPane();
 
   const items = [
     { id:'site',    label:'Site',           icon:'globe' },
     { id:'account', label:'Account',        icon:'user' },
     { id:'people',  label:'People',         icon:'user' },
     { id:'data',    label:'Data sources',   icon:'upload-cloud' },
+    ...(lnOn() ? [{ id:'line', label:'Line', icon:'route' }] : []),
     { id:'method',  label:'How we count',   icon:'ruler' },
     { id:'delete',  label:'Delete account', icon:'triangle-alert' }
   ];
@@ -7068,7 +7074,7 @@ function peekBody(p){
     const bar = '<div style="display:flex;gap:2px;border-bottom:1px solid var(--hair);margin:0 -22px 20px;padding:0 22px">'
       + tabs.map(t => { const on = t.id === cur; return '<div data-act="peekTab" data-tab="'+t.id+'" class="'+(on?'':'hv-fg1')+'" style="padding:11px 12px;margin-bottom:-1px;font-size:13px;font-weight:'+(on?600:400)+';color:'+(on?'var(--fg1)':'var(--fg2)')+';border-bottom:2px solid '+(on?'var(--fg1)':'transparent')+';cursor:pointer;white-space:nowrap">'+t.label+'</div>'; }).join('')
     + '</div>';
-    return bar + peekRobotBody(Number(p.id), cur);
+    return bar + peekRobotBody(Number(p.id), cur) + (cur === 'broke' ? lnRobotEvents(Number(p.id)) + slRobotStops(Number(p.id)) : '');
   }
   if (RECORD_KINDS.indexOf(p.kind) >= 0){ const d = recordFor(p.kind, p.id); return d ? recordBody(d) : '<div style="font-size:13px;color:var(--fg3)">This record is not in the open period at this scope.</div>'; }
   if (L3_KINDS.indexOf(p.kind) >= 0) return quickLookBody(p.kind, p.id);
@@ -7108,6 +7114,7 @@ function peekShell(){
         + '<span style="font-size:16px;font-weight:600;color:var(--fg1)">'+esc(peekTitle(p))+'</span>'
         + (p.kind === 'robot' ? peekChip(Number(p.id)) : '')
       + '</div>'
+      + (p.kind === 'robot' ? lnDrawerLine(Number(p.id)) : '')
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:4px;flex:none">'
       + (canPage ? '<div data-act="peekGoPage" class="hv-ghost" title="Open the full page as a tab" tabindex="0" role="button" style="display:flex;align-items:center;gap:4px;height:32px;padding:0 9px;border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--fg1)">Open as tab'+ic('chevron-right',14)+'</div>' : '')
@@ -8732,7 +8739,8 @@ function briefBlocks(d, cardMode){
     const list = cardMode ? d.spots.slice(0, 1) : d.spots;
     blocks.push({ id:'spots', title:'Where they got stuck', html: list.map(sp => {
       const fx = S.fixes[fixKey(sp.site, sp.place)];
-      return rowLink('data-record="spot:'+siteSlug(sp.site)+'.'+slug(sp.place)+'"', 'anchor', esc(capFirst(sp.place))+siteOf(sp.site),
+      // An arm reports no position, so a stop with no place reads as the site alone, not ", CNC cell 1".
+      return rowLink('data-record="spot:'+siteSlug(sp.site)+'.'+slug(sp.place)+'"', 'anchor', sp.place ? esc(capFirst(sp.place))+siteOf(sp.site) : esc(sp.site),
         sp.n+' stall'+(sp.n === 1 ? '' : 's')+', '+fmtDownFor(sp.mins)+' down'+(fx && fx.status === 'in progress' ? ' &middot; fix in progress' : ''),
         fx && fx.status !== 'open' ? fixPill(fx.status) : '');
     }).join('') });
@@ -10595,7 +10603,7 @@ function frGo(view){ S.fr.err = {}; if (view === 'confirm') frSeedFleet(); if (v
 /* ?livepreview only: a sample account filled from the demo's own tables, so
    the live screens can be seen here. Server calls fail, on purpose. */
 function previewLive(){
-  if (LIVE_PREVIEW === 'mfg') return rcPreviewLive();
+  if (/^(mfg|slack|line)$/.test(LIVE_PREVIEW || '')) return rcPreviewLive();
   const benchKey = (w) => Object.keys(BENCH).find(k => k.toLowerCase().split(' ')[0] === String(w).toLowerCase().split(' ')[0]);
   const businessTypes = BUSINESSES.filter(b => b[0] !== 'Something else').map(b => {
     const works = b[1].split(', ');
@@ -11689,6 +11697,8 @@ function lvBoot(){
   if (d.BILLING_DAY != null) S.billingDay = Number(d.BILLING_DAY) || S.billingDay;
   if (Array.isArray(d.TICKETS)){ TICKETS.length = 0; d.TICKETS.forEach(t => TICKETS.push(lvTicketShape(t, {}))); lvTicketsSync(); }
   COPY.creds = ['Data sources', 'Every way data reaches this account: vendors we connect, data your systems push, and exports you upload.'];
+  slBoot();
+  lnBoot();
   if (isRobotCostAccount()) rcBoot();
 }
 
@@ -12047,6 +12057,7 @@ function rcAttentionCard(){
       + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">Works the least</div>'
       + '<button type="button" data-act="go" data-view="robots" class="hv-ghost" style="font-size:12px;font-weight:500;color:var(--acc);background:none;border:none;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">All robots →</button>'
     + '</div>'
+    + lnAttn() + slAttn()
     + (low ? '<div style="font-size:12px;color:var(--fg3);margin-bottom:12px">'+esc(low.name)+' worked '+rcPct(low.a.workingPct)+' of its schedule</div>' : '')
     + (rows.length ? rows.map(r => '<div data-peek="robot:'+r.i+':verdict" class="hv-ghost" style="display:flex;align-items:center;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
         + '<span style="width:96px;flex:none;font-size:12.5px;font-weight:500;color:var(--acc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:underline;text-decoration-color:rgba(55,96,201,.4);text-underline-offset:2px">'+esc(r.name)+'</span>'
@@ -12371,7 +12382,7 @@ function rcPreviewLive(){
 function rcBoot(){
   S.robotCost = S.robotCost || {};
   S.lv.rcRaw = {}; S.lv.rcOther = {};
-  if (!LIVE && LIVE_PREVIEW === 'mfg'){
+  if (!LIVE && /^(mfg|slack|line)$/.test(LIVE_PREVIEW || '')){
     S.dashScope = 0;
     const now = liveData().NOW || {};
     Object.keys(now).forEach(k => { const n = now[k], i = Number(k);
@@ -12426,6 +12437,640 @@ document.addEventListener('change', (e) => {
   rcSetField(Number(t.dataset.i), t.dataset.rcF, t.value);
   render();
 });
+
+/* ─────────────────────────  STOP ALERTS IN SLACK  ─────────────────────────
+
+   Settings > Alerts: connect the channel, name the lead and the manager,
+   and see the stops the way Slack saw them. Live accounts only. The bot
+   token lives in slTok while it is typed, never in S, and is dropped the
+   moment the server says yes. */
+
+let slTok = '';
+const SL_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function slOn(){ return lvOn() && !!S.slack; }
+function slPreview(){ return !LIVE && !!LIVE_PREVIEW; }
+function slFixture(){
+  const now = Date.now(), k = lvKeyOf(now), mins = Number(k.slice(11,13)) * 60 + Number(k.slice(14,16));
+  const sc = mins < 360 ? Math.max(mins - 2, 60) / 360 : 1, M = 60000;
+  const idx = (name, fb) => { const i = CONFIRM.findIndex(c => c && c.name === name); return i >= 0 ? i : fb; };
+  const l1 = idx('Loader 1', 0), l2 = idx('Loader 2', 1), de = idx('Deburr', 2);
+  const s1 = now - 7 * M, s2 = now - 24 * M, s3 = now - Math.round(180 * sc) * M, s4 = now - Math.round(300 * sc) * M;
+  return {
+    slack: { channel:'botlien-alerts-test', lead:'U0LEAD01', manager:null, team:'Line Lab', botUserId:'UBOT', connectedAt: Date.parse('2026-09-30T15:00:00Z') },
+    incidents: [
+      { id:7, robotId:l2, kind:'stop', code:'UR-SAFETY-3', description:'protective stop', startedAt:s1, lastSeenAt:now - M, endedAt:null, repeats:1, status:'open', claimedBy:null, claimedAt:null, escalated:0, escalatedAt:null, notifiedAt:s1 + 30000 },
+      { id:6, robotId:de, kind:'e-stop', code:null, description:null, startedAt:s2, lastSeenAt:now - M, endedAt:null, repeats:1, status:'open', claimedBy:'<@U0DANA>', claimedAt:now - 20 * M, escalated:1, escalatedAt:s2 + 10 * M, notifiedAt:s2 + 30000 },
+      { id:5, robotId:l1, kind:'stop', code:'C153', description:null, startedAt:s3, lastSeenAt:s3 + 12 * M, endedAt:s3 + 12 * M, repeats:3, status:'closed', claimedBy:'<@U0DANA>', claimedAt:s3 + 4 * M, escalated:0, escalatedAt:null, notifiedAt:s3 + 30000 },
+      { id:4, robotId:l2, kind:'offline', code:null, description:null, startedAt:s4, lastSeenAt:s4 + 41 * M, endedAt:s4 + 41 * M, repeats:1, status:'closed', claimedBy:null, claimedAt:null, escalated:2, escalatedAt:s4 + 20 * M, notifiedAt:s4 + 30000 }
+    ]
+  };
+}
+function slBoot(){
+  S.slack = null;
+  S.lv.sl = { channel:'', lead:'', manager:'', busy:'', err:'', ok:'', editing:false, disc:false, discErr:'', loading:false, at:0 };
+  if (!isLiveAccount()) return;
+  if (slPreview()){ const f = LIVE_PREVIEW === 'slack' ? slFixture() : { slack:null, incidents:[] }; S.slack = { slack:f.slack, incidents:f.incidents }; }
+  else slLoad();
+  BUTTON_STATES.push(
+    { action:'Test and connect', disabled:'Never disabled. An empty token or channel is named under the fields when it is pressed.', pending:'Reads "Checking the token with Slack…" while the server asks Slack.', failed:'The server&#39;s sentence under the fields. Everything typed stays.' },
+    { action:'Change (Slack)', disabled:'Never disabled.', pending:'Opens the form at once with channel, lead and manager filled. The token is empty.', failed:'Cannot fail. Nothing is sent until Test and connect.' },
+    { action:'Disconnect (Slack)', disabled:'Never disabled.', pending:'Asks once, then reads "Disconnecting…" while the server forgets the token.', failed:'The server&#39;s sentence beside it. Slack stays connected.' }
+  );
+}
+async function slLoad(){
+  const st = S.lv.sl;
+  if (slPreview() || !st || st.loading) return;
+  st.loading = true;
+  const r = await lvFetch('GET', '/api/v1/slack');
+  st.loading = false; st.at = Date.now();
+  if (r.ok) S.slack = { slack: r.data.slack || null, incidents: Array.isArray(r.data.incidents) ? r.data.incidents : [] };
+  render();
+}
+function slRestoreTok(){ const f = document.getElementById('slTok'); if (f) f.value = slTok; }
+
+function slIdx(id){ const i = ROBOTS.findIndex(r => r && r.id != null && r.id === id); return i >= 0 ? i : Number(id); }
+function slName(id){ const i = slIdx(id); return robotLabel ? robotLabel(i) : ((ROBOTS[i] || {}).name || 'Robot '+id); }
+function slIsArm(i){ const c = (liveData() || {}).COST; const m = String((ROBOTS[i] || {}).model || ''); return !!(c && c[i]) || /^UR/.test(m) || /\sUR/.test(m); }
+function slKind(x){ return x.kind === 'stop' ? (slIsArm(slIdx(x.robotId)) ? 'protective stop' : 'stuck') : x.kind === 'e-stop' ? 'emergency stop' : x.kind === 'offline' ? 'went offline' : 'fault'; }
+function slWhat(x){
+  const k = slKind(x), d = x.description && String(x.description).toLowerCase() !== k ? x.description : x.code;
+  return d ? k+' \u00b7 '+d : k;
+}
+function slWho(x){ return x.claimedBy ? String(x.claimedBy).replace(/<@([A-Za-z0-9]+)(\|[^>]*)?>/g, '@$1') : 'nobody'; }
+function slDur(m){ m = Math.max(0, Math.round(m)); if (m < 60) return m+' min'; const h = Math.floor(m / 60), r = m % 60; return h+' h'+(r ? ' '+r+' min' : ''); }
+function slDown(x){ return x.endedAt ? slDur((x.endedAt - x.startedAt) / 60000) : slDur((Date.now() - x.startedAt) / 60000)+' so far'; }
+function slDay(ms){ const k = lvKeyOf(ms); return Number(k.slice(8,10))+' '+SL_MON[Number(k.slice(5,7)) - 1]; }
+function slClock(ms){ return lvClock(ms).replace(/\s*([AP])M$/i, (m, a) => ' '+a.toLowerCase()+'m'); }
+function slWhen(ms){
+  if (!ms) return 'never';
+  const k = lvKeyOf(ms).slice(0,10), t = slClock(ms);
+  if (k === lvKeyOf(Date.now()).slice(0,10)) return t+' today';
+  if (k === lvKeyOf(Date.now() - 864e5).slice(0,10)) return 'Yesterday '+t;
+  return slDay(ms)+' '+t;
+}
+function slPills(x){
+  const out = [x.status === 'open' && !x.endedAt ? pill('down','triangle-alert','bad') : pill('back','check','good')];
+  if (x.repeats > 1) out.push('<span title="Came back and stopped again '+(x.repeats - 1)+' time'+(x.repeats === 2 ? '' : 's')+', within 10 minutes each">'+pill('x'+x.repeats,'triangle-alert','warn')+'</span>');
+  if (x.escalated >= 2) out.push(pill('manager told','bell','warn')); else if (x.escalated === 1) out.push(pill('lead told','bell','warn'));
+  return out.join('');
+}
+
+/* ─── Settings > Alerts ─── */
+
+function slSection(){
+  if (!S.slack && !slPreview() && !S.lv.sl.loading && Date.now() - S.lv.sl.at > 60000) setTimeout(slLoad, 0);
+  const box = (inner) => '<div style="padding:0 0 28px;margin-bottom:28px;border-bottom:1px solid var(--hair)">'+inner+'</div>';
+  if (!S.slack) return box('<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg1)">Stop alerts in Slack</h2>'
+    + '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg3)">'+(S.lv.sl.loading ? spinner(12)+'Reading the Slack connection…' : 'Not reported yet.')+'</div>');
+  const sk = S.slack.slack;
+  return box('<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 8px;color:var(--fg1)">Stop alerts in Slack</h2>'
+    + (sk && !S.lv.sl.editing ? slConnected(sk) : slForm(sk)))
+    + (sk ? slStopsBlock() : '');
+}
+function slConnected(sk){
+  const st = S.lv.sl;
+  return (st.ok ? '<div role="status" style="display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;font-size:13px;line-height:1.55;color:var(--good)">'+ic('check',14,'flex:none;margin-top:2px')+'<span>'+esc(st.ok)+'</span></div>' : '')
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:6px"><span style="font-size:14.5px;font-weight:600;color:var(--fg1);overflow-wrap:anywhere">'+esc(sk.team || 'Slack')+' \u00b7 #'+esc(sk.channel)+'</span>'+pill('connected','check','good')+'</div>'
+    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6;font-family:inherit">Lead <span style="font-family:'+LV_MONO+';color:var(--fg1)">'+(sk.lead ? esc(sk.lead) : '</span>not set<span>')+'</span> \u00b7 Manager <span style="font-family:'+LV_MONO+';color:var(--fg1)">'+(sk.manager ? esc(sk.manager) : '</span>not set<span>')+'</span></div>'
+    + (sk.connectedAt ? '<div style="font-size:12.5px;color:var(--fg3);margin-top:2px">since '+esc(slDay(sk.connectedAt))+'</div>' : '')
+    + '<div style="font-size:12.5px;color:var(--fg3);margin:14px 0 10px">Changing the channel or who is pinged needs the bot token again.</div>'
+    + (st.disc
+      ? '<div style="border:1px solid var(--hair2);border-radius:6px;padding:14px 16px;max-width:520px">'
+          + '<div style="font-size:13px;color:var(--fg1);line-height:1.6;margin-bottom:12px">Stops already posted stay in Slack. Botlien forgets the token.</div>'
+          + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px">'+lvBtn('data-act="slDisconnect"', 'Disconnect', st.busy === 'disc' ? 'Disconnecting…' : '')+(st.busy ? '' : lvLink('data-act="slDiscCancel"', 'Keep it connected'))+'</div>'
+          + lvError(st.discErr)
+        + '</div>'
+      : '<div style="display:flex;flex-wrap:wrap;gap:10px">'+lvBtn('data-act="slChange"', 'Change')+lvBtn('data-act="slDiscAsk"', 'Disconnect')+'</div>');
+}
+function slForm(sk){
+  const st = S.lv.sl, f = (id, label, path, ph, help, opt) => '<div><label for="'+id+'" style="'+LV_LABEL+'">'+label+(opt ? ' <span style="color:var(--fg3)">(optional)</span>' : '')+'</label>'
+    + '<input id="'+id+'" data-lv-f="'+path+'" type="text" value="'+esc(lvAt(st, path.split('.')[1]) || '')+'" placeholder="'+esc(ph)+'" autocomplete="off" spellcheck="false" style="'+LV_INPUT+'">'
+    + (help ? '<div style="font-size:12px;color:var(--fg3);margin-top:6px;line-height:1.5">'+help+'</div>' : '')+'</div>';
+  const steps = ['1. api.slack.com/apps, Create New App, From scratch, name it Botlien.',
+    '2. OAuth &amp; Permissions: add the bot scopes chat:write and chat:write.public, then Install to Workspace and copy the Bot User OAuth Token.',
+    '3. Interactivity &amp; Shortcuts: switch it on and set the Request URL to https://app.botlien.com/api/slack/interactions.',
+    '4. Member IDs: open a person&#39;s profile in Slack, the three dots, Copy member ID.'];
+  return '<p style="font-size:13.5px;line-height:1.65;color:var(--fg2);margin:0 0 18px;max-width:68ch;text-wrap:pretty">When a robot stops, Botlien posts one message to a Slack channel, keeps it up to date, and pings your lead if nobody claims it in 10 minutes.</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px;max-width:640px">'
+      + '<div><label for="slTok" style="'+LV_LABEL+'">Bot token</label><input id="slTok" type="password" placeholder="xoxb-\u2026" autocomplete="new-password" spellcheck="false" style="'+LV_INPUT+';font-family:'+LV_MONO+'"></div>'
+      + f('slChan', 'Channel', 'sl.channel', 'botlien-alerts')
+      + f('slLead', 'Lead', 'sl.lead', 'Slack member ID, like U0\u2026', 'Who is pinged after 10 unclaimed minutes.', true)
+      + f('slMgr', 'Manager', 'sl.manager', 'Slack member ID, like U0\u2026', '\u2026and 10 minutes after that.', true)
+    + '</div>'
+    + '<details style="margin:16px 0 18px;max-width:640px"><summary style="cursor:pointer;font-size:13px;font-weight:500;color:var(--fg1)">How to make the Slack app (5 minutes)</summary>'
+      + '<ol style="list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px">'+steps.map(s => '<li style="font-size:13px;line-height:1.6;color:var(--fg2);overflow-wrap:anywhere">'+s+'</li>').join('')+'</ol></details>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px">'
+      + frButton('slConnect', 'Test and connect', { pending: st.busy === 'connect' ? 'Checking the token with Slack\u2026' : '' })
+      + (sk && !st.busy ? lvLink('data-act="slChangeCancel"', 'Keep it as it is') : '')
+    + '</div>'
+    + lvError(st.err);
+}
+function slRuleRow(){
+  const sk = S.slack && S.slack.slack, inc = (S.slack && S.slack.incidents) || [];
+  const last = inc.reduce((m, x) => x.notifiedAt && x.notifiedAt > m ? x.notifiedAt : m, 0);
+  return '<div style="display:grid;grid-template-columns:1.2fr 1.5fr .7fr .9fr 1.1fr;gap:20px;padding:18px 4px;border-top:1px solid var(--hair);align-items:start">'
+    + '<div style="font-size:13.5px;font-weight:600;color:var(--fg1)">A robot stops</div>'
+    + '<div style="font-size:13px;color:var(--fg2);line-height:1.6">A robot reports a stop, an emergency stop or a fault, or goes offline.</div>'
+    + '<div style="font-size:13px;color:var(--fg2)">'+(sk ? 'Slack' : 'connect Slack above')+'</div>'
+    + '<div style="font-size:13px;color:var(--fg2)">'+(sk ? 'as it happens' : '')+'</div>'
+    + '<div style="font-size:12.5px;color:var(--fg3);font-variant-numeric:tabular-nums">'+(sk ? esc(slWhen(last)) : '')+'</div></div>';
+}
+
+/* ─── the stops ─── */
+
+const SL_COLS = '104px minmax(80px,.8fr) minmax(120px,1.3fr) 88px 84px minmax(130px,1fr)';
+function slRow(x){
+  const i = slIdx(x.robotId);
+  return '<div style="display:grid;grid-template-columns:'+SL_COLS+';gap:12px;padding:12px 4px;border-top:1px solid var(--hair);align-items:center;font-size:13px">'
+    + '<div style="color:var(--fg1);font-variant-numeric:tabular-nums">'+esc(slWhen(x.startedAt))+'</div>'
+    + '<div><span data-peek="robot:'+i+':broke" role="link" tabindex="0" style="font-weight:500;'+linkStyle()+'">'+esc(slName(x.robotId))+'</span></div>'
+    + '<div style="color:var(--fg2);overflow-wrap:anywhere">'+esc(slWhat(x))+'</div>'
+    + '<div style="color:var(--fg1);font-variant-numeric:tabular-nums">'+esc(slDown(x))+'</div>'
+    + '<div style="color:'+(x.claimedBy ? 'var(--fg1)' : 'var(--fg3)')+';font-family:'+(x.claimedBy ? LV_MONO : 'inherit')+';font-size:12.5px;overflow-wrap:anywhere">'+esc(slWho(x))+'</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px">'+slPills(x)+'</div></div>';
+}
+function slStopsBlock(){
+  const inc = S.slack.incidents || [];
+  return '<div style="padding:0 0 28px;margin-bottom:28px;border-bottom:1px solid var(--hair)">'
+    + '<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 14px;color:var(--fg1)">Stops in the last 30 days</h2>'
+    + (inc.length
+      ? '<div style="overflow-x:auto;min-width:0"><div style="min-width:680px">'
+          + '<div style="display:grid;grid-template-columns:'+SL_COLS+';gap:12px;padding:0 4px 10px;font-size:11.5px;font-weight:600;color:var(--fg3)"><div>When</div><div>Robot</div><div>What</div><div>Down</div><div>Who</div><div>Status</div></div>'
+          + inc.map(slRow).join('')
+        + '</div></div>'
+      : '<div style="font-size:13px;color:var(--fg3)">No stops since Slack was connected.</div>')
+  + '</div>';
+}
+function slRobotStops(i){
+  if (!slOn() || !S.slack.slack) return '';
+  const mine = (S.slack.incidents || []).filter(x => slIdx(x.robotId) === i);
+  return '<div style="margin-top:24px">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px"><span style="font-size:13.5px;font-weight:600;color:var(--fg1)">Stops</span><span style="font-size:12px;color:var(--fg3)">last 30 days, as Slack saw them</span></div>'
+    + (mine.length ? mine.map(x => '<div style="padding:10px 0;border-top:1px solid var(--hair)">'
+        + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:4px"><span style="font-size:13px;font-weight:500;color:var(--fg1)">'+esc(slWhat(x))+'</span>'+slPills(x)+'</div>'
+        + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.6">'+esc(slWhen(x.startedAt))+' \u00b7 '+esc(slDown(x))+' \u00b7 '+esc(slWho(x))+'</div>'
+      + '</div>').join('')
+      : '<div style="font-size:13px;color:var(--fg3);padding:8px 0;border-top:1px solid var(--hair)">No stops since Slack was connected.</div>')
+  + '</div>';
+}
+function slAttn(){
+  if (!slOn() || !S.slack.slack) return '';
+  const open = (S.slack.incidents || []).filter(x => x.status === 'open' && !x.endedAt).slice(0, 3);
+  if (!open.length) return '';
+  return '<div style="margin:6px 0 10px">'+open.map(x => {
+    const m = slDur((Date.now() - x.startedAt) / 60000);
+    return '<div data-act="go" data-view="alerts" role="link" tabindex="0" class="hv-ghost" style="display:flex;align-items:flex-start;gap:10px;padding:8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+      + pill('down','triangle-alert','bad')
+      + '<span style="font-size:12.5px;line-height:1.55;color:var(--fg1);min-width:0">'+esc(slName(x.robotId))+' has been down '+m+(x.claimedBy ? ', '+esc(slWho(x))+' has it' : ' and nobody has claimed it')+'</span></div>';
+  }).join('')+'</div>';
+}
+
+Object.assign(ACTIONS, {
+  slConnect: async () => {
+    const st = S.lv.sl;
+    if (st.busy) return;
+    const f = document.getElementById('slTok'); if (f) slTok = f.value;
+    const token = String(slTok).trim(), channel = String(st.channel || '').trim().replace(/^#/, '');
+    st.ok = '';
+    if (!token){ st.err = 'Paste the bot token first. It starts with xoxb-.'; render(); slRestoreTok(); return; }
+    if (!channel){ st.err = 'Say which channel the alerts go to.'; render(); slRestoreTok(); return; }
+    st.err = ''; st.busy = 'connect'; render(); slRestoreTok();
+    const body = { botToken: token, channel, lead: String(st.lead || '').trim() || null, manager: String(st.manager || '').trim() || null };
+    let r;
+    if (slPreview()){
+      await new Promise(res => setTimeout(res, 700));
+      r = /^xoxb-\S{8,}$/.test(token)
+        ? { ok:true, data:{ ok:true, slack:{ channel, lead: body.lead, manager: body.manager, team:'Line Lab', botUserId:'UBOT', connectedAt: Date.now() } } }
+        : { ok:false, status:400, error:'Slack did not accept that token. Copy the Bot User OAuth Token again, the one that starts with xoxb-.' };
+    } else r = await lvFetch('POST', '/api/v1/slack', body);
+    body.botToken = null;
+    st.busy = '';
+    if (r.ok && r.data && r.data.slack){
+      slTok = '';
+      const sk = r.data.slack;
+      S.slack = { slack: sk, incidents: (S.slack && S.slack.incidents) || [] };
+      st.editing = false; st.err = '';
+      st.ok = 'Connected to '+(sk.team || 'Slack')+'. Stop alerts go to #'+sk.channel+'.';
+      render();
+    } else { st.err = r.error; render(); slRestoreTok(); }
+  },
+  slChange: () => {
+    const st = S.lv.sl, sk = S.slack && S.slack.slack;
+    if (!sk) return;
+    Object.assign(st, { editing:true, ok:'', err:'', disc:false, channel: sk.channel || '', lead: sk.lead || '', manager: sk.manager || '' });
+    slTok = ''; render();
+    const f = document.getElementById('slTok'); if (f) f.focus();
+  },
+  slChangeCancel: () => { const st = S.lv.sl; st.editing = false; st.err = ''; slTok = ''; render(); },
+  slDiscAsk: () => { const st = S.lv.sl; st.disc = true; st.discErr = ''; st.ok = ''; render(); },
+  slDiscCancel: () => { S.lv.sl.disc = false; render(); },
+  slDisconnect: async () => {
+    const st = S.lv.sl;
+    if (st.busy) return;
+    st.busy = 'disc'; st.discErr = ''; render();
+    const r = slPreview() ? (await new Promise(res => setTimeout(res, 500)), { ok:true, data:{ ok:true, slack:null, incidents:(S.slack && S.slack.incidents) || [] } }) : await lvFetch('DELETE', '/api/v1/slack');
+    st.busy = '';
+    if (r.ok){
+      S.slack = { slack:null, incidents: (r.data && r.data.incidents) || [] };
+      Object.assign(st, { disc:false, editing:false, err:'', ok:'', channel:'', lead:'', manager:'' });
+      slTok = '';
+    } else st.discErr = r.error;
+    render();
+  }
+});
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'slTok') slTok = e.target.value; });
+
+/* ─────────────────────────  THE LINE  ─────────────────────────
+
+   Settings > Line draws the order of the line; the dashboard says what
+   limited it. A drafted line is a question until the owner confirms it.
+   Live accounts only, and only once the server sends LINE_MAP. */
+
+function lnOn(){ return lvOn() && !!lvT('LINE_MAP'); }
+function lnIds(){ const d = liveData() || {}; if (Array.isArray(d.ROBOT_IDS)) return d.ROBOT_IDS; const fr = d.FIRST_RUN && d.FIRST_RUN.robots; return fr ? fr.map(r => r.id) : []; }
+function lnRid(i){ const v = lnIds()[i]; return v != null ? v : i; }
+function lnIdx(rid){ const n = lnIds().findIndex(v => String(v) === String(rid)); return n >= 0 ? n : Number(rid); }
+function lnModel(i){ return String((ROBOTS[i] || {}).model || '').split(' ').pop(); }
+function lnAccount(){
+  const fr = (liveData() || {}).FIRST_RUN;
+  if (fr && Array.isArray(fr.robots)) return fr.robots.map((r, i) => r.excluded ? -1 : i).filter(i => i >= 0 && CONFIRM[i]);
+  return CONFIRM.map((c, i) => c ? i : -1).filter(i => i >= 0);
+}
+function lnNorm(st){
+  if (st.kind === 'robot'){ const o = { kind:'robot', robotId: st.robotId }; if (st.twin) o.twin = st.twin; return o; }
+  if (st.kind === 'buffer'){ const o = { kind:'buffer', name: st.name || '' }; if (st.holds != null && st.holds !== '') o.holds = Number(st.holds); return o; }
+  return { kind:'machine', name: st.name || '' };
+}
+function lnFromRobots(){ return [{ name: (SITES[0] || {}).name || 'Line 1', stations: lnAccount().map(i => ({ kind:'robot', robotId: lnRid(i) })) }]; }
+function lnSaved(){
+  if (S.lv.lnReset) return { drafted:true, lines: lnFromRobots() };
+  if (S.lineMap) return { drafted:false, lines: S.lineMap.lines };
+  const m = lvT('LINE_MAP') || {};
+  return { drafted: !!m.drafted, lines: (m.lines || []).map(l => ({ name: l.name, stations: (l.stations || []).map(lnNorm) })) };
+}
+function lnEvents(){ const e = lvT('LINE_EVENTS'); return Array.isArray(e) ? e : []; }
+function lnSummary(name){ return (lvT('LINE_SUMMARY') || []).find(x => x.name === name) || null; }
+function lnStName(st){ return st.kind === 'robot' ? robotLabel(lnIdx(st.robotId)) : (st.name || 'unnamed'); }
+function lnMin(m){ const v = Math.round((Number(m) || 0) * 10) / 10; return v+' min'; }
+function lnOpenAt(line, st){
+  const nm = lnStName(st);
+  return lnEvents().some(e => e.open && e.line === line && (e.station === nm || (st.kind === 'robot' && e.robotId != null && String(e.robotId) === String(st.robotId))));
+}
+
+function lnPreview(){
+  const d = liveData();
+  if (LIVE || !LIVE_PREVIEW || !/^(mfg|slack|line)$/.test(LIVE_PREVIEW) || d.LINE_MAP) return;
+  d.ROBOT_IDS = CONFIRM.map((c, i) => i + 3);
+  const at = (name, fb) => { const i = CONFIRM.findIndex(c => c && c.name === name); return i >= 0 ? i : fb; };
+  const L1 = at('Loader 1', 0), L2 = at('Loader 2', 1), DB = at('Deburr', 2), IN = at('Inspection', 3);
+  const R = (i, twin) => ({ kind:'robot', robotId: lnRid(i), name: robotLabel(i), model: lnModel(i), twin });
+  if (LIVE_PREVIEW !== 'line'){
+    d.LINE_MAP = { drafted:true, lines:[{ name:'CNC cell 1', stations: [L1, L2, DB, IN].map(i => R(i)) }] };
+    d.LINE_EVENTS = []; d.LINE_SUMMARY = [{ name:'CNC cell 1', robots:4, machines:0, jams:0, stops:0, idleMinutesByMachines:0, idleMinutesByRobots:0, costCentsByMachines:0, costCentsByRobots:0, shareByMachines:null, limits:null }];
+    return;
+  }
+  d.LINE_MAP = { drafted:false, lines:[{ name:'CNC cell 1', stations: [R(L1,'loaders'), { kind:'machine', name:'Mill A' }, R(L2,'loaders'), { kind:'machine', name:'Mill B' }, R(DB), { kind:'buffer', name:'conveyor', holds:10 }, R(IN)] }] };
+  const now = Date.now(), k = lvKeyOf(now), mins = Number(k.slice(11,13)) * 60 + Number(k.slice(14,16)), sc = mins < 160 ? Math.max(mins - 2, 20) / 160 : 1, M = 60000;
+  const t = (m) => now - Math.round(m * sc * M);
+  const w = (i, m) => ({ robotId: lnRid(i), name: robotLabel(i), minutes: m });
+  d.LINE_EVENTS = [
+    { id:'j3', line:'CNC cell 1', kind:'jam', station:'Mill A', robotId:null, confidence:'both sides', startedAt: now - 4 * M, endedAt:null, open:true, minutes:4, idle:[w(L1,7), w(L2,6)], idleMinutes:13, costCentsByMachinesNote:null, costCents:89, priced:true },
+    { id:'j2', line:'CNC cell 1', kind:'jam', station:'Mill B', robotId:null, confidence:'one side', startedAt: t(50), endedAt: t(50) + 3.3 * M, open:false, minutes:3.3, idle:[w(L2,3.3), w(DB,7.7)], idleMinutes:11, costCents:75, priced:true },
+    { id:'s2', line:'CNC cell 1', kind:'stop', station: robotLabel(L2), robotId: lnRid(L2), confidence:null, startedAt: t(95), endedAt: t(95) + 4 * M, open:false, minutes:4, idle:[w(DB,3)], idleMinutes:3, costCents:13, priced:true },
+    { id:'s1', line:'CNC cell 1', kind:'stop', station: robotLabel(IN), robotId: lnRid(IN), confidence:null, startedAt: t(140), endedAt: t(140) + 2 * M, open:false, minutes:2, idle:[], idleMinutes:0, costCents:0, priced:true }
+  ];
+  d.LINE_SUMMARY = [{ name:'CNC cell 1', robots:4, machines:2, jams:2, stops:2, idleMinutesByMachines:24, idleMinutesByRobots:15, costCentsByMachines:164, costCentsByRobots:13, shareByMachines:0.62,
+    limits:{ kind:'jam', station:'Mill A', idleMinutes:13, events:1 } }];
+}
+function lnBoot(){
+  S.lv.ln = { draft:null, busy:'', err:'', ask:false, add:null, said:'' };
+  S.lv.lnFilter = null; S.lv.lnReset = false;
+  if (!isLiveAccount()) return;
+  lnPreview();
+  if (!lvT('LINE_MAP')) return;
+  BUTTON_STATES.push(
+    { action:'This is my line', disabled:'Never disabled. The server checks the map and names what is off.', pending:'Reads "Saving…" while the map is saved with your other inputs.', failed:'The server&#39;s sentence under the editor. Every edit stays on screen.' },
+    { action:'Start again from the robots', disabled:'Never disabled.', pending:'Asks once, then reads "Saving…" while the drafted line is put back.', failed:'The server&#39;s sentence beside it. Your line stays as it was.' },
+    { action:'Add a station', disabled:'Never disabled. A robot is offered only while one is not on a line; otherwise the robot choice reads "Every robot is on a line".', pending:'Adds the row at once, at the end of the line. Nothing is sent until This is my line.', failed:'Cannot fail.' },
+    { action:'Move up, Move down, Remove (Line)', disabled:'Up is off on the first station, down on the last.', pending:'The list changes at once. Nothing is sent until This is my line.', failed:'Cannot fail. A removed robot waits in Add a station.' },
+    { action:'Add a line', disabled:'Never disabled.', pending:'Adds an empty line under the others, with its name ready to type.', failed:'Cannot fail. An empty line is named by the server when you save.' }
+  );
+}
+
+/* ─── pieces ─── */
+
+function lnChip(i, attrs, dot){
+  return '<span '+(attrs || '')+' style="position:relative;display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 10px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);'+(attrs ? 'cursor:pointer;' : '')+'max-width:100%;box-sizing:border-box">'
+    + ic('boxes',13,'color:var(--fg2)')+'<span style="font-size:12.5px;font-weight:600;color:var(--fg1);white-space:nowrap">'+esc(robotLabel(i))+'</span>'
+    + (lnModel(i) ? '<span style="font-size:12px;color:var(--fg3);white-space:nowrap">'+esc(lnModel(i))+'</span>' : '')
+    + (dot ? lnDot() : '')+'</span>';
+}
+function lnDot(){ return '<span title="something is happening here now" style="position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:var(--bad);border:2px solid var(--card)"></span>'; }
+function lnStation(line, st){
+  const dot = lnOpenAt(line, st);
+  if (st.kind === 'robot'){ const i = lnIdx(st.robotId); return lnChip(i, 'data-peek="robot:'+i+':broke" role="link" tabindex="0"', dot); }
+  if (st.kind === 'buffer') return '<span data-act="lnFilter" data-st="'+esc(st.name || '')+'" role="button" tabindex="0" style="position:relative;display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:16px;border:1px solid var(--hair2);background:var(--ghost);font-size:12px;font-weight:500;color:var(--fg1);cursor:pointer;white-space:nowrap">'+esc(st.name || 'buffer')+(st.holds != null ? ' \u00b7 '+esc(String(st.holds)) : '')+(dot ? lnDot() : '')+'</span>';
+  return '<span data-act="lnFilter" data-st="'+esc(st.name || '')+'" role="button" tabindex="0" style="position:relative;display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:0 10px;border:1px solid var(--hair3);border-radius:3px;background:var(--ghost);cursor:pointer;white-space:nowrap">'+ic('cpu',13,'color:var(--fg2)')+'<span style="font-size:12.5px;font-weight:500;color:var(--fg1)">'+esc(st.name || 'unnamed')+'</span>'+(dot ? lnDot() : '')+'</span>';
+}
+function lnStrip(l){
+  const join = '<span aria-hidden="true" style="flex:none;width:16px;height:1px;background:var(--hair3)"></span>';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 0">'
+    + l.stations.map((st, n) => '<span style="display:inline-flex;align-items:center;min-width:0">'+lnStation(l.name, st)+(n < l.stations.length - 1 ? join : '')+'</span>').join('')
+  + '</div>';
+}
+function lnReadBack(l){
+  const names = l.stations.map(lnStName);
+  if (!names.length) return '';
+  if (names.length === 1) return esc(names[0])+' is the whole line.';
+  return esc(names[0])+' feeds '+names.slice(1).map((n, k) => k ? 'which feeds '+esc(n) : esc(n)).join(', ')+'.';
+}
+function lnEstimated(){ return lnAccount().some(i => { const a = rcArm(i); return a && a.estimated; }); }
+
+/* ─── dashboard ─── */
+
+function lnPanel(l, drafted){
+  if (drafted) return '<div style="font-size:13.5px;line-height:1.65;color:var(--fg2)">Confirm your line on '+lvLink('data-act="lnGoSettings"', 'Settings &gt; Line')+' and Botlien will say which machine holds it.</div>';
+  const s = lnSummary(l.name);
+  if (!s) return '<div style="font-size:13px;color:var(--fg3)">Not reported yet.</div>';
+  let out = '';
+  if (s.limits){
+    out += '<div style="font-size:28px;font-weight:600;letter-spacing:-0.02em;color:var(--fg1);line-height:1.15">'+esc(s.limits.station)+'</div>'
+      + '<div style="font-size:12.5px;color:var(--fg3);margin:2px 0 6px">'+(s.limits.kind === 'jam' ? 'a machine, not a robot' : 'a robot')+'</div>'
+      + '<div style="font-size:13px;color:var(--fg2);margin-bottom:16px">held the line for <span style="color:var(--fg1);font-weight:600">'+lnMin(s.limits.idleMinutes)+'</span> this period</div>';
+  }
+  if (s.shareByMachines == null) return out + '<div style="font-size:13px;color:var(--fg3)">No jams or stops this period.</div>';
+  const pm = Math.round(s.shareByMachines * 100);
+  out += '<div style="display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--ghost);margin-bottom:8px"><div style="width:'+pm+'%;background:var(--warn-mark)"></div><div style="flex:1;background:var(--hair3)"></div></div>'
+    + '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:12px;color:var(--fg2);margin-bottom:12px"><span>Machines <span style="color:var(--fg1);font-weight:600">'+lnMin(s.idleMinutesByMachines)+'</span></span><span>Robots <span style="color:var(--fg1);font-weight:600">'+lnMin(s.idleMinutesByRobots)+'</span></span></div>'
+    + '<div style="font-size:13px;line-height:1.6;color:var(--fg2);margin-bottom:10px;text-wrap:pretty">Non-robot machines caused <span style="color:var(--fg1);font-weight:600">'+pm+'%</span> of your robots&#39; waiting this period. A robot dashboard shows green through all of it.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12.5px;color:var(--fg2)"><span><span style="color:var(--fg1);font-weight:600">'+money((s.costCentsByMachines || 0) / 100)+'</span> in robot time because of machines, <span style="color:var(--fg1);font-weight:600">'+money((s.costCentsByRobots || 0) / 100)+'</span> because of stops</span>'+(lnEstimated() ? estChip('estimated') : '')+'</div>';
+  return out;
+}
+const LN_COLS = '92px minmax(130px,1.4fr) 104px minmax(120px,1.3fr) 72px';
+function lnWhat(e){
+  if (e.kind === 'stop') return esc(e.station)+' stopped';
+  return esc(e.station)+(e.open ? ' is likely holding the line' : ' held the line');
+}
+function lnWaited(e){ return (e.idle || []).length ? e.idle.map(x => esc(x.name || robotLabel(lnIdx(x.robotId)))+' '+lnMin(x.minutes)).join(' \u00b7 ') : 'nobody'; }
+function lnCost(e){ return e.priced === false ? '<span style="color:var(--fg3)">not priced</span>' : (e.costCents == null ? '<span style="color:var(--fg3)">not reported</span>' : money(e.costCents / 100)); }
+function lnHow(e){ return e.open ? '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">'+esc(slDur((Date.now() - e.startedAt) / 60000))+' so far '+pill('still going','triangle-alert','bad')+'</div>' : lnMin(e.minutes); }
+function lnTable(l){
+  const f = S.lv.lnFilter;
+  let rows = lnEvents().filter(e => e.line === l.name);
+  if (f) rows = rows.filter(e => e.station === f);
+  return '<div id="lnTable" style="margin-top:22px">'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;margin-bottom:10px"><span style="font-size:13.5px;font-weight:600;color:var(--fg1)">Jams and stops</span>'
+      + (f ? '<span style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px;color:var(--fg2)">Showing '+esc(f)+' only '+lvLink('data-act="lnFilter" data-st=""', 'Show all')+'</span>' : '<span style="font-size:12px;color:var(--fg3)">this period, newest first</span>')+'</div>'
+    + (rows.length
+      ? '<div style="overflow-x:auto;min-width:0"><div style="min-width:540px">'
+          + '<div style="display:grid;grid-template-columns:'+LN_COLS+';gap:10px;padding:0 4px 10px;font-size:11.5px;font-weight:600;color:var(--fg3)"><div>When</div><div>What</div><div>How long</div><div>Who waited</div><div style="text-align:right">Robot time</div></div>'
+          + rows.map(e => '<div style="display:grid;grid-template-columns:'+LN_COLS+';gap:10px;padding:12px 4px;border-top:1px solid var(--hair);align-items:start;font-size:13px">'
+            + '<div style="color:var(--fg1);font-variant-numeric:tabular-nums">'+esc(slWhen(e.startedAt))+'</div>'
+            + '<div style="min-width:0"><div style="color:var(--fg1);font-weight:500">'+lnWhat(e)+'</div>'+(e.kind === 'jam' && e.confidence === 'one side' ? '<div style="font-size:12px;color:var(--fg3);margin-top:2px;line-height:1.5">read from one side: only one robot is next to it</div>' : '')+'</div>'
+            + '<div style="color:var(--fg1);font-variant-numeric:tabular-nums">'+lnHow(e)+'</div>'
+            + '<div style="color:var(--fg2);line-height:1.55">'+lnWaited(e)+'</div>'
+            + '<div style="color:var(--fg1);text-align:right;font-variant-numeric:tabular-nums">'+lnCost(e)+'</div></div>').join('')
+        + '</div></div>'
+      : '<div style="font-size:13px;color:var(--fg3);padding:8px 0;border-top:1px solid var(--hair)">'+(f ? 'Nothing at '+esc(f)+' this period.' : 'No jams or stops this period.')+'</div>')
+  + '</div>';
+}
+function lnDash(){
+  if (!lnOn()) return '';
+  const m = lnSaved();
+  return m.lines.map(l => '<div style="border:1px solid var(--hair);border-radius:6px;padding:22px 24px 20px;margin-top:20px">'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px 32px;align-items:start">'
+      + '<div style="min-width:0">'
+        + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:14px"><span style="font-size:13.5px;font-weight:600;color:var(--fg1)">'+esc(l.name)+'</span>'+(m.drafted ? pill('drafted','help-circle') : '')+'</div>'
+        + lnStrip(l)
+        + (m.drafted ? '<div style="font-size:12.5px;color:var(--fg3);margin-top:12px;line-height:1.55">We drew this from the robots we see. Is it the order of your line?</div>' : '')
+      + '</div>'
+      + '<div style="min-width:0"><div style="font-size:13.5px;font-weight:600;color:var(--fg1);margin-bottom:12px">What limits '+esc(l.name)+'</div>'+lnPanel(l, m.drafted)+'</div>'
+    + '</div>'
+    + (m.drafted ? '' : lnTable(l))
+  + '</div>').join('');
+}
+function lnAttn(){
+  if (!lnOn() || lnSaved().drafted) return '';
+  const open = lnEvents().filter(e => e.open && e.kind === 'jam');
+  if (!open.length) return '';
+  return '<div style="margin:6px 0 4px">'+open.map(e => '<div data-act="lnFilter" data-st="'+esc(e.station)+'" role="link" tabindex="0" class="hv-ghost" style="display:flex;align-items:flex-start;gap:10px;padding:8px;margin:0 -8px;border-radius:4px;cursor:pointer">'
+    + pill('still going','triangle-alert','bad')
+    + '<span style="font-size:12.5px;line-height:1.55;color:var(--fg1);min-width:0">'+esc(e.station)+' is likely holding '+esc(e.line)+', '+esc(slDur((Date.now() - e.startedAt) / 60000))+' so far</span></div>').join('')+'</div>';
+}
+function lnDrawerLine(i){
+  if (!lnOn()) return '';
+  const m = lnSaved(), rid = lnRid(i);
+  for (const l of m.lines){
+    const n = l.stations.findIndex(st => st.kind === 'robot' && String(st.robotId) === String(rid));
+    if (n < 0) continue;
+    const a = n > 0 ? lnStName(l.stations[n - 1]) : 'the start', b = n < l.stations.length - 1 ? lnStName(l.stations[n + 1]) : 'the end';
+    return '<div style="font-size:12.5px;color:var(--fg2);margin-top:4px;line-height:1.5">Between '+esc(a)+' and '+esc(b)+' on '+esc(l.name)+(m.drafted ? ' <span style="color:var(--fg3)">(drafted, not confirmed)</span>' : '')+'</div>';
+  }
+  return '';
+}
+function lnRobotEvents(i){
+  if (!lnOn() || lnSaved().drafted) return '';
+  const rid = String(lnRid(i));
+  const mine = lnEvents().filter(e => String(e.robotId) === rid || (e.idle || []).some(x => String(x.robotId) === rid));
+  if (!mine.length) return '';
+  return '<div style="margin-top:24px">'
+    + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px"><span style="font-size:13.5px;font-weight:600;color:var(--fg1)">Jams and stops</span><span style="font-size:12px;color:var(--fg3)">on its line, this period</span></div>'
+    + mine.map(e => { const me = (e.idle || []).find(x => String(x.robotId) === rid);
+        return '<div style="padding:10px 0;border-top:1px solid var(--hair)">'
+          + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:4px"><span style="font-size:13px;font-weight:500;color:var(--fg1)">'+lnWhat(e)+'</span>'+(e.open ? pill('still going','triangle-alert','bad') : '')+'</div>'
+          + '<div style="font-size:12.5px;color:var(--fg2);line-height:1.6">'+esc(slWhen(e.startedAt))+' \u00b7 '+(e.open ? esc(slDur((Date.now() - e.startedAt) / 60000))+' so far' : lnMin(e.minutes))+(me ? ' \u00b7 idle '+lnMin(me.minutes) : '')+'</div></div>'; }).join('')
+  + '</div>';
+}
+
+/* ─── Settings > Line ─── */
+
+function lnDraft(){
+  const st = S.lv.ln;
+  if (!st.draft) st.draft = JSON.parse(JSON.stringify(lnSaved().lines));
+  return st.draft;
+}
+function lnPlaced(){ const s = new Set(); lnDraft().forEach(l => l.stations.forEach(x => { if (x.kind === 'robot') s.add(String(x.robotId)); })); return s; }
+function lnUnplaced(){ const p = lnPlaced(); return lnAccount().filter(i => !p.has(String(lnRid(i)))); }
+const LN_ICON_BTN = 'display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--hair2);background:var(--card);color:var(--fg1);cursor:pointer;padding:0;font-family:inherit';
+function lnRow(li, si, l){
+  const x = l.stations[si], last = si === l.stations.length - 1;
+  const mv = (dir, off, label, icon) => '<button type="button" data-act="lnMove" data-li="'+li+'" data-si="'+si+'" data-d="'+dir+'" title="'+label+'" aria-label="'+label+'"'+(off ? ' aria-disabled="true" disabled' : '')+' class="'+(off ? '' : 'hv-ghost press')+'" style="'+LN_ICON_BTN+(off ? ';opacity:.35;cursor:default' : '')+'">'+ic(icon,14)+'</button>';
+  let body;
+  if (x.kind === 'robot'){
+    const i = lnIdx(x.robotId), others = l.stations.filter((o, n) => n !== si && o.kind === 'robot');
+    const mate = x.twin ? others.find(o => o.twin === x.twin) : null;
+    body = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-width:0;flex:1">'
+      + lnChip(i)
+      + (others.length ? '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--fg3)"><span>Same job as\u2026</span><select data-ln-twin="'+li+'.'+si+'" aria-label="Same job as" style="height:30px;padding:0 8px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:12.5px;color:var(--fg1);font-family:inherit"><option value="">nobody</option>'
+          + others.map(o => '<option value="'+esc(String(o.robotId))+'"'+(mate && String(mate.robotId) === String(o.robotId) ? ' selected' : '')+'>'+esc(robotLabel(lnIdx(o.robotId)))+'</option>').join('')+'</select></label>' : '')
+      + lvLink('data-act="lnRemove" data-li="'+li+'" data-si="'+si+'"', 'Remove')
+    + '</div>';
+  } else if (x.kind === 'machine'){
+    body = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-width:0;flex:1">'
+      + '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--hair3);border-radius:3px;background:var(--ghost);color:var(--fg2);flex:none">'+ic('cpu',14)+'</span>'
+      + '<input data-ln-f="'+li+'.'+si+'.name" type="text" value="'+esc(x.name || '')+'" placeholder="CNC mill, sealer, palletizer" aria-label="Machine name" autocomplete="off" style="'+LV_INPUT+';height:36px;flex:1 1 180px;width:auto;min-width:0">'
+      + lvLink('data-act="lnRemove" data-li="'+li+'" data-si="'+si+'"', 'Remove')
+    + '</div>';
+  } else {
+    body = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;min-width:0;flex:1">'
+      + '<input data-ln-f="'+li+'.'+si+'.name" type="text" value="'+esc(x.name || '')+'" placeholder="conveyor" aria-label="Buffer name" autocomplete="off" style="'+LV_INPUT+';height:36px;flex:1 1 140px;width:auto;min-width:0">'
+      + '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--fg2)">holds about <input data-ln-f="'+li+'.'+si+'.holds" type="number" min="0" inputmode="numeric" value="'+esc(x.holds != null ? String(x.holds) : '')+'" aria-label="Holds about" style="'+LV_INPUT+';height:36px;width:72px"> units</span>'
+      + lvLink('data-act="lnRemove" data-li="'+li+'" data-si="'+si+'"', 'Remove')
+    + '</div>';
+  }
+  return '<div data-ln-drag="'+li+'.'+si+'" draggable="true" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--hair)">'
+    + '<span title="Drag to move" aria-hidden="true" style="display:inline-flex;color:var(--fg3);cursor:grab;flex:none">'+ic('grip-vertical',16)+'</span>'
+    + body
+    + '<span style="display:inline-flex;gap:4px;flex:none">'+mv('-1', si === 0, 'Move up', 'chevron-up')+mv('1', last, 'Move down', 'chevron-down')+'</span>'
+  + '</div>';
+}
+function lnHint(){ return '<div style="font-size:12px;line-height:1.55;color:var(--fg3);padding:6px 0 8px 26px;border-top:1px dashed var(--hair)">Nothing between these two? If a machine sits here, add it. That is how Botlien names what holds the line.</div>'; }
+function lnEditor(l, li){
+  const st = S.lv.ln, left = lnUnplaced();
+  const rows = l.stations.map((x, si) => (si && x.kind === 'robot' && l.stations[si - 1].kind === 'robot' ? lnHint() : '') + lnRow(li, si, l)).join('');
+  const add = st.add === li
+    ? '<div style="display:grid;gap:10px;padding:14px 16px;border:1px solid var(--hair2);border-radius:6px;margin-top:12px;max-width:560px">'
+        + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px"><span style="font-size:13px;font-weight:500;color:var(--fg1);min-width:150px">A robot</span>'
+          + (left.length
+            ? '<select data-ln-addrobot="'+li+'" aria-label="Add a robot" style="height:36px;padding:0 10px;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13px;color:var(--fg1);font-family:inherit"><option value="">Pick a robot</option>'+left.map(i => '<option value="'+esc(String(lnRid(i)))+'">'+esc(robotLabel(i))+'</option>').join('')+'</select>'
+            : '<select disabled aria-label="Add a robot" style="height:36px;padding:0 10px;border:1px solid var(--hair2);border-radius:6px;background:var(--ghost);font-size:13px;color:var(--fg3);font-family:inherit"><option>Every robot is on a line</option></select>')
+        + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px">'+lvBtn('data-act="lnAdd" data-li="'+li+'" data-k="machine"', ic('cpu',13)+'A machine that is not a robot')+lvBtn('data-act="lnAdd" data-li="'+li+'" data-k="buffer"', 'A conveyor or buffer')+'</div>'
+        + '<div>'+lvLink('data-act="lnAddClose"', 'Close')+'</div>'
+      + '</div>'
+    : '<div style="margin-top:12px">'+lvBtn('data-act="lnAddOpen" data-li="'+li+'"', ic('plus',13)+'Add a station')+'</div>';
+  return '<div style="margin-bottom:26px">'
+    + '<input data-ln-f="'+li+'.name" type="text" value="'+esc(l.name || '')+'" aria-label="Line name" placeholder="Line name" autocomplete="off" style="width:100%;max-width:420px;box-sizing:border-box;font-size:15px;font-weight:600;color:var(--fg1);background:transparent;padding:6px 2px;border:none;border-bottom:1px solid var(--hair2);outline:none;font-family:inherit;margin-bottom:8px">'
+    + (rows || '<div style="font-size:13px;color:var(--fg3);padding:10px 0;border-top:1px solid var(--hair)">No stations yet. A line needs at least one robot.</div>')
+    + add
+  + '</div>';
+}
+function lnPane(){
+  const st = S.lv.ln, m = lnSaved(), draft = lnDraft();
+  const banner = m.drafted ? '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--hair2);border-radius:6px;background:var(--ghost);margin-bottom:20px;font-size:13px;line-height:1.55;color:var(--fg1)">'+ic('help-circle',15,'flex:none;margin-top:2px;color:var(--fg2)')+'<span>We drew this line from the robots we see. Put them in order, add the machines between them that are not robots, then confirm.</span></div>' : '';
+  const saved = m.drafted ? '' : '<div style="margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--hair)">'
+    + (st.said ? '<div role="status" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--good);margin-bottom:12px">'+ic('check',14)+esc(st.said)+'</div>' : '')
+    + m.lines.map(l => '<div style="margin-bottom:12px"><div style="font-size:12.5px;font-weight:600;color:var(--fg2);margin-bottom:8px">'+esc(l.name)+'</div>'+lnStrip(l)+'<div style="font-size:13px;line-height:1.6;color:var(--fg2);margin-top:10px;text-wrap:pretty">'+lnReadBack(l)+'</div></div>').join('')
+  + '</div>';
+  return '<div style="padding:0;margin-bottom:24px">'
+    + '<h2 style="font-size:18px;font-weight:600;letter-spacing:-0.02em;margin:0 0 6px;color:var(--fg1)">Line</h2>'
+    + '<p style="font-size:13.5px;color:var(--fg3);margin:0 0 20px;max-width:72ch;line-height:1.6">The order of your line: which robot feeds which machine. When the robot on each side of a machine is waiting and no robot has stopped, Botlien names the machine.</p>'
+    + banner + saved
+    + draft.map((l, li) => lnEditor(l, li)).join('')
+    + '<div style="margin:-8px 0 24px">'+lvBtn('data-act="lnAddLine"', ic('plus',13)+'Add a line')+'</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding-top:18px;border-top:1px solid var(--hair)">'
+      + frButton('lnSave', 'This is my line', { pending: st.busy === 'save' ? 'Saving\u2026' : '' })
+      + (st.busy === 'save' ? '' : st.ask
+        ? '<span style="display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px;color:var(--fg2)">Put back the line we drew from the robots? Your order and machines go. '+lvBtn('data-act="lnReset"', 'Start again', st.busy === 'reset' ? 'Saving\u2026' : '')+(st.busy ? '' : lvLink('data-act="lnResetCancel"', 'Keep my line'))+'</span>'
+        : lvBtn('data-act="lnResetAsk"', 'Start again from the robots'))
+    + '</div>'
+    + lvError(st.err)
+  + '</div>';
+}
+function lnPayload(lines){ return { lines: lines.map(l => ({ name: String(l.name || '').trim(), stations: l.stations.map(x => { const o = lnNorm(x); if (o.name != null) o.name = String(o.name).trim(); return o; }) })) }; }
+function lnCheck(map){
+  if (!map) return '';
+  for (const l of map.lines) if (!l.name) return 'Give every line a name.';
+  for (const l of map.lines) if (!l.stations.some(x => x.kind === 'robot')) return l.name+' has no robot on it. Every line needs at least one.';
+  for (const l of map.lines) if (l.stations.some(x => x.kind !== 'robot' && !x.name)) return 'Name every machine and buffer. One on '+l.name+' has no name.';
+  const seen = {};
+  for (const l of map.lines) for (const x of l.stations) if (x.kind === 'robot'){ const k = String(x.robotId); if (seen[k]) return robotLabel(lnIdx(x.robotId))+' is on two lines. A robot can be on one line only.'; seen[k] = 1; }
+  const miss = lnAccount().find(i => !seen[String(lnRid(i))]);
+  if (miss != null) return robotLabel(miss)+' is not on a line. Put every robot on one line.';
+  return '';
+}
+async function lnSend(map){
+  if (!LIVE && LIVE_PREVIEW){
+    await new Promise(res => setTimeout(res, 600));
+    const bad = lnCheck(map);
+    return { ok:false, status: bad ? 400 : 0, error: bad || 'This preview has no server, so the line was not saved. Every change is still on screen.' };
+  }
+  return lvFetch('POST', '/api/v1/inputs', { account: { lineMap: map } });
+}
+function lnAt(li, si){ const l = lnDraft()[li]; return l ? l.stations[si] : null; }
+function lnMoveTo(li, from, to){
+  const l = lnDraft()[li]; if (!l || to < 0 || to >= l.stations.length || from === to) return;
+  const [x] = l.stations.splice(from, 1); l.stations.splice(to, 0, x);
+}
+function lnFocusLast(li){ const els = document.querySelectorAll('[data-ln-f^="'+li+'."]'); const f = els[els.length - 1]; if (f && /\.name$/.test(f.dataset.lnF)) f.focus(); }
+
+Object.assign(ACTIONS, {
+  lnGoSettings: () => { S.peek = null; S.settingsTab = 'line'; goView('settings'); try { window.scrollTo(0, 0); } catch(e){} },
+  lnFilter: (el) => {
+    S.lv.lnFilter = el.dataset.st || null; render();
+    const t = document.getElementById('lnTable'); if (t){ try { window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 96, behavior:'smooth' }); } catch(e){} }
+  },
+  lnMove: (el) => { const li = Number(el.dataset.li), si = Number(el.dataset.si); lnMoveTo(li, si, si + Number(el.dataset.d)); S.lv.ln.said = ''; render(); },
+  lnRemove: (el) => {
+    const l = lnDraft()[Number(el.dataset.li)], si = Number(el.dataset.si); if (!l) return;
+    const [x] = l.stations.splice(si, 1);
+    if (x && x.twin){ const rest = lnDraft().flatMap(k => k.stations).filter(o => o.twin === x.twin); if (rest.length < 2) rest.forEach(o => { delete o.twin; }); }
+    S.lv.ln.said = ''; render();
+  },
+  lnAddOpen: (el) => { S.lv.ln.add = Number(el.dataset.li); render(); },
+  lnAddClose: () => { S.lv.ln.add = null; render(); },
+  lnAdd: (el) => {
+    const li = Number(el.dataset.li), l = lnDraft()[li]; if (!l) return;
+    l.stations.push(el.dataset.k === 'buffer' ? { kind:'buffer', name:'' } : { kind:'machine', name:'' });
+    S.lv.ln.add = null; S.lv.ln.said = ''; render(); lnFocusLast(li);
+  },
+  lnAddLine: () => { const d = lnDraft(); d.push({ name:'Line '+(d.length + 1), stations:[] }); S.lv.ln.said = ''; render(); const f = document.querySelector('[data-ln-f="'+(d.length - 1)+'.name"]'); if (f){ f.focus(); f.select(); } },
+  lnSave: async () => {
+    const st = S.lv.ln; if (st.busy) return;
+    const map = lnPayload(lnDraft());
+    st.busy = 'save'; st.err = ''; st.said = ''; render();
+    const r = await lnSend(map);
+    st.busy = '';
+    if (r.ok){ S.lineMap = map; S.lv.lnReset = false; st.draft = JSON.parse(JSON.stringify(map.lines)); st.said = 'Saved. This is the line Botlien reads from now on.'; }
+    else st.err = r.error;
+    render();
+  },
+  lnResetAsk: () => { S.lv.ln.ask = true; S.lv.ln.err = ''; render(); },
+  lnResetCancel: () => { S.lv.ln.ask = false; render(); },
+  lnReset: async () => {
+    const st = S.lv.ln; if (st.busy) return;
+    st.busy = 'reset'; st.err = ''; render();
+    const r = await lnSend(null);
+    st.busy = '';
+    if (r.ok){ S.lineMap = null; S.lv.lnReset = true; st.draft = null; st.ask = false; st.said = ''; }
+    else st.err = r.error;
+    render();
+  }
+});
+document.addEventListener('input', (e) => {
+  const t = e.target; if (!t || !t.dataset || !t.dataset.lnF || !lnOn()) return;
+  const p = t.dataset.lnF.split('.'), l = lnDraft()[Number(p[0])]; if (!l) return;
+  if (p.length === 2){ l.name = t.value; return; }
+  const x = l.stations[Number(p[1])]; if (!x) return;
+  if (p[2] === 'holds') x.holds = t.value === '' ? null : Math.max(0, Number(t.value)); else x.name = t.value;
+});
+document.addEventListener('change', (e) => {
+  const t = e.target; if (!t || !t.dataset || !lnOn()) return;
+  if (t.dataset.lnTwin){
+    const p = t.dataset.lnTwin.split('.'), l = lnDraft()[Number(p[0])], x = l && l.stations[Number(p[1])]; if (!x) return;
+    const old = x.twin; delete x.twin;
+    if (old){ const rest = lnDraft().flatMap(k => k.stations).filter(o => o.twin === old); if (rest.length < 2) rest.forEach(o => { delete o.twin; }); }
+    const mate = t.value ? l.stations.find(o => o.kind === 'robot' && String(o.robotId) === t.value) : null;
+    if (mate){ const label = mate.twin || 'twin-'+[x.robotId, mate.robotId].map(String).sort().join('-'); mate.twin = label; x.twin = label; }
+    S.lv.ln.said = ''; render();
+  } else if (t.dataset.lnAddrobot != null && t.value){
+    const l = lnDraft()[Number(t.dataset.lnAddrobot)]; if (!l) return;
+    const rid = lnIds().find(v => String(v) === t.value); l.stations.push({ kind:'robot', robotId: rid != null ? rid : Number(t.value) });
+    S.lv.ln.add = null; S.lv.ln.said = ''; render();
+  }
+});
+let lnDragFrom = null;
+document.addEventListener('dragstart', (e) => { const r = e.target && e.target.closest && e.target.closest('[data-ln-drag]'); if (!r || /^(INPUT|SELECT)$/.test(e.target.tagName)) return; lnDragFrom = r.dataset.lnDrag; try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', lnDragFrom); } catch(err){} });
+document.addEventListener('dragover', (e) => { if (lnDragFrom == null) return; const r = e.target && e.target.closest && e.target.closest('[data-ln-drag]'); if (r && r.dataset.lnDrag.split('.')[0] === lnDragFrom.split('.')[0]) e.preventDefault(); });
+document.addEventListener('drop', (e) => {
+  if (lnDragFrom == null) return;
+  const r = e.target && e.target.closest && e.target.closest('[data-ln-drag]'); const from = lnDragFrom.split('.').map(Number); lnDragFrom = null;
+  if (!r) return; const to = r.dataset.lnDrag.split('.').map(Number);
+  if (to[0] !== from[0]) return;
+  e.preventDefault(); lnMoveTo(from[0], from[1], to[1]); S.lv.ln.said = ''; render();
+});
+document.addEventListener('dragend', () => { lnDragFrom = null; });
 
 bootScreen();
 lvBoot();
