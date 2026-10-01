@@ -92,10 +92,12 @@ Copy `gateway/ur/config.example.json` to `gateway.json`:
 - `id` is how Botlien knows the arm. Pick it once and never change it.
 - `host` is URSim's IP. If URSim runs in Docker or a VM, it is the
   container or VM address, not 127.0.0.1, unless 30004 is forwarded.
-- Add `"cycleRegister": N` only if the Line Lab program writes a cycle
-  count to output integer register N (`write_output_integer_register(N,
-  cycle)` at the end of the loop). Without it Botlien measures working time
-  and does not count cycles.
+- Line Lab writes its cycle count to output integer register 25, so each
+  arm gets `"cycleRegister": 25`. The register restarting with the program
+  is fine: the gateway sends a count that only climbs.
+- Line Lab's four simulated arms listen on 127.0.0.1 ports 30104, 30204,
+  30304 and 30404: give each arm its `"port"`. (A real arm listens on 30004
+  and needs none.)
 - One entry per arm for a multi-arm line.
 
 Run it:

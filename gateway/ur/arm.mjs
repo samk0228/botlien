@@ -76,6 +76,17 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
   let online = false;
   let win = null;
   let movedAt = -Infinity;
+  // The cycle register restarts at 0 with the program (Line Lab's does), so
+  // what Botlien gets is a count that only climbs: every earlier run's last
+  // value plus the current one. A drop in the register is a restart.
+  let cycleBase = 0;
+  let lastReg = null;
+  function climbing(reg) {
+    if (reg === null) return null;
+    if (lastReg !== null && reg < lastReg) cycleBase += lastReg;
+    lastReg = reg;
+    return cycleBase + reg;
+  }
 
   // Working = the program is playing and the arm moved within holdMs. The
   // hold keeps a short pause inside a move (a gripper closing) from splitting
@@ -113,6 +124,7 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
       ur: {
         robot_mode: s.robot_mode ?? null,
         safety_mode: s.safety_mode ?? null,
+        ...(r.register !== null && r.register !== undefined ? { cycle_register: r.register } : {}),
         runtime_state: s.runtime_state ?? null,
         speed_slider: s.target_speed_fraction ?? null,
         ...(win && win.n
@@ -134,7 +146,8 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
   return {
     id: cfg.id,
     feed(s) {
-      const r = working(s, readSample(s, cfg));
+      const read = readSample(s, cfg);
+      const r = working(s, { ...read, register: read.cycle, cycle: climbing(read.cycle) });
       addToWindow(s);
       const key = keyOf(r);
       if (!online || !last || key !== last.key) {

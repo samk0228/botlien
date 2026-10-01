@@ -11,6 +11,7 @@
 // Runs on any small box on the shop network with Node 18 or newer and no
 // other dependencies. It opens no port of its own; every connection goes out.
 import { readFileSync, openSync, writeSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { connectRtde, DEFAULT_FIELDS, RTDE_PORT, FORBIDDEN_PORTS } from "./rtde.mjs";
 import { createArm } from "./arm.mjs";
 import { createSender } from "./sender.mjs";
@@ -77,7 +78,7 @@ export function runGateway(config, { key, connect = connectRtde, sender = null, 
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const path = process.argv[2];
   if (!path || path.startsWith("--")) {
     console.error("usage: BOTLIEN_API_KEY=blk_... node gateway/ur/gateway.mjs gateway.json [--record run.jsonl]");

@@ -101,5 +101,5 @@ const money = (cents) => `$${(cents / 100).toFixed(2)}`;
 
 /** The one line that makes C checkable by hand. */
 export function costDerivation(armLabel, cost) {
-  return `${money(cost.perHour)} per working hour = what a ${armLabel} costs to own and run per scheduled hour (${money(cost.ownership)} ownership + ${money(cost.maintenance)} maintenance + ${money(cost.energy)} energy)`;
+  return `${money(cost.perHour)} per scheduled hour = what a ${armLabel} costs to own and run, working or waiting (${money(cost.ownership)} ownership + ${money(cost.maintenance)} maintenance + ${money(cost.energy)} energy). Divide by the working share for the cost of an hour of real work.`;
 }

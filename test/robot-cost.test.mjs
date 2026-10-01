@@ -72,7 +72,7 @@ test("manufacturing is a business type with CNC tending and welding, priced by t
   const p = businessPreview("manufacturing");
   assert.equal(p.costBasis, "robot");
   assert.equal(p.rateCents, 437);
-  assert.match(p.derivation, /^\$4\.37 per working hour = what a UR10e costs/);
+  assert.match(p.derivation, /^\$4\.37 per scheduled hour = what a UR10e costs to own and run, working or waiting/);
   assert.equal(businessPreview("restaurant").costBasis, "labor");
   assert.equal(derivedRateCents("welding"), 526);
   // A month of a fully scheduled arm is its invoice, so full use reads 1.00x.
