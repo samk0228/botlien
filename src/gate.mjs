@@ -85,6 +85,24 @@ export async function handlePublicRoute(req, res, path, ctx) {
     return true;
   }
 
+  // ---- a Slack button press (signed by Slack, no session) ----
+  if (path === "/api/slack/interactions" && ctx.slackInteraction) {
+    const json = (code, body) => {
+      res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method !== "POST") return json(405, { error: "Slack posts here." }), true;
+    let body;
+    try {
+      body = await readBody(req, 64 * 1024);
+    } catch {
+      return json(413, { error: "too large" }), true;
+    }
+    const out = await ctx.slackInteraction({ headers: req.headers, body });
+    json(out.code, out.body ?? {});
+    return true;
+  }
+
   // ---- stopping the morning brief ----
   // The link in the email opens a page with one button, and only the button
   // (a POST) stops the brief, so a mail scanner that follows links cannot

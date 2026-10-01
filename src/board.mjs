@@ -342,6 +342,7 @@ export function startBoard(port, {
       let saveSites = null;
       let connections = null;
       let tickets = null;
+      let slack = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -377,6 +378,7 @@ export function startBoard(port, {
           saveSites = bound.saveSites ?? null;
           connections = bound.connections ?? null;
           tickets = bound.tickets ?? null;
+          slack = bound.slack ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -508,6 +510,31 @@ export function startBoard(port, {
           }
         }
         return reply(404, { error: "not a ticket route" });
+      }
+
+      // ---- Slack: where stop alerts go, and the stops so far ----
+      if (slack && path === "/api/v1/slack") {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET") return reply(200, slack.get());
+        if (req.method === "DELETE") return reply(200, { ok: true, had: slack.disconnect(), ...slack.get() });
+        if (req.method === "POST") {
+          let body;
+          try {
+            body = JSON.parse((await readBody(req, 8192)) || "{}");
+          } catch {
+            return reply(400, { error: "Send JSON: { botToken, channel, lead, manager }." });
+          }
+          try {
+            const saved = await slack.save(body);
+            return reply(200, { ok: true, slack: saved });
+          } catch (err) {
+            return reply(err?.constructor?.name === "SlackError" ? 400 : 500, { error: String(err?.message ?? err) });
+          }
+        }
+        return reply(405, { error: "GET, POST or DELETE." });
       }
 
       // ---- data sources: an account's own vendor connections ----

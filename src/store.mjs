@@ -266,6 +266,34 @@ export const MIGRATIONS = [
      figures TEXT NOT NULL,
      PRIMARY KEY (start, robot_id)
    );`,
+  // 5. Incidents: a robot's stops as records, one row each, opened by the
+  //    first sample that says it is not working and closed by the first that
+  //    says it is back. The Slack alert for a stop is one message kept up to
+  //    date, so the row also remembers where that message is, who claimed
+  //    it and how far it has been escalated (src/incidents.mjs, slack-job.mjs).
+  `CREATE TABLE IF NOT EXISTS incidents (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     robot_id INTEGER NOT NULL,
+     kind TEXT NOT NULL,
+     code TEXT,
+     description TEXT,
+     severity TEXT NOT NULL DEFAULT 'critical',
+     started_at INTEGER NOT NULL,
+     last_seen_at INTEGER NOT NULL,
+     ended_at INTEGER,
+     repeats INTEGER NOT NULL DEFAULT 1,
+     status TEXT NOT NULL DEFAULT 'open',
+     channel TEXT,
+     message_ts TEXT,
+     notified_at INTEGER,
+     rendered_at INTEGER,
+     claimed_by TEXT,
+     claimed_at INTEGER,
+     escalated INTEGER NOT NULL DEFAULT 0,
+     escalated_at INTEGER,
+     updated_at INTEGER NOT NULL
+   );
+   CREATE INDEX IF NOT EXISTS incidents_robot ON incidents(robot_id, status, started_at);`,
 ];
 
 export function migrate(db) {
@@ -838,6 +866,58 @@ export class Store {
       .prepare(`UPDATE vendor_tickets SET responded_at=?, status=? WHERE id=?`)
       .run(respondedAt === undefined ? cur.responded_at : respondedAt, status === undefined ? cur.status : status, id);
     return this.ticket(id);
+  }
+
+  // ---- incidents (migration 5) ----
+  insertIncident({ robotId, kind, code = null, description = null, severity = "critical", startedAt, lastSeenAt = null }, nowMs) {
+    const r = this.db
+      .prepare(
+        `INSERT INTO incidents (robot_id, kind, code, description, severity, started_at, last_seen_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(robotId, kind, code, description, severity, startedAt, lastSeenAt ?? startedAt, nowMs);
+    return Number(r.lastInsertRowid);
+  }
+
+  incident(id) {
+    return this.db.prepare(`SELECT * FROM incidents WHERE id=?`).get(id) ?? null;
+  }
+
+  openIncidentFor(robotId) {
+    return this.db.prepare(`SELECT * FROM incidents WHERE robot_id=? AND status='open' ORDER BY started_at DESC, id DESC LIMIT 1`).get(robotId) ?? null;
+  }
+
+  lastIncidentFor(robotId) {
+    return this.db.prepare(`SELECT * FROM incidents WHERE robot_id=? ORDER BY started_at DESC, id DESC LIMIT 1`).get(robotId) ?? null;
+  }
+
+  openIncidents() {
+    return this.db.prepare(`SELECT * FROM incidents WHERE status='open' ORDER BY started_at, id`).all();
+  }
+
+  listIncidents({ sinceMs = 0, limit = 100 } = {}) {
+    return this.db.prepare(`SELECT * FROM incidents WHERE started_at>=? ORDER BY started_at DESC, id DESC LIMIT ?`).all(sinceMs, limit);
+  }
+
+  /** Change some of an incident's fields (camelCase names); undefined fields
+   *  are left alone. Always stamps updated_at. Returns the row. */
+  updateIncident(id, fields, nowMs) {
+    const cols = {
+      kind: "kind", code: "code", description: "description", severity: "severity", startedAt: "started_at",
+      lastSeenAt: "last_seen_at", endedAt: "ended_at", repeats: "repeats", status: "status", channel: "channel",
+      messageTs: "message_ts", notifiedAt: "notified_at", renderedAt: "rendered_at", claimedBy: "claimed_by",
+      claimedAt: "claimed_at", escalated: "escalated", escalatedAt: "escalated_at",
+    };
+    const sets = [], vals = [];
+    for (const [k, v] of Object.entries(fields ?? {})) {
+      if (!(k in cols) || v === undefined) continue;
+      sets.push(`${cols[k]}=?`);
+      vals.push(v);
+    }
+    sets.push("updated_at=?");
+    vals.push(nowMs, id);
+    this.db.prepare(`UPDATE incidents SET ${sets.join(", ")} WHERE id=?`).run(...vals);
+    return this.incident(id);
   }
 
   /** Only the samples where something was wrong, each with the time of the

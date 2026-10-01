@@ -119,6 +119,7 @@ async function main() {
   let syncInterval = null;
   let briefInterval = null;
   let alertsInterval = null;
+  let slackInterval = null;
   let backupInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
@@ -212,6 +213,26 @@ async function main() {
       }
     }, 60_000);
     if (!alertsSend) console.log("alert emails are logged, not sent (set BOTLIEN_ALERTS_SEND=1 to send)");
+    // Stop alerts in Slack, for accounts that connected a channel, checked
+    // every half minute. Posted only with BOTLIEN_SLACK_SEND=1; the buttons
+    // need the app's signing secret in BOTLIEN_SLACK_SIGNING_SECRET.
+    const { createSlackAlertsJob } = await import("./slack-job.mjs");
+    const slackSend = process.env.BOTLIEN_SLACK_SEND === "1";
+    const slackJob = createSlackAlertsJob({ control, tenants, vault, config, send: slackSend, signingSecret: process.env.BOTLIEN_SLACK_SIGNING_SECRET ?? null, log: genesisLog });
+    tenancy.ctx.slackInteraction = (r) => slackJob.handleInteraction(r, clock.now());
+    let slacking = false;
+    slackInterval = setInterval(async () => {
+      if (slacking) return;
+      slacking = true;
+      try {
+        await slackJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`slack alerts error: ${String(err).slice(0, 200)}`, "warning");
+      } finally {
+        slacking = false;
+      }
+    }, 30_000);
+    if (!slackSend) console.log("Slack alerts are logged, not sent (set BOTLIEN_SLACK_SEND=1 to send)");
     // The backups check: emails ops (BOTLIEN_OPS_EMAILS) once a day while the
     // last verified offsite backup is more than 36 hours old.
     const { createBackupCheck } = await import("./backup-check.mjs");
@@ -322,6 +343,7 @@ async function main() {
     if (syncInterval) clearInterval(syncInterval);
     if (briefInterval) clearInterval(briefInterval);
     if (alertsInterval) clearInterval(alertsInterval);
+    if (slackInterval) clearInterval(slackInterval);
     if (backupInterval) clearInterval(backupInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();
