@@ -110,11 +110,69 @@ test("working means playing and moving: waiting on the mill is not work", () => 
   for (let i = 0; i < 40; i++) out.push(...arm.feed(s((t += 100), false))); // 4 s still: waiting
   for (let i = 0; i < 5; i++) out.push(...arm.feed(s((t += 100), true)));
   assert.deepEqual(out.map((e) => e.mission_state), ["active", "waiting", "active"]);
+  // The wait is dated from the first still sample, not from where the hold ran out.
+  assert.equal(Date.parse(out[1].at) - Date.parse(out[0].at), 1000, "one second of motion reads as one second of work");
   assert.equal(out[0].robot_id, "l1");
   assert.equal(out[0].brand, "Universal Robots");
   assert.equal(out[0].category, "machine_tending");
   assert.equal(out[1].ur.samples, 30, "the window since the last event rides along");
   assert.equal(out[1].ur.current_mean.length, 6);
+});
+
+test("a pause is judged whole: work if the arm moves again inside the hold, waiting from its first sample if not", () => {
+  const playing = (at, moving, reg = 0) => ({ at, robot_mode: 7, safety_mode: 1, runtime_state: 2, actual_qd: [moving ? 0.5 : 0, 0, 0, 0, 0, 0], output_int_register_25: reg });
+  const t0 = 1_790_000_000_000;
+  const run = (holdMs, steps) => {
+    const arm = createArm({ id: "a", cycleRegister: 25 }, { heartbeatMs: 60_000, holdMs });
+    const out = [];
+    for (const [ms, moving, reg] of steps) out.push(...arm.feed(playing(t0 + ms, moving, reg)));
+    return out.map((e) => [Date.parse(e.at) - t0, e.mission_state, e.cycle_count]);
+  };
+  const every = (from, to, moving, reg = 0) => Array.from({ length: (to - from) / 100 + 1 }, (_, i) => [from + i * 100, moving, reg]);
+
+  // Ten seconds of motion, then the mill: work ends where the motion ends.
+  assert.deepEqual(run(2000, [...every(0, 10_000, true), ...every(10_100, 20_000, false)]), [[0, "active", 0], [10_100, "waiting", 0]]);
+
+  // The part is counted 0.3 s into the pause. Hold run out: the count goes
+  // out after the wait began, as waiting, never as work.
+  assert.deepEqual(
+    run(2000, [...every(0, 1000, true), ...every(1100, 1300, false), ...every(1400, 4000, false, 1)]),
+    [[0, "active", 0], [1100, "waiting", 0], [1400, "waiting", 1]],
+  );
+  // Same count, but the arm moves again inside the hold: all of it was work.
+  assert.deepEqual(
+    run(2000, [...every(0, 1000, true), ...every(1100, 1300, false), ...every(1400, 1900, false, 1), ...every(2000, 2500, true, 1)]),
+    [[0, "active", 0], [1400, "active", 1]],
+  );
+  // A protective stop inside the hold ends the work at the stop.
+  const stopped = { ...playing(t0 + 1500, false), safety_mode: 3 };
+  const arm = createArm({ id: "b" }, { heartbeatMs: 60_000, holdMs: 2000 });
+  const seen = [...every(0, 1000, true), ...every(1100, 1400, false)].flatMap(([ms, moving]) => arm.feed(playing(t0 + ms, moving)));
+  seen.push(...arm.feed(stopped));
+  assert.deepEqual(seen.map((e) => [Date.parse(e.at) - t0, e.mission_state]), [[0, "active"], [1500, "stopped"]]);
+
+  // No hold at all: working is exactly moving.
+  assert.deepEqual(run(0, [...every(0, 500, true), ...every(600, 800, false), ...every(900, 1000, true)]).map((e) => e.slice(0, 2)), [[0, "active"], [600, "waiting"], [900, "active"]]);
+});
+
+test("no heartbeat states work while a pause is undecided, and a stalled stream is judged by the clock", () => {
+  const arm = createArm({ id: "a" }, { heartbeatMs: 1000, holdMs: 2000 });
+  const t0 = 1_790_000_000_000;
+  const s = (at, moving) => ({ at, robot_mode: 7, safety_mode: 1, runtime_state: 2, actual_qd: [moving ? 0.5 : 0, 0, 0, 0, 0, 0] });
+  assert.equal(arm.feed(s(t0, true)).length, 1);
+  assert.equal(arm.feed(s(t0 + 100, false)).length, 0, "still, inside the hold: held");
+  assert.equal(arm.tick(t0 + 1500).length, 0, "a heartbeat is due, but the pause is not judged yet");
+  // No more samples. Once the hold has run out the clock settles it, and the
+  // heartbeat that was held back follows, stating the wait.
+  const out = arm.tick(t0 + 2200);
+  assert.deepEqual(out.map((e) => [Date.parse(e.at) - t0, e.mission_state]), [[100, "waiting"], [2200, "waiting"]]);
+  const [beat] = arm.tick(t0 + 3300);
+  assert.equal(beat.mission_state, "waiting", "heartbeats carry on from the settled state");
+  // A link that drops mid-pause: the pause was work up to the drop.
+  const b = createArm({ id: "b" }, { heartbeatMs: 60_000, holdMs: 2000 });
+  b.feed(s(t0, true));
+  b.feed(s(t0 + 100, false));
+  assert.deepEqual(b.down(t0 + 600, "ECONNRESET").map((e) => e.connection_state), ["offline"]);
 });
 
 test("heartbeats between changes, and an offline event that is not downtime", () => {
@@ -206,10 +264,10 @@ test("a simulated CNC cell reaches Botlien as a priced arm with cycles and a wor
   const active = rows.reduce((a, r) => a + r.active_ms, 0);
   const online = rows.reduce((a, r) => a + r.online_ms, 0);
   const share = active / online;
-  // Each 5.5 s block: two cycles of 0.5 s motion (+0.3 s hold each) and a
-  // 1.5 s protective stop, so about 1.6 s of work in 5.5 s (29%). The mill
-  // wait and the stop must not count as work.
-  assert.ok(share > 0.12 && share < 0.45, `working share ${share}`);
+  // Each 5.5 s block: two cycles of 0.5 s motion and a 1.5 s protective
+  // stop, so about 1 s of work in 5.5 s (18%). The mill wait, the hold and
+  // the stop must not count as work.
+  assert.ok(share > 0.1 && share < 0.3, `working share ${share}`);
   assert.ok(rows.reduce((a, r) => a + r.mission_count, 0) >= 2, "cycles counted from the register");
   assert.ok(rows.reduce((a, r) => a + r.stuck_episodes, 0) >= 1, "the protective stop is downtime");
   const c = fleetContract(store, Date.now());

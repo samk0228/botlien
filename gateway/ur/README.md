@@ -56,8 +56,8 @@ seconds:
 
 | Botlien field | From the controller |
 |---|---|
-| `mission_state` `active` | program playing and the arm moved in the last 2 s |
-| `mission_state` `waiting` | program playing, arm still (waiting on a machine) |
+| `mission_state` `active` | program playing and the arm moving, or still for less than 2 s between two moves |
+| `mission_state` `waiting` | program playing, arm still for longer than that (waiting on a machine) |
 | `mission_state` `paused`, `idle`, `off` | runtime state and robot mode |
 | `stuck` | protective stop or safeguard stop |
 | `e_stop` | system or robot emergency stop |
@@ -65,6 +65,12 @@ seconds:
 | `cycle_count` | the configured output register |
 | `connection_state` `offline` | the gateway lost the arm (not counted as downtime) |
 | `ur.*` | robot, safety and runtime mode, speed slider and scaling, joint current mean and max, joint temperature max, since the last event |
+
+A pause shorter than `holdSeconds` (2 by default) inside a move, a gripper
+closing for instance, is counted as work. A longer one is waiting, and it is
+dated from the moment the arm stopped, not from when the 2 seconds ran out,
+so a 10 second move reads as 10 seconds of work. Set `"holdSeconds": 0` in
+`gateway.json` to count work as strictly "the arm is moving".
 
 If the internet drops, events are held in order (up to 200,000) and sent when
 it returns.
