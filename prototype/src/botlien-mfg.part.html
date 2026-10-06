@@ -3436,7 +3436,16 @@ function appRail(){
       + item('dashv2','equal','Dashboard')
       + item('line','route','Line')
       + item('robots','boxes','Fleet', badge)
+      + (rcOn() ? '' : item('costs','ruler','Costs'))   // for arms priced by cost per hour this page only repeats the Dashboard
+      + item('trends','trending-up','Trends')
+      + item('payback','coins','Payback')
+      + item('contract','file-text','Contract')
+      + item('decisions','scale','Decisions')
+      + item('whatif','sliders-vertical','What if')
+      + item('benchmark','users','Benchmark')
+      + '<div style="height:1px;background:var(--sb-border);margin:8px 6px"></div>'
       + item('incidents','list','Incidents')
+      + item('vendors','building','Vendors')
       + item('ask','sparkles','Ask')
       + item('alerts','bell','Integrations')
       + item('setup','sliders-horizontal','Numbers')
@@ -8332,7 +8341,7 @@ L3.robot = {
   inner(){ return [
     { id:'verdict', label:'Verdict', icon:'check' }, { id:'time', label:'Over time', icon:'trending-up' }, { id:'ran', label:'When it ran', icon:'calendar' },
     { id:'broke', label:'What broke', icon:'triangle-alert' }, { id:'condition', label:'Wear', icon:'sliders-horizontal' }, { id:'inputs', label:'Inputs', icon:'user' } ]; },
-  see(id){ return [['incidents','Incidents'],['setup','Numbers']]; },
+  see(id){ return [['payback','Payback'],['contract','Contract'],['decisions','Decisions']].concat(rcOn() ? [] : [['costs','Costs']], [['incidents','Incidents'],['setup','Numbers']]); },
   body(id, tab){ const i = Number(id); if (rcOn() && rcArm(i) && (tab === 'verdict' || tab === 'time' || tab === 'money')) return rcPeekBody(i, tab, stmtRow(i)); return robotBody(i, tab); }
 };
 function robotBody(i, tab){
@@ -15128,7 +15137,7 @@ window.OursIG = {
    Live feed: polls /api/ursim and /api/line every 3 s and pushes the measurements into the same data
    structures Sam's page already reads. If the fetch fails, the page silently keeps its sample data. */
 const OURS_BASE = OURS_REPLAY ? '' : (location.protocol === 'file:') ? 'http://localhost:8770' : '';
-const OURS_REMOVED = ['trends','payback','contract','decisions','whatif','vendors','benchmark','costs','coverage','evidence'];
+const OURS_REMOVED = [];   // v4 hid Trends, Payback, Contract, Decisions, What if, Vendors, Benchmark, Costs, Coverage and Evidence. They are back (Oct 5, 2026).
 const OURS = { live:null, line:null, ok:false, state:'warming', lag:null, lagAt:0, lastKey:'', lastRender:0 };
 const OURS_ORIG = [23, 8, 38, 21];                       // the sample working shares the preview was built with
 const OURS_NAMES = ['Loader 1', 'Loader 2', 'Deburr', 'Inspection'];

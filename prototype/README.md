@@ -33,10 +33,16 @@ settings code, the live data adapter, the repo's fixes).
   base = the prompt 5 Claude Design artifact (`JpnEcJ5yZAcu7S17G7fCBY`,
   template unwrapped), theirs = v4. Use the artifact as the base, not the repo
   file, or the repo's live wiring is reverted. Fifteen conflicts, all small.
-- **What v4 changes besides adding pages:** ten pages are removed (Trends,
-  Payback, Contract, Decisions, What if, Vendors, Benchmark, Costs, Coverage,
-  Evidence), the sample is a CNC shop, pills become plain labels, and cost
-  inputs are read only and changed by telling Ask.
+- **What v4 changes besides adding pages:** the sample is a CNC shop, pills
+  become plain labels, and cost inputs are read only and changed by telling
+  Ask. v4 also hid ten pages (Trends, Payback, Contract, Decisions, What if,
+  Vendors, Benchmark, Costs, Coverage, Evidence). They are back in the rail
+  here, at Sam's request. Costs stays hidden for arms priced by cost per hour,
+  as on the existing page, because there it only repeats the Dashboard.
+- **Known rough spots on the restored pages** (the existing page has the same
+  ones in its manufacturing preview): Trends prints working share as `0.22x`
+  instead of 22%, What if still lists the warehouse sample's saved plans, and
+  Payback and Contract keep their lease wording.
 - **Not served to real accounts.** Ask is scripted, rules and app connections
   live in the browser's local storage, and the Line page plays a recording of
   a simulated URSim run. `botlien-prototype.html` is unchanged and is still
