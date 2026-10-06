@@ -18,6 +18,31 @@ per canvas, as `.dc.html` artboards plus the generator that writes them:
 - `design/costs-action-queue/`: the Costs screen as an action queue (v3 brief),
   published at https://claude.ai/artifact/12gVKZRVAcpKhRNDGjiFPR.
 
+## The manufacturing dashboard (Antonio's v4, merged Oct 5, 2026)
+
+`botlien-mfg.html` is a second page built from the same assets. Its source is
+`src/botlien-mfg.part.html`: Antonio's Dashboard Package v4 merged three ways
+into this prototype, so it carries his Ask panel, Integrations, Line page and
+URSim replay together with everything here (the line editor, the Slack
+settings code, the live data adapter, the repo's fixes).
+
+- **View it:** open `botlien-mfg.html`. With no parameters it shows the CNC
+  cell sample. `onboarding.html` and `onboarding_chat.html` are his onboarding
+  pages, copied as they came, linked from the Line page.
+- **How it was merged:** `git merge-file` with ours = `src/botlien.part.html`,
+  base = the prompt 5 Claude Design artifact (`JpnEcJ5yZAcu7S17G7fCBY`,
+  template unwrapped), theirs = v4. Use the artifact as the base, not the repo
+  file, or the repo's live wiring is reverted. Fifteen conflicts, all small.
+- **What v4 changes besides adding pages:** ten pages are removed (Trends,
+  Payback, Contract, Decisions, What if, Vendors, Benchmark, Costs, Coverage,
+  Evidence), the sample is a CNC shop, pills become plain labels, and cost
+  inputs are read only and changed by telling Ask.
+- **Not served to real accounts.** Ask is scripted, rules and app connections
+  live in the browser's local storage, and the Line page plays a recording of
+  a simulated URSim run. `botlien-prototype.html` is unchanged and is still
+  what `/app` serves. Real accounts move to this page as each part is wired to
+  the server.
+
 One self-contained HTML file covering the whole product: sign-in flow, four-step
 first run, and the coverage statement. No build step needed to view it, no
 network calls, fonts and logo inlined as data URIs.
