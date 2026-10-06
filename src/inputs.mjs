@@ -41,17 +41,19 @@ export const ROBOT_INPUTS = {
     ["term", "payback"].every((k) => v[k] === undefined || v[k] === null || num(0, 600)(v[k])) &&
     (v.uptime === undefined || v.uptime === null || num(0, 100)(v.uptime)),
   // A robot arm's own cost figures (robot-cost.mjs): which UR it is, what it
-  // cost in dollars, the install multiple on top, and hours scheduled a year.
+  // cost in dollars, the install multiple on top, hours scheduled a year, and
+  // the share of the arm's price it could be sold for at the end (0 to 0.9).
   // Any may be left out and falls back to the benchmark.
   robotCost: (v) =>
     v !== null &&
     typeof v === "object" &&
     !Array.isArray(v) &&
-    Object.keys(v).every((k) => ["arm", "armPrice", "install", "hoursYear"].includes(k)) &&
+    Object.keys(v).every((k) => ["arm", "armPrice", "install", "hoursYear", "resale"].includes(k)) &&
     (v.arm === undefined || v.arm === null || str(20)(v.arm)) &&
     (v.armPrice === undefined || v.armPrice === null || num(0, 5_000_000)(v.armPrice)) &&
     (v.install === undefined || v.install === null || num(0, 5)(v.install)) &&
-    (v.hoursYear === undefined || v.hoursYear === null || num(100, 8_760)(v.hoursYear)),
+    (v.hoursYear === undefined || v.hoursYear === null || num(100, 8_760)(v.hoursYear)) &&
+    (v.resale === undefined || v.resale === null || num(0, 0.9)(v.resale)),
 };
 
 export const ACCOUNT_INPUTS = [

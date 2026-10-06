@@ -93,6 +93,12 @@ test("the owner's own price and schedule replace the defaults, and end 'estimate
   assert.ok(own.perHour < def.perHour);
   // Price alone is not enough to stop estimating: the schedule is judgment too.
   assert.equal(robotCostFor("machine_tending", "UR10e", { armPrice: 45_000 }).estimated, true);
+  // What the arm could be sold for comes off ownership: a better resale costs less an hour.
+  const keep = robotCostFor("machine_tending", "UR10e", { resale: 0.6 }), scrap = robotCostFor("machine_tending", "UR10e", { resale: 0 });
+  assert.equal(def.resaleShare, 0.4, "the default stays 40%");
+  assert.equal(keep.resaleShare, 0.6);
+  assert.ok(keep.perHour < def.perHour && def.perHour < scrap.perHour);
+  assert.equal(Math.round((scrap.ownership - def.ownership) * def.lifeHours), Math.round(0.4 * def.armPriceCents), "the whole difference is the resale itself");
   // Naming a different arm moves the price and the power.
   assert.equal(robotCostFor("machine_tending", "UR10e", { arm: "UR3e" }).armLabel, "UR3e");
   assert.equal(robotCostFor("picking", "UR10e"), null, "work priced per unit has no cost model");
