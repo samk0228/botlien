@@ -494,3 +494,26 @@ test("the brief's stop link asks first, refuses a forged link, and stops a signe
     await app.close();
   }
 });
+
+test("/app?page=mfg serves the manufacturing page to an operator only, on their own data", async () => {
+  const app = await boot({ opsEmails: ["sam@harborgrill.com"] });
+  try {
+    const op = await app.signIn("sam@harborgrill.com");
+    const mfg = await (await app.get("/app?page=mfg", op)).text();
+    assert.match(mfg, /<title>Botlien · Manufacturing<\/title>/);
+    assert.match(mfg, /window\.BOTLIEN_LIVE=/, "with the account's data in it");
+    assert.match(mfg, /"email":"sam@harborgrill\.com"/);
+    assert.ok(mfg.indexOf("window.BOTLIEN_LIVE=") < mfg.indexOf("const LIVE = (typeof window"), "before the script that reads it");
+    // Without the parameter the operator gets the usual page.
+    assert.doesNotMatch(await (await app.get("/app", op)).text(), /Botlien · Manufacturing/);
+    // A customer who asks for it gets the usual page too, not an error: it is not advertised.
+    const outsider = await app.signIn("alice@othergrill.com");
+    const res = await app.get("/app?page=mfg", outsider);
+    assert.equal(res.status, 200);
+    assert.doesNotMatch(await res.text(), /Botlien · Manufacturing/);
+    // The demo is the demo, whoever asks.
+    assert.doesNotMatch(await (await app.get("/app?demo=1&page=mfg", op)).text(), /window\.BOTLIEN_LIVE=|Botlien · Manufacturing/);
+  } finally {
+    await app.close();
+  }
+});
