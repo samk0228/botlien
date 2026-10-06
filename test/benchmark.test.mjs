@@ -72,11 +72,11 @@ test("a thirty-minute CNC recording replays through the push path and reads as t
   assert.deepEqual([r.name, r.model, r.category, r.server.armLabel], ["Loader 1", "UR10e", "machine_tending", "UR10e"]);
 
   // Five 40 s cycles with 10 s of motion each, then a 60 s protective stop.
-  // The gateway holds "working" 2 s past the last motion, so each cycle
-  // counts 12 s working and 28 s waiting: 60, 140 and 60 s out of every 260.
-  const work = 60 / 260;
-  assert.ok(Math.abs(r.measured.working - work) < 0.03, `working ${r.measured.working}`);
-  assert.ok(Math.abs(r.measured.waiting - 140 / 260) < 0.03, `waiting ${r.measured.waiting}`);
+  // Work ends where the motion ends, so each cycle counts 10 s working and
+  // 30 s waiting: 50, 150 and 60 s out of every 260.
+  const work = 50 / 260;
+  assert.ok(Math.abs(r.measured.working - work) < 0.01, `working ${r.measured.working}`);
+  assert.ok(Math.abs(r.measured.waiting - 150 / 260) < 0.03, `waiting ${r.measured.waiting}`);
   assert.ok(Math.abs(r.measured.stopped - 60 / 260) < 0.03, `stopped ${r.measured.stopped}`);
   assert.equal(r.measured.offline, 0);
   assert.equal(r.measured.stops, 7, "a stop after every fifth cycle: the seventh begins at minute 29");

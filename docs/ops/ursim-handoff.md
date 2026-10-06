@@ -131,6 +131,15 @@ BOTLIEN_API_KEY=blk_... node gateway/ur/gateway.mjs gateway.json
 - Anything the gateway got wrong against what the benchmark measured
   (working vs waiting is the one to watch).
 
+To compare working share on a short run, use the replay's figure, not the
+dashboard's duty percent. The replay divides working time by the length of
+the recording. The dashboard divides it by scheduled time: 16 hours a day
+(4,000 hours a year) over the hours on record, counted in whole clock
+hours. A 6 minute run sits in one clock hour, so it is read against 40
+scheduled minutes and comes out several times too low. That figure is built
+for days of data, where it answers a different question: how much of the
+time the arm is paid to be available it spent working.
+
 ## Known limits in this version
 
 - The gateway reads only. It refuses ports 29999 and 30001 to 30003.

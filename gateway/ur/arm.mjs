@@ -88,13 +88,33 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
     return cycleBase + reg;
   }
 
-  // Working = the program is playing and the arm moved within holdMs. The
-  // hold keeps a short pause inside a move (a gripper closing) from splitting
-  // one stretch of work into many; a wait longer than that is waiting.
-  function working(s, r) {
-    if (r.moving) movedAt = s.at;
-    if (r.missionState !== "playing") return r;
-    return { ...r, missionState: s.at - movedAt <= holdMs ? "active" : "waiting" };
+  // Working = the program is playing and the arm is moving. A short pause
+  // inside a move (a gripper closing) is still work, so a still arm is not
+  // judged until it has been still for holdMs. If it moves again first, the
+  // pause was work and nothing is sent. If the hold runs out, the arm was
+  // waiting from the sample it stopped on, and the event is dated there:
+  // dated at the end of the hold, every stretch of work reads holdMs too long.
+  // The still samples are kept while that is undecided, so a cycle that
+  // completes inside the pause goes out in order and with the right state.
+  let pause = null; // [{ s, r }]: still samples not judged yet
+
+  function emit(out, s, r) {
+    const key = keyOf(r);
+    if (online && last && key === last.key) {
+      last.sample = s;
+      last.read = r;
+      return;
+    }
+    online = true;
+    last = { key, read: r, sample: s, sentAt: s.at };
+    out.push(event(s, r));
+  }
+
+  function settle(out, state) {
+    if (!pause) return;
+    const held = pause;
+    pause = null;
+    for (const h of held) emit(out, h.s, { ...h.r, missionState: state });
   }
 
   function addToWindow(s) {
@@ -147,31 +167,51 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
     id: cfg.id,
     feed(s) {
       const read = readSample(s, cfg);
-      const r = working(s, { ...read, register: read.cycle, cycle: climbing(read.cycle) });
+      const r = { ...read, register: read.cycle, cycle: climbing(read.cycle) };
       addToWindow(s);
-      const key = keyOf(r);
-      if (!online || !last || key !== last.key) {
-        online = true;
-        last = { key, read: r, sample: s, sentAt: s.at };
-        return [event(s, r)];
+      const out = [];
+      if (r.moving) movedAt = s.at;
+      if (r.missionState !== "playing") {
+        // Stopped or switched off before the hold ran out: the pause was work.
+        settle(out, "active");
+        emit(out, s, r);
+      } else if (r.moving) {
+        settle(out, "active");
+        emit(out, s, { ...r, missionState: "active" });
+      } else if (s.at - movedAt > holdMs) {
+        settle(out, "waiting");
+        emit(out, s, { ...r, missionState: "waiting" });
+      } else {
+        (pause ??= []).push({ s, r });
       }
-      last.sample = s;
-      last.read = r;
-      return [];
+      return out;
     },
     tick(now) {
-      if (!online || !last || now - last.sentAt < heartbeatMs) return [];
+      const out = [];
+      // Samples stopped arriving mid-pause: the clock judges it instead.
+      if (pause && now - movedAt > holdMs) settle(out, "waiting");
+      // No heartbeat while a pause is undecided: it would state the arm's
+      // work at a time the pause may yet turn into waiting.
+      if (pause || !online || !last || now - last.sentAt < heartbeatMs) return out;
       last.sentAt = now;
-      return [event({ ...last.sample, at: now }, last.read)];
+      out.push(event({ ...last.sample, at: now }, last.read));
+      return out;
     },
     down(now, reason) {
-      if (!online) return [];
+      if (!online) {
+        pause = null;
+        return [];
+      }
+      // A pause the link cut short never reached the hold: it was work.
+      const out = [];
+      settle(out, "active");
       online = false;
       win = null;
       // No error on this event: any error counts as the robot's downtime, and a
       // dropped network link is not the arm failing. The reason goes in the
       // raw archive only.
-      return [{ ...base, at: new Date(now).toISOString(), connection_state: "offline", mission_state: "unknown", moving: null, ur: { link_lost: String(reason).slice(0, 120) } }];
+      out.push({ ...base, at: new Date(now).toISOString(), connection_state: "offline", mission_state: "unknown", moving: null, ur: { link_lost: String(reason).slice(0, 120) } });
+      return out;
     },
   };
 }
