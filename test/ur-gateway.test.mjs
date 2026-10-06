@@ -232,3 +232,14 @@ test("--record hands every event to the recorder exactly as it is queued for Bot
     await sim.close();
   }
 });
+
+test("a cycle register that restarts with the program still gives a count that only climbs", () => {
+  const arm = createArm({ id: "a", cycleRegister: 25 }, { heartbeatMs: 1000, holdMs: 2000 });
+  const base = { robot_mode: 7, safety_mode: 1, runtime_state: 2, actual_qd: [0.5, 0, 0, 0, 0, 0], actual_current: [1, 1, 1, 1, 1, 1], joint_temperatures: [30, 30, 30, 30, 30, 30], speed_scaling: 1 };
+  const sent = [];
+  let t = 1_000_000;
+  for (const reg of [0, 1, 2, 5, 5, 0, 1, 3]) sent.push(...arm.feed({ ...base, output_int_register_25: reg, at: (t += 1000) }));
+  // The restart itself (5 then 0) changes nothing Botlien counts, so no event; the next cycle reads 6.
+  assert.deepEqual(sent.map((e) => e.cycle_count), [0, 1, 2, 5, 6, 8], "after the restart the count carries on from 5");
+  assert.deepEqual(sent.map((e) => e.ur.cycle_register), [0, 1, 2, 5, 1, 3], "the raw register rides along");
+});

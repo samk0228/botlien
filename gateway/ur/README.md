@@ -12,6 +12,12 @@ sends RTDE inputs, and it refuses to connect to 29999 (dashboard server) or
 30001-30003 (URScript). It cannot move an arm, load a program, or change a
 setting. It opens no port of its own; every connection goes out.
 
+## Windows
+
+Node 18 or newer and the same command. (Before Oct 1 2026 the gateway
+exited silently on Windows because its start check compared a `C:\` path
+with a file URL; fixed.)
+
 ## Set it up
 
 1. In Botlien, Settings > Data sources > Make an API key. Copy it once.
@@ -32,9 +38,16 @@ someone might share.
 
 RTDE has no cycle counter. If the robot program increments an output
 integer register once per part (for example
-`write_output_integer_register(24, cycle)` at the end of the loop), set
-`"cycleRegister": 24` and Botlien counts exact cycles. Without it, Botlien
-still measures working time, which is what the cost figures use.
+`write_output_integer_register(25, cycle)` at the end of the loop), set
+`"cycleRegister": 25` and Botlien counts exact cycles. The register may
+start again at 0 when the program restarts: the gateway sends a count that
+only climbs (every earlier run's last value plus the current one), and the
+raw register rides along as `ur.cycle_register`. Without a register,
+Botlien still measures working time, which is what the cost figures use.
+
+Several simulated arms on one machine (URSim instances) each listen on
+their own port: give each arm its `port` (`30104`, `30204`, ...). A real
+arm listens on 30004 and needs no `port`.
 
 ## What it sends
 

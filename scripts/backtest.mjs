@@ -9,6 +9,7 @@
 // uses (virtual clock, no code differences), then measures whether flags
 // preceded outcomes. Exit code 0; the numbers speak for themselves.
 import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { openStore } from "../src/store.mjs";
 import { createEngine } from "../src/engine.mjs";
 import { importTelemetry, importOutcomes } from "../src/importer.mjs";
@@ -155,7 +156,7 @@ function arg(name, fallback = null) {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const telemetryFile = arg("telemetry");
   const outcomesFile = arg("outcomes");
   if (!telemetryFile || !outcomesFile) {

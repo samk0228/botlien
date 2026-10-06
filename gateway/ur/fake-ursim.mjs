@@ -13,6 +13,7 @@
 // It is not URSim: no kinematics, no safety system. The real check is the
 // gateway against URSim or a real arm (Line Lab), which this does not replace.
 import { createServer } from "node:net";
+import { pathToFileURL } from "node:url";
 import { TYPE, packet, createFramer, encodeData } from "./rtde.mjs";
 
 // Fields this controller knows, with their RTDE types.
@@ -125,7 +126,7 @@ export function startFakeUrsim({ port = 30004, host = "127.0.0.1", cell = simula
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const arg = (name, d) => {
     const i = process.argv.indexOf(`--${name}`);
     return i > 0 ? Number(process.argv[i + 1]) : d;
