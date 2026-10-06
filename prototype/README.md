@@ -39,10 +39,16 @@ settings code, the live data adapter, the repo's fixes).
   Vendors, Benchmark, Costs, Coverage, Evidence). They are back in the rail
   here, at Sam's request. Costs stays hidden for arms priced by cost per hour,
   as on the existing page, because there it only repeats the Dashboard.
-- **Known rough spots on the restored pages** (the existing page has the same
-  ones in its manufacturing preview): Trends prints working share as `0.22x`
-  instead of 22%, What if still lists the warehouse sample's saved plans, and
-  Payback and Contract keep their lease wording.
+- **The restored pages, made to fit an arm you own.** They were built for a
+  leased robot, where work is valued against an invoice. An arm priced by
+  what it costs an hour has no such value, so in this build: a coverage
+  multiple prints as the working share (22%, not 0.22x); Payback gives no
+  verdict and shows what each arm cost against the real work it has done;
+  Decisions keeps every owned arm and names the one to re-plan first; Trends
+  drops the payback card and reads causes as the robot logged them; What if
+  drops its payback table and has CNC sample plans. The robot page has its
+  Money, Contract and Decision tabs back. The existing page still has the old
+  behavior in its manufacturing preview.
 - **Not served to real accounts.** Ask is scripted, rules and app connections
   live in the browser's local storage, and the Line page plays a recording of
   a simulated URSim run. `botlien-prototype.html` is unchanged and is still

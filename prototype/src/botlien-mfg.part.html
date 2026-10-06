@@ -2628,6 +2628,7 @@ function computeDecisions(){
     const down = d.indexOf('−') === 0 || d.indexOf('-') === 0;
     return (down ? 'down ' : 'up ') + d.replace(/[+−-]/, '');
   };
+  const lowCov = Math.min.apply(null, pay.rows.map(r => r.cov === null ? Infinity : r.cov));
   const rows = pay.rows.map(r => {
     const site = (CONFIRM[r.i] || {}).site || 0;
     const b = workDef(r.work);
@@ -2646,7 +2647,15 @@ function computeDecisions(){
       });
     }
     let pile, reason;
-    if (best){
+    if (rcOn()){
+      // An arm you own is kept. The reason is what it works and what its
+      // waiting costs, never a payback quote: that needs what a part is worth.
+      const a = rcArm(r.i), moved = ROBOT_DELTA[r.name] || '';
+      pile = 'keep';
+      reason = (cov === null ? 'Working share not reported' : 'Works '+Math.round(cov * 100)+'% of its schedule')+(moved ? ', '+delta+' vs July' : '')+'.'
+        + (a && a.perWorking ? ' An hour of real work costs '+money(a.perWorking / 100)+(a.idleYear != null ? ', and its waiting costs '+money0(a.idleYear / 100)+' a year at most' : '')+'.' : '')
+        + (cov !== null && cov === lowCov && pay.rows.length > 1 ? ' It works the least in the cell, so it is the one to speed up or re-plan first.' : '');
+    } else if (best){
       pile = 'move';
       const own = (CONFIRM[r.i] || {}).units || 0;
       const rate = own > 0 ? r.value / own : 0;
@@ -6914,7 +6923,7 @@ function viewDecisions(){
   // that cannot be seen together are not a board. Below 900px they stack
   // (see the media rule above).
   return '<div data-decision-board style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start">'+d.piles.map(col).join('')+'</div>'
-    + '<p style="font-size:13px;line-height:1.7;color:var(--fg2);margin:16px 0 40px;max-width:92ch">Rules: under its lease with the same work running over 2x elsewhere is a move. A lease ending inside nine months on a thin or slipping margin is a return. Everything else is a keep.</p>';
+    + '<p style="font-size:13px;line-height:1.7;color:var(--fg2);margin:16px 0 40px;max-width:92ch">'+(rcOn() ? 'Rules: an arm you own stays in Keep. Return is for a robot on a lease or contract that is ending. Move is for the same work running better at another site.' : 'Rules: under its lease with the same work running over 2x elsewhere is a move. A lease ending inside nine months on a thin or slipping margin is a return. Everything else is a keep.')+'</p>';
 }
 
 /* ─────────────────────────  BENCHMARK  ───────────────────────── */
@@ -7145,7 +7154,14 @@ function viewTrends(){
   const covs = ordered.map(p => covForPeriod(p, S.dashScope));
   const covAvg = covs.reduce((a, b) => a + b, 0) / covs.length;
   const last = covs[covs.length-1];
-  cards.push(trendCard({
+  const pct = (v) => Math.round(v * 100)+'%', pts = Math.round(Math.abs(last - covAvg) * 100);
+  if (rcOn()) cards.push(trendCard({
+    label:'Working by period', value:pct(last), unit:'this period',
+    help:'The share of scheduled time the arms were working.',
+    chart: barChart(ordered.map((p, i) => ({ label:p.label, axis:p.label.split(' ')[0], value:covs[i], display:pct(covs[i]), current: p.status === 'open' })), { average:covAvg, averageLabel:pct(covAvg) }),
+    reading: 'This period the arms worked '+pct(last)+' of their scheduled time, '+(pts === 0 ? 'level with' : pts+' point'+(pts === 1 ? '' : 's')+(last >= covAvg ? ' above' : ' below'))+' the six-period average of '+pct(covAvg)+', the dashed mark. It is still open, so it moves with every reading.'
+  }));
+  else cards.push(trendCard({
     label:'Coverage by period', value:last.toFixed(2)+'x', unit:'this period',
     help:'Work valued at your own rate, against the lease charged for the same days.',
     chart: barChart(ordered.map((p, i) => ({ label:p.label, axis:p.label.split(' ')[0], value:covs[i], display:covs[i].toFixed(2)+'x', current: p.status === 'open' })), { average:covAvg, averageLabel:covAvg.toFixed(2)+'x' }),
@@ -7155,8 +7171,9 @@ function viewTrends(){
   }));
 
   // 2. Payback, where the fleet stands against the quote.
+  // Not for arms priced by cost per hour: a payback needs what a part is worth.
   const pay = computePayback();
-  if (pay.rows.length){
+  if (pay.rows.length && !rcOn()){
     cards.push(trendCard({
       label:'Against the quote', value: pay.paid+' of '+pay.rows.length, unit:'paid back',
       help:'Each robot\u2019s earned-back total against the purchase price, read at the payback month the quote promised.',
@@ -7177,9 +7194,9 @@ function viewTrends(){
   if (byWork.length){
     cards.push(trendCard({
       label:'Where the work is', value: money0(stmt.totalValue), unit:'this period',
-      help:'What a person would have been paid for the work each kind of robot did.',
+      help: rcOn() ? 'Working hours, priced at what each arm costs an hour.' : 'What a person would have been paid for the work each kind of robot did.',
       chart: donut(byWork.map(k => ({ label:k.work, value:k.value, display: money0(k.value) })), { center: byWork.length+'', centerNote: byWork.length === 1 ? 'kind of work' : 'kinds of work' }),
-      reading: byWork[0].work+' is '+Math.round(byWork[0].value / stmt.totalValue * 100)+'% of the money your robots earned, across '+byWork[0].count+' robot'+(byWork[0].count===1?'':'s')+'.'
+      reading: byWork[0].work+' is '+Math.round(byWork[0].value / stmt.totalValue * 100)+'% of the '+(rcOn() ? 'working time' : 'money your robots earned')+', across '+byWork[0].count+' robot'+(byWork[0].count===1?'':'s')+'.'
         + (byWork.length > 1 ? ' '+byWork[byWork.length-1].work+' is the smallest at '+Math.round(byWork[byWork.length-1].value / stmt.totalValue * 100)+'%.' : '')
     }));
   }
@@ -7202,19 +7219,20 @@ function viewTrends(){
   const duty = rows.map(r => {
     const rb = ROBOTS[r.i] || {};
     const short = r.cov !== null && r.cov < 1;
-    return { label: r.name, value: parseFloat(rb.dutyPct) || 0, display: (parseFloat(rb.dutyPct) || 0)+'%', fill: short ? 'var(--bad-mark)' : 'var(--fg1)' };
+    return { label: r.name, value: parseFloat(rb.dutyPct) || 0, display: (parseFloat(rb.dutyPct) || 0)+'%', fill: short && !rcOn() ? 'var(--bad-mark)' : 'var(--fg1)' };
   }).sort((a, b) => b.value - a.value);
   const dutyAvg = duty.reduce((a, r) => a + r.value, 0) / duty.length;
   cards.push(trendCard({
     wide:true, label:'Time it actually ran, robot by robot', value: Math.round(dutyAvg)+'%', unit:'fleet average',
     help:'Duty time against the hours a day you scheduled each robot for, on Numbers.',
     chart: hBars(duty.map(r => Object.assign({}, r, { mark: dutyAvg, markTitle:'Fleet average '+Math.round(dutyAvg)+'%' })), { labelWidth:'170px', gap:9 }),
-    reading: duty[0].label+' runs the most at '+duty[0].display+' and '+duty[duty.length-1].label+' the least at '+duty[duty.length-1].display+'. A red bar is a robot under its lease; the dashed mark is the fleet average.'
+    reading: duty[0].label+' runs the most at '+duty[0].display+' and '+duty[duty.length-1].label+' the least at '+duty[duty.length-1].display+'. '+(rcOn() ? 'The dashed mark is the average across the cell.' : 'A red bar is a robot under its lease; the dashed mark is the fleet average.')
   }));
 
   // 6. Downtime by cause, from the incident log.
   const con = computeContract();
-  const causeOf = (c) => c.indexOf('stuck') === 0 ? 'Stuck' : c.indexOf('error') === 0 ? 'Error E-217' : c.indexOf('offline') === 0 ? 'Offline' : 'Low battery';
+  // The cause as the robot logged it: its own error code, a wait, or a low battery.
+  const causeOf = (c) => c.indexOf('stuck') === 0 ? 'Stuck' : c.indexOf('error') === 0 ? 'Error '+(c.slice(6).trim() || 'E-217') : c.indexOf('offline') === 0 ? 'Offline' : c.indexOf('wait') === 0 ? 'Waiting' : 'Low battery';
   const causes = {};
   const places = {};
   const hours = new Array(24).fill(0);
@@ -7249,7 +7267,7 @@ function viewTrends(){
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;align-items:start;margin-bottom:16px">'+cards.join('')+'</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:40px;font-size:12px;color:var(--fg3)">'
       + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:11px;height:11px;flex:none;background:var(--fg1)"></span>measured</span>'
-      + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:11px;height:11px;flex:none;background:var(--bad-mark)"></span>under its lease</span>'
+      + (rcOn() ? '' : '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:11px;height:11px;flex:none;background:var(--bad-mark)"></span>under its lease</span>')
       + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:11px;height:11px;flex:none;background:'+HATCH+'"></span>resting on an assumption</span>'
       + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;height:10px;flex:none;border-left:1px dashed var(--fg1);border-right:1px dashed var(--fg1)"></span>average</span>'
     + '</div>';
@@ -8340,7 +8358,8 @@ L3.robot = {
   },
   inner(){ return [
     { id:'verdict', label:'Verdict', icon:'check' }, { id:'time', label:'Over time', icon:'trending-up' }, { id:'ran', label:'When it ran', icon:'calendar' },
-    { id:'broke', label:'What broke', icon:'triangle-alert' }, { id:'condition', label:'Wear', icon:'sliders-horizontal' }, { id:'inputs', label:'Inputs', icon:'user' } ]; },
+    { id:'broke', label:'What broke', icon:'triangle-alert' }, { id:'money', label:'Money', icon:'coins' }, { id:'contract', label:'Contract', icon:'file-text' },
+    { id:'condition', label:'Wear', icon:'sliders-horizontal' }, { id:'decision', label:'Decision', icon:'scale' }, { id:'inputs', label:'Inputs', icon:'user' } ]; },
   see(id){ return [['payback','Payback'],['contract','Contract'],['decisions','Decisions']].concat(rcOn() ? [] : [['costs','Costs']], [['incidents','Incidents'],['setup','Numbers']]); },
   body(id, tab){ const i = Number(id); if (rcOn() && rcArm(i) && (tab === 'verdict' || tab === 'time' || tab === 'money')) return rcPeekBody(i, tab, stmtRow(i)); return robotBody(i, tab); }
 };
@@ -9830,7 +9849,7 @@ function wiLineChart(today, plan){
       + '</svg>'
       + '<div style="display:flex;justify-content:space-between;gap:4px;margin-top:6px">'+labels.map((l, k) => '<span style="'+type+';'+(k % 2 ? 'visibility:hidden;' : '')+'">'+l+'</span>').join('')+'</div></div>'
     + '</div>'
-    + '<div style="font-size:12px;color:var(--fg3);margin-top:6px">Work valued less lease, each month. The dashed grey line is zero, where the work pays for the lease exactly: 1.00x.</div>';
+    + '<div style="font-size:12px;color:var(--fg3);margin-top:6px">'+(rcOn() ? 'What the waiting costs, each month, shown below zero: robot cost that did no work. The dashed grey line is zero, an arm that never waits.' : 'Work valued less lease, each month. The dashed grey line is zero, where the work pays for the lease exactly: 1.00x.')+'</div>';
 }
 function viewWhatif(){
   if (!S.whatif) wiLoad(0);
@@ -9883,7 +9902,7 @@ function viewWhatif(){
       (empty.length ? '<div style="margin-bottom:12px">'+empty.map(n => pill(n+' would have no robots','triangle-alert','warn')).join(' ')+'</div>' : '')
       + (p.ctx.flags.length ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">'+p.ctx.flags.map(f => pill(f.text+', '+SITES[f.site].name,'triangle-alert','warn')).join('')+'</div>' : '')
       + '<div style="font-size:13px;color:var(--fg2)">Credit owed this period: <b style="color:var(--fg1);font-variant-numeric:tabular-nums">'+money(t.credit)+'</b> today, <b style="color:var(--fg1);font-variant-numeric:tabular-nums">'+money(p.credit)+'</b> under the plan.</div>'
-      + (payRows.length ? secHead('Payback', 'robots the plan touches') + tableShell('minmax(140px,2fr) 76px 84px 96px', ['Robot','Quoted','Today','Plan'], payRows, [], 420) : '')
+      + (payRows.length && !rcOn() ? secHead('Payback', 'robots the plan touches') + tableShell('minmax(140px,2fr) 76px 84px 96px', ['Robot','Quoted','Today','Plan'], payRows, [], 420) : '')
       + secHead('Twelve months') + wiLineChart(r.months.map(() => t.value - t.lease), r.months)
       + (changes.length && changes.every(c => wiEffectMonth(c) >= 12) ? '<div style="font-size:13px;color:var(--fg2);margin-top:8px">The plan&#39;s changes land after these twelve months, so the two lines sit on top of each other.</div>' : '')
       + secHead('What this rests on') + (p.ctx.notes.length ? p.ctx.notes.map(n => '<p style="font-size:13px;line-height:1.65;color:var(--fg2);margin:0 0 8px;max-width:78ch">'+n+'</p>').join('') : '<p style="font-size:13px;color:var(--fg3);margin:0">Nothing yet: the plan has no changes.</p>')
@@ -12070,8 +12089,19 @@ function lvCreditStrip(){
 
 const LV_PAY_TONE = { 'paid':['good','check'], 'on track':['good','check'], 'behind':['warn','triangle-alert'], 'missed':['bad','triangle-alert'], 'partly measured':[undefined,'help-circle'], 'no lease':[undefined,'file-text'], 'no price':[undefined,'coins'] };
 function lvPayPill(st){ const t = LV_PAY_TONE[st] || [undefined,'help-circle']; return pill(st, t[1], t[0]); }
+// An arm priced by what it costs an hour has no payback verdict: that needs
+// what a part is worth, which nothing here assumes. What can be said is what
+// the arm cost to buy and install, and how much real work it has done since.
+function rcPay(i, p){
+  const a = rcArm(i);
+  return a ? Object.assign({}, p, { price: a.deployed / 100, priceLabel: a.ownPrice ? 'to buy and install, said in chat' : 'to buy and install, estimated' }) : p;
+}
 function lvPayLine(p){
   const price = money0(p.price || 0), un = p.monthsUnmeasured || 0, n = (p.months || []).length;
+  if (rcOn() && p.status !== 'no lease' && p.status !== 'no price'){
+    return money0(p.earned || 0)+' of real work in the '+n+' month'+(n === 1 ? '' : 's')+' we can see, against '+price+' to buy and install.'
+      + (un ? ' The '+un+' month'+(un === 1 ? '' : 's')+' before your data began '+(un === 1 ? 'is' : 'are')+' not measured.' : '');
+  }
   switch (p.status){
     case 'paid': return 'Paid back its '+price+' price.';
     case 'on track': case 'behind': return p.paceMonths ? 'At this pace it pays back in month '+p.paceMonths+'. The lease promised month '+p.promisedMonths+'.' : 'Not enough measured months yet to set a pace.';
@@ -12100,8 +12130,8 @@ function lvPayChart(p){
       + '<line x1="0" x2="'+W+'" y1="'+y(p.price).toFixed(1)+'" y2="'+y(p.price).toFixed(1)+'" style="stroke:var(--fg1);stroke-dasharray:4 3" vector-effect="non-scaling-stroke"></line>'
     + '</svg>'
     + '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;font-size:12px;line-height:1.5;color:var(--fg2)">'
-      + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;border-top:1.5px dashed var(--fg1)"></span>'+money0(p.price)+' &middot; '+(p.priceSource === 'owner' ? 'your price' : 'benchmark price')+'</span>'
-      + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;border-top:1.5px solid var(--fg1)"></span>earned, added up</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;border-top:1.5px dashed var(--fg1)"></span>'+money0(p.price)+' &middot; '+(p.priceLabel || (p.priceSource === 'owner' ? 'your price' : 'benchmark price'))+'</span>'
+      + '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;border-top:1.5px solid var(--fg1)"></span>'+(rcOn() ? 'real work, added up' : 'earned, added up')+'</span>'
       + (un > 0 ? '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:12px;height:9px;border-radius:2px;background:'+HATCH_EST+'"></span>'+un+' month'+(un === 1 ? '' : 's')+' before your data began, not measured</span>' : '')
       + (months.some(m => !m.frozen) ? '<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:2px;background:var(--acc);opacity:.4"></span>open month</span>' : '')
     + '</div>';
@@ -12110,17 +12140,18 @@ function lvPaybackView(){
   const pay = lvT('PAYBACK') || {};
   const scope = scopeFilter();
   const ids = CONFIRM.map((c, i) => i).filter(i => !S.excluded[i] && (scope === null || scope === undefined || robotSite(i) === scope) && lvAt(pay, i));
-  const rows = searchRows(ids.map(i => ({ i, name: robotLabel(i), p: lvAt(pay, i) })), r => r.name);
+  const rows = searchRows(ids.map(i => ({ i, name: robotLabel(i), p: rcOn() ? rcPay(i, lvAt(pay, i)) : lvAt(pay, i) })), r => r.name);
   if (!ids.length) return lead('Payback was not reported for any robot at this scope yet.');
   const order = ['paid','on track','behind','missed','partly measured','no lease','no price'];
   const counts = order.map(st => [st, ids.filter(i => lvAt(pay, i).status === st).length]).filter(x => x[1]);
   const nMonths = Math.max(0, ...ids.map(i => (lvAt(pay, i).months || []).length));
   const card = (r) => '<div style="border:1px solid var(--hair);border-radius:6px;padding:16px 20px 20px;min-width:0;background:var(--card)">'
-    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:6px"><span data-peek="robot:'+r.i+':money" role="link" tabindex="0" style="font-size:14px;font-weight:600;color:var(--fg1);cursor:pointer">'+esc(r.name)+'</span>'+lvPayPill(r.p.status)+'</div>'
+    + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:6px"><span data-peek="robot:'+r.i+':money" role="link" tabindex="0" style="font-size:14px;font-weight:600;color:var(--fg1);cursor:pointer">'+esc(r.name)+'</span>'+(rcOn() ? '' : lvPayPill(r.p.status))+'</div>'
     + '<div style="font-size:13px;line-height:1.6;color:var(--fg2);margin-bottom:12px;text-wrap:pretty">'+lvPayLine(r.p)+'</div>'
     + lvPayChart(r.p)
   + '</div>';
-  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px">'+counts.map(x => '<span style="display:inline-flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+x[1]+'</span>'+lvPayPill(x[0])+'</span>').join('')+'</div>'
+  const rcNote = '<p style="font-size:14px;line-height:1.65;color:var(--fg2);margin:0 0 8px;max-width:78ch">Payback needs what a finished part is worth, and Botlien never assumes that. So there is no verdict here. What you can see is what each arm cost to buy and install, and how much real work it has done since, priced at what the arm costs an hour.</p>';
+  return (rcOn() ? rcNote : '')+'<div style="display:'+(rcOn() ? 'none' : 'flex')+';flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px">'+counts.map(x => '<span style="display:inline-flex;align-items:center;gap:8px"><span style="font-size:15px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums">'+x[1]+'</span>'+lvPayPill(x[0])+'</span>').join('')+'</div>'
     + '<div style="font-size:13px;color:var(--fg2);margin-bottom:20px">Measured on '+nMonths+' month'+(nMonths === 1 ? '' : 's')+' of your data.</div>'
     + (rows.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:16px;margin-bottom:40px">'+rows.map(card).join('')+'</div>'
       : lead('No robot matches &ldquo;'+esc(S.search)+'&rdquo;.'));
@@ -12956,10 +12987,12 @@ function rcPeekBody(i, tab, s){
       + '<div style="font-size:13px;line-height:1.7;color:var(--fg2);margin-top:16px">Share of its scheduled time it was working, each period.</div>';
   }
   if (tab === 'money'){
-    const pay = computePayback().rows.find(x => x.i === i);
-    return (pay ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:20px;margin-bottom:22px">'
-        + statRow('Earned back', Math.round(pay.pct * 100)+'%', 'of '+money0(pay.price))
-        + statRow('At your pace', pay.crossed !== null ? 'month '+pay.crossed : (pay.pace !== null ? 'month '+pay.pace : 'not yet'), 'quoted month '+pay.contract.payback)
+    // No earned-back share and no payback month: both need what a part is
+    // worth. What it cost, and the real work it has done since, are known.
+    const lp = lvOn() && lvT('PAYBACK') ? lvAt(lvT('PAYBACK'), i) : null, n = lp ? (lp.months || []).length : 0;
+    return (lp && lp.earned != null && n ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:20px;margin-bottom:22px">'
+        + statRow('Real work so far', money0(lp.earned), 'in the '+n+' month'+(n === 1 ? '' : 's')+' we can see')
+        + statRow('To buy and install', money0(a.deployed / 100), a.ownPrice ? 'said in chat' : 'estimated')
       + '</div>' : '')
       + rcCostBlock(i);
   }
@@ -13077,9 +13110,18 @@ const RC_SWAPS = [
   [/\bof lease\b/g, 'of robot cost'], [/\bleased\b/g, 'robot cost'],
   [/\bleases\b/g, 'contracts'], [/\bLeases\b/g, 'Contracts'], [/\blease (ends?|end|terms?|start|starts|term)\b/g, 'contract $1'], [/\bLease (ends?|end|terms?|start|starts|term)\b/g, 'Contract $1'],
   [/\bno lease\b/g, 'no contract'], [/\bleasing\b/g, 'owning'], [/\bLease\b/g, 'Robot cost'], [/\blease\b/g, 'robot cost'],
-  [/\bCoverage\b/g, 'Working'], [/\bcoverage\b/g, 'working'], [/\bCOVERAGE\b/g, 'WORKING']
+  [/\bCoverage\b/g, 'Working'], [/\bcoverage\b/g, 'working'], [/\bCOVERAGE\b/g, 'WORKING'],
+  [/\bWork valued\b/g, 'Real work'],
+  [/^Invoice$/, 'Robot cost'], [/\bthe invoice of a\b/g, 'the robot cost of a']
 ];
-function rcScrubText(s){ let out = s; RC_SWAPS.forEach(x => { out = out.replace(x[0], x[1]); }); return out; }
+// A coverage multiple is the working share here, so 0.22x reads 22% and a
+// change in it reads in points. An install multiple has one decimal (1.5x)
+// and is left alone.
+function rcScrubText(s){
+  let out = s; RC_SWAPS.forEach(x => { out = out.replace(x[0], x[1]); });
+  return out.replace(/([+\u2212-])(\d+\.\d\d)x(?![\w])/g, (m, sign, v) => sign+Math.round(parseFloat(v) * 100)+' pts')
+    .replace(/(\d+\.\d\d)x(?![\w])/g, (m, v) => Math.round(parseFloat(v) * 100)+'%');
+}
 function rcScrub(root){
   if (!root || !rcOn()) return;
   if (root.nodeType === 3){ const v = rcScrubText(root.nodeValue); if (v !== root.nodeValue) root.nodeValue = v; return; }
@@ -13169,6 +13211,14 @@ function rcBoot(){
         faults: i === 1 ? [{ code:'C153', severity:'warning', description:'Protective stop, waiting for a reset' }] : [] }); });
   }
   COPY.coverage = ['Working over time', 'Six periods of the same one figure: the share of scheduled time the arms were working.'];
+  COPY.payback = ['Payback', 'What each arm cost, and how much of that has gone into real work.'];
+  // The sample's saved plans name the warehouse demo's pickers and sites.
+  if (!LIVE && LIVE_PREVIEW && S.plans.length === 2 && /Picker 2/.test(S.plans[0].name)){
+    S.plans = [
+      { name:'Take Loader 2 out at contract end', changes:[{ type:'return', i:1, month:'' }] },
+      { name:'Two more loaders in CNC cell 1', changes:[{ type:'add', count:2, model:'Universal Robots UR10e', site:0, work:'CNC machine tending' }] }
+    ];
+  }
   if (!/^(rcost|working|idle|payback)$/.test(S.dashTab)) S.dashTab = 'rcost';
   S.dashHidden = (S.dashHidden || []).filter(id => id !== 'recap');
   BUTTON_STATES.push(
