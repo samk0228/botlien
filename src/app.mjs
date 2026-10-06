@@ -8,12 +8,19 @@ import { join } from "node:path";
 import { ROOT } from "./infra.mjs";
 
 export const APP_HTML_PATH = join(ROOT, "prototype", "botlien-prototype.html");
+// The manufacturing dashboard (prototype/src/botlien-mfg.part.html). Parts of
+// it still run on a sample, so it is served only where a caller asks for it
+// by name; see /app?page=mfg in board.mjs.
+export const APP_MFG_HTML_PATH = join(ROOT, "prototype", "botlien-mfg.html");
 
-let cached = null;
-function pageHTML() {
+const cached = new Map();
+function pageHTML(path = APP_HTML_PATH) {
   // Read once per process: the file only changes with a deploy.
-  if (cached === null) cached = readFileSync(APP_HTML_PATH, "utf8");
-  return cached;
+  if (!cached.has(path)) cached.set(path, readFileSync(path, "utf8"));
+  return cached.get(path);
+}
+export function mfgPageHTML() {
+  return pageHTML(APP_MFG_HTML_PATH);
 }
 
 /** Whether the built page runs first run itself (business, connect or

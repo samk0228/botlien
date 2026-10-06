@@ -171,7 +171,7 @@ export const BENCHMARKS = {
 
 /** The cost model behind a robot-arm work, with the owner's overrides laid
  *  over the defaults: which arm (from the robot's model when it names a UR),
- *  its price, the install multiple, and hours a year. Null for work priced
+ *  its price, the install multiple, hours a year, and its resale share. Null for work priced
  *  per unit. `estimated` stays true until the owner has given a price and a
  *  schedule of their own, which is the benchmark's rule for showing it. */
 export function robotCostFor(category, model = null, own = null) {
@@ -182,13 +182,15 @@ export function robotCostFor(category, model = null, own = null) {
   const installMultiple = own?.install ?? INSTALL_BANDS[cm.install].multiple;
   const armPriceCents = own?.armPrice > 0 ? Math.round(own.armPrice * 100) : spec.priceCents;
   const hoursPerYear = own?.hoursYear ?? COST_DEFAULTS.hoursPerYear;
-  const cost = robotCostPerHour({ armPriceCents, installMultiple, watts: spec.watts, hoursPerYear });
+  const resaleShare = own?.resale ?? COST_DEFAULTS.resaleShare;
+  const cost = robotCostPerHour({ armPriceCents, installMultiple, watts: spec.watts, hoursPerYear, resaleShare });
   return {
     arm,
     armLabel: spec.label,
     armPriceCents,
     installMultiple,
     hoursPerYear,
+    resaleShare,
     ...cost,
     derivation: costDerivation(spec.label, cost),
     estimated: !(own?.armPrice > 0 && own?.hoursYear > 0),

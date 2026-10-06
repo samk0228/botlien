@@ -142,3 +142,25 @@ test("a zone the clock does not know, or a billing day past the 28th, saves noth
   assert.deepEqual(loadInputs(s), { account: {}, robots: {} });
   assert.equal(fleetContract(s, T0).tz, "America/Los_Angeles");
 });
+
+test("an arm's resale value saves with its other cost inputs and reaches the cost the server computes", () => {
+  const s = openStore(":memory:");
+  s.setKV("owner.business_type", "manufacturing");
+  const arm = s.upsertRobot({ connector: "push", externalId: "loader-1", displayName: "Loader 1", model: "UR10e", category: "machine_tending" }, 1);
+  const before = fleetContract(s, T0).robots[0].cost;
+  assert.equal(before.resaleShare, 0.4, "40% until the owner says otherwise");
+  saveInputs(s, { robots: { robotCost: { [arm]: { armPrice: 45_000, resale: 0.25 } } } }, T0);
+  assert.deepEqual(loadInputs(s).robots.robotCost[arm], { armPrice: 45_000, resale: 0.25 });
+  const after = fleetContract(s, T0).robots[0].cost;
+  assert.equal(after.resaleShare, 0.25);
+  assert.equal(after.armPriceCents, 4_500_000);
+  // (deployed - resale x price) / life hours, by hand: 45,000 x (2.5 - 0.25) / 28,000 h.
+  assert.equal(after.ownershipCents, Math.round((4_500_000 * 2.25) / 28_000));
+  // Out of range is refused, and refuses the whole batch.
+  assert.throws(() => saveInputs(s, { robots: { robotCost: { [arm]: { resale: 0.95 } } } }, T0), /not a value it can take/);
+  assert.throws(() => saveInputs(s, { robots: { robotCost: { [arm]: { resale: -0.1 } } } }, T0), /not a value it can take/);
+  assert.equal(loadInputs(s).robots.robotCost[arm].resale, 0.25, "the saved value is untouched");
+  // Clearing the row puts the arm back on the defaults.
+  saveInputs(s, { robots: { robotCost: { [arm]: null } } }, T0);
+  assert.equal(fleetContract(s, T0).robots[0].cost.resaleShare, 0.4);
+});

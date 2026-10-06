@@ -627,8 +627,13 @@ export function startBoard(port, {
 
       // ---- the dashboard: the Demo's screens on this account's data ----
       if (getFleetContract && req.method === "GET" && path === "/app") {
-        const { renderAppHTML } = await import("./app.mjs");
+        const { renderAppHTML, mfgPageHTML } = await import("./app.mjs");
         const demo = /[?&]demo=1(&|$)/.test(req.url ?? "");
+        // ?page=mfg opens the manufacturing dashboard on this account's data.
+        // Operators only for now: its Line page, Integrations and rules are
+        // not wired to an account yet, and the page says so. Anyone else who
+        // asks for it gets the usual page, so it is not advertised.
+        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && !!signedIn && !!tenancy?.ctx?.isOperator?.(signedIn.email);
         // An account with no fleet yet has nothing to show here: send it to
         // the first-run step that gets it one (business, then connect or
         // upload, then confirm). Numbers is not a gate; /app has its own.
@@ -640,7 +645,7 @@ export function startBoard(port, {
           return;
         }
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-        res.end(renderAppHTML({ contract: demo ? null : await getFleetContract(), account: signedIn }));
+        res.end(renderAppHTML({ contract: demo ? null : await getFleetContract(), account: signedIn, ...(mfg ? { html: mfgPageHTML() } : {}) }));
         return;
       }
 

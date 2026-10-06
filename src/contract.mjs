@@ -444,6 +444,7 @@ export function fleetContract(store, nowMs, config = {}) {
               installMultiple: cost.installMultiple,
               deployedCents: Math.round(cost.deployedCents),
               hoursPerYear: cost.hoursPerYear,
+              resaleShare: cost.resaleShare,
               perHourCents: Math.round(cost.perHour),
               ownershipCents: Math.round(cost.ownership),
               maintenanceCents: Math.round(cost.maintenance),

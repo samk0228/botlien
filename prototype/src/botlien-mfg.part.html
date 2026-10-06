@@ -1126,6 +1126,9 @@ html[data-fit="sm"] .ours-askbtn{padding:0 9px !important}
   html[data-fit="sm"] [data-incident-head], html[data-fit="sm"] [data-incident-row]{grid-template-columns:minmax(80px,.8fr) minmax(100px,1fr) minmax(110px,1fr) minmax(60px,.6fr) minmax(120px,1.2fr) !important}
   html[data-fit="sm"] [data-incident-head] > :nth-child(2), html[data-fit="sm"] [data-incident-head] > :nth-child(7),
   html[data-fit="sm"] [data-incident-row] > :nth-child(2), html[data-fit="sm"] [data-incident-row] > :nth-child(7){display:none !important}
+  /* a real account has no sample columns: five tracks, four on a narrow column */
+  html[data-acct][data-fit] [data-incident-head], html[data-acct][data-fit] [data-incident-row]{grid-template-columns:minmax(86px,.8fr) minmax(58px,.5fr) minmax(110px,1.1fr) minmax(130px,1.3fr) minmax(80px,.7fr) !important}
+  html[data-acct][data-fit="sm"] [data-incident-head], html[data-acct][data-fit="sm"] [data-incident-row]{grid-template-columns:minmax(80px,.8fr) minmax(100px,1fr) minmax(110px,1.2fr) minmax(60px,.6fr) !important}
   div:has(> [data-incident-head]){overflow-x:auto !important}
 }
 
@@ -3352,7 +3355,7 @@ function appRail(){
   // Live count, not a number typed once: an edit on Setup that pushes a
   // robot under its lease, or pulls it back over, has to show up here too,
   // the same instant it shows up as a caution mark on Fleet.
-  const attnCount = oursAttn();
+  const attnCount = LIVE ? computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.cov !== null && r.cov < 1).length : oursAttn();
   const badge = !attnCount ? '' : '<span data-act="attention" style="margin-left:auto;font-size:12px;font-weight:600;color:var(--sb-accent-fg)">'+attnCount+'</span>';
 
   // Which site is in view already lives in the dashboard's own scope
@@ -3443,7 +3446,7 @@ function appRail(){
     // chain removes the whole problem instead of chasing it.
     + '<nav data-nav style="display:block;width:100%;box-sizing:border-box;padding:'+(collapsed?'4px 12px':'8px')+';overflow-y:auto;overflow-x:hidden">'
       + item('dashv2','equal','Dashboard')
-      + item('line','route','Line')
+      + (LIVE ? '' : item('line','route','Line'))
       + item('robots','boxes','Fleet', badge)
       + (rcOn() ? '' : item('costs','ruler','Costs'))   // for arms priced by cost per hour this page only repeats the Dashboard
       + item('trends','trending-up','Trends')
@@ -3456,7 +3459,7 @@ function appRail(){
       + item('incidents','list','Incidents')
       + item('vendors','building','Vendors')
       + item('ask','sparkles','Ask')
-      + item('alerts','bell','Integrations')
+      + item('alerts','bell', LIVE ? 'Alerts' : 'Integrations')
       + item('setup','sliders-horizontal','Numbers')
     + '</nav>'
     // shadcn's NavUser pattern: the footer is ONE SidebarMenuButton (the
@@ -3543,7 +3546,7 @@ function appTopbar(){
     incidents:'Operations', vendors:'Operations', evidence:'Operations', contract:'Statement', decisions:'Statement', whatif:'Statement', benchmark:'Statement', setup:'Inputs', start:'Inputs', confirm:'Inputs', settings:'Account', alerts:'Operations', line:'Operations', ask:'Operations', states:'Reference' };
   const section = tabT ? KIND_LABEL[tabT.kind] : (SECTION[view] || 'Botlien');
   const iconBtn = (inner, attrs, title) => '<button type="button" '+attrs+' aria-label="'+title+'" class="hv-ghost ours-ib" title="'+title+'" style="position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:6px;cursor:pointer;color:var(--fg2)">'+inner+'</button>';
-  const attnCount = oursAttn();
+  const attnCount = LIVE ? computeStatement(true, scopeFilter()).rows.filter(r => !r.excluded && r.cov !== null && r.cov < 1).length : oursAttn();
   const bell = iconBtn(ic('bell',18) + (attnCount ? '<span style="position:absolute;top:6px;right:7px;min-width:15px;height:15px;padding:0 4px;border-radius:6px;background:var(--bad-mark);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums">'+attnCount+'</span>' : ''), 'data-act="go" data-view="alerts"', 'Notifications');
   const help = '<a href="mailto:info@botlien.com" title="Help" aria-label="Help" class="hv-ghost" style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:6px;color:var(--fg2);text-decoration:none">'+ic('help-circle',18)+'</a>';
   // Live filter for Fleet and Numbers. A search box that searches nothing
@@ -3669,7 +3672,7 @@ function appHeader(){
       // screen on now live on the pill: whether the period is open is one
       // word on the control, and the two sentences behind it are read once,
       // by whoever wants them, in the panel that opens.
-      + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:12px;height:32px;padding:0 12px;box-sizing:border-box;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+'Sample period: '+p.label+' &middot; '+(p.status==='open'?'open':'closed')+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
+      + '<div data-act="togglePeriod" class="hv-ghost" style="display:flex;align-items:center;gap:12px;height:32px;padding:0 12px;box-sizing:border-box;border:1px solid var(--hair2);border-radius:6px;background:var(--card);font-size:13px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;cursor:pointer">'+(LIVE ? '' : 'Sample period: ')+p.label+' &middot; '+(p.status==='open'?'open':'closed')+ic('chevron-down',15,'color:var(--fg3)')+'</div>'
       + (S.periodMenu ? '<div data-pop-back></div><div data-pop data-pop-panel style="position:absolute;top:40px;right:0;z-index:45">'+periodFacts(p)+renderCalendar()+'</div>' : '')
     + '</div>';
   // The collapse control used to also live here as a permanent bordered
@@ -4139,7 +4142,7 @@ let dashDragId = null; // which block is mid-drag; ephemeral, does not need a re
 function viewDashV2(){
   const layout = S.dashLayout.filter(id => DASH_BLOCKS[id] && DASH_ANCHOR.indexOf(id) < 0);
   const hidden = layout.filter(id => S.dashHidden.includes(id));
-  const visible = layout.filter(id => !S.dashHidden.includes(id));
+  const visible = layout.filter(id => !S.dashHidden.includes(id) && !(LIVE && (id === 'line' || id === 'fleet_preview' || id === 'rules')));
   const band3 = rcOn() ? [] : visible.filter(id => DASH_BAND3.indexOf(id) >= 0);
   const band2 = visible.filter(id => DASH_BAND3.indexOf(id) < 0 && id !== 'brief' && id !== 'rules' && !(rcOn() && id === 'work'));
   const showBrief = visible.indexOf('brief') >= 0 && !oursDismissed('brief');
@@ -7439,7 +7442,7 @@ function viewIncidentsAll(){
     + '<span style="width:1px;height:28px;background:var(--hair)"></span>'
     + (S.shifts || SHIFTS).map(s => chip(s.label+' · '+shiftSpan(s),'shift',s.label)).join('')
   + '</div>';
-  const cols = 'minmax(86px,.8fr) minmax(58px,.5fr) minmax(110px,1.1fr) minmax(130px,1.1fr) minmax(80px,.7fr) minmax(150px,1.3fr) minmax(90px,.8fr)';
+  const cols = LIVE ? 'minmax(86px,.8fr) minmax(58px,.5fr) minmax(110px,1.1fr) minmax(130px,1.3fr) minmax(80px,.7fr)' : 'minmax(86px,.8fr) minmax(58px,.5fr) minmax(110px,1.1fr) minmax(130px,1.1fr) minmax(80px,.7fr) minmax(150px,1.3fr) minmax(90px,.8fr)';
   const th = (t, help, drop) => '<div'+(drop ? ' data-incident-drop' : '')+' style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500;color:var(--fg2)">'+t+(help ? '<span title="'+help+'" style="display:inline-flex;color:var(--fg3);cursor:help">'+ic('help-circle',12)+'</span>' : '')+'</div>';
   const table = '<div style="border:1px solid var(--hair);border-radius:6px;overflow:hidden">'
     + '<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:12px;padding:20px 20px 16px">'
@@ -7447,7 +7450,7 @@ function viewIncidentsAll(){
       + '<span style="font-size:13px;color:var(--fg3)">Aug 4 – Sep 3, the open period. '+(k.linked ? 'The collision is also a downtime row and is counted once.' : '')+'</span></div>'
     + '<div data-incident-head style="display:grid;grid-template-columns:'+cols+';gap:16px;align-items:center;padding:12px 20px;background:var(--ghost);border-bottom:1px solid var(--hair)">'
       + th('When') + th('Shift', '', true) + th('Robot') + th('What it reported') + th('Down for')
-      + th('Likely cause (sample)') + th('Parts lost (sample)', '', true)
+      + (LIVE ? '' : th('Likely cause (sample)') + th('Parts lost (sample)', '', true))
     + '</div>'
     + (shown.length ? shown.map(r => '<div data-incident-row data-peek="incident:'+incidentId(r)+'" class="hv-ghost" style="display:grid;grid-template-columns:'+cols+';gap:16px;align-items:center;padding:12px 20px;border-top:1px solid var(--hair);cursor:pointer">'
         + '<div style="font-size:13px;color:var(--fg1);font-variant-numeric:tabular-nums;white-space:nowrap">'+fmtDateShort(r.date).replace(', 2026','')+' <span style="color:var(--fg3)">'+fmtClock(r.time)+'</span></div>'
@@ -7457,8 +7460,8 @@ function viewIncidentsAll(){
         + '<div style="min-width:0"><div style="font-size:13px;color:var(--fg1)">'+esc(r.kind)+'</div>'
           + (r.safetyNote ? '<div style="font-size:12px;color:var(--fg3);line-height:1.45">'+esc(r.safetyNote)+'</div>' : '')+'</div>'
         + '<div style="font-size:13px;color:var(--fg2);font-variant-numeric:tabular-nums;white-space:nowrap">'+(r.minutes ? fmtDownFor(r.minutes) : '<span style="color:var(--fg3)">none logged</span>')+'</div>'
-        + '<div style="font-size:13px;color:var(--fg1);line-height:1.45">'+esc(oursCauseFor(r))+'</div>'
-        + '<div data-incident-drop style="font-size:13px;color:var(--fg2);font-variant-numeric:tabular-nums">'+esc(oursLostFor(r))+'</div>'
+        + (LIVE ? '' : '<div style="font-size:13px;color:var(--fg1);line-height:1.45">'+esc(oursCauseFor(r))+'</div>'
+        + '<div data-incident-drop style="font-size:13px;color:var(--fg2);font-variant-numeric:tabular-nums">'+esc(oursLostFor(r))+'</div>')
       + '</div>').join('')
       : '<div style="padding:24px 20px;font-size:14px;color:var(--fg3)">Nothing matches these filters.</div>')
   + '</div>';
@@ -7601,7 +7604,7 @@ function appBody(){
     case 'business': return viewBusiness();
     case 'creds': return viewCreds();
     case 'empty': return viewEmpty();
-    case 'alerts': return oursIntegView();
+    case 'alerts': return LIVE ? viewAlerts() : oursIntegView();
     case 'line': return viewLine();
     case 'ask': return oursAskView();
     default: return '';
@@ -7624,6 +7627,7 @@ function appStage(){
   return tabToastHtml() + tabSheetHtml() + '<div data-main data-ba-content style="padding:0;min-width:0">'
     + (S.onboarding ? '' : appTopbar() + tabStrip())
     + '<div data-card style="background:transparent;padding:'+(S.view==='ask'?'0':'24px 24px 40px')+';max-width:1400px;margin:0 auto">'
+      + (LIVE && S.view !== 'ask' ? oursPreviewNote() : '')
       + (tabOn ? '' : appHeader())
       + body
       + (S.view === 'ask' ? '' : '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px;margin-top:36px;padding-top:28px;border-top:1px solid var(--hair)">'
@@ -8364,7 +8368,7 @@ L3.robot = {
   body(id, tab){ const i = Number(id); if (rcOn() && rcArm(i) && (tab === 'verdict' || tab === 'time' || tab === 'money')) return rcPeekBody(i, tab, stmtRow(i)); return robotBody(i, tab); }
 };
 function robotBody(i, tab){
-  if (tab === 'condition') return oursWearBody(i);
+  if (tab === 'condition' && !LIVE) return oursWearBody(i);
   const s = stmtRow(i), f = robotFacts(s), r = ROBOTS[i];
   if (tab === 'verdict'){
     return (lvOn() ? lvNowBlock(i) : '') + '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px">'+pill(f.chip, f.chipIcon, f.chipTone)+'<span style="font-size:13px;color:var(--fg3)">'+esc(r.model)+' &middot; <span '+openAttrs('work', slug(s.work), 'rate')+' role="link" tabindex="0" style="'+linkStyle()+'">'+esc(s.work)+'</span></span></div>'
@@ -10061,6 +10065,7 @@ function render(){
   try { oursBeforeRender(); } catch(e){}
   if (typeof OURS_REMOVED !== 'undefined' && OURS_REMOVED.indexOf(S.view) >= 0) S.view = 'dashv2';
   if (typeof oursViewHidden === 'function' && oursViewHidden(S.view)) S.view = 'dashv2';
+  if (LIVE && S.view === 'line') S.view = 'dashv2';      // his Line page plays the sample replay
   const active = document.activeElement;
   const keepId = active && active.id ? active.id : null;
   const selStart = keepId && 'selectionStart' in active ? active.selectionStart : null;
@@ -11982,7 +11987,7 @@ function lvSortFleet(rows){
 }
 function lvNowBlock(i){
   const n = lvNow(i);
-  if (typeof oursNowBlock === 'function'){ const o = oursNowBlock(i); if (o !== null) return o; }
+  if (!LIVE && typeof oursNowBlock === 'function'){ const o = oursNowBlock(i); if (o !== null) return o; }
   if (!n) return '';
   const stale = lvStale(n), faults = n.faults || [];
   return '<div style="margin:0 0 16px">'
@@ -12381,7 +12386,11 @@ function lvSourcesHtml(){
   if (!s.loaded){ s.loaded = true; lvLoadSources(); }
   const section = (title, body) => '<div style="margin-bottom:34px"><h3 style="font-size:15px;font-weight:600;letter-spacing:-0.01em;margin:0 0 14px;color:var(--fg1)">'+title+'</h3>'+body+'</div>';
   const conns = s.conns || [];
-  return section('Connected robots', oursRobotsConnected())
+  return (LIVE ? section('Connected vendors',
+      (conns.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px">'+conns.map(v => '<div style="border:1px solid var(--hair2);border-radius:6px;padding:18px 20px;min-width:0;background:var(--card)">'+lvVendorBlock(v)+'</div>').join('')+'</div>'
+        : '<div style="font-size:13px;color:var(--fg3)">No vendor Botlien can connect was reported for this account.</div>')
+      + (s.connErr ? lvError('Could not refresh the list: '+s.connErr) + '<div style="margin-top:6px">'+lvLink('data-act="lvSourcesReload"', 'Try again')+'</div>' : ''))
+    : section('Connected robots', oursRobotsConnected()))
     + section('Keys for sending data', lvKeysBlock())
     + section('Upload an export, any make', lvUploadBlock());
 }
@@ -13212,6 +13221,7 @@ function rcBoot(){
   }
   COPY.coverage = ['Working over time', 'Six periods of the same one figure: the share of scheduled time the arms were working.'];
   COPY.payback = ['Payback', 'What each arm cost, and how much of that has gone into real work.'];
+  if (LIVE){ COPY.alerts = ['Notifications','What Botlien sends without being asked, who receives it, and what has to happen first. Nothing here fires on a schedule you did not choose.']; try { document.documentElement.dataset.acct = '1'; } catch(e){} }
   // The sample's saved plans name the warehouse demo's pickers and sites.
   if (!LIVE && LIVE_PREVIEW && S.plans.length === 2 && /Picker 2/.test(S.plans[0].name)){
     S.plans = [
@@ -13240,7 +13250,7 @@ Object.assign(ACTIONS, {
     let i = el.dataset.i != null ? Number(el.dataset.i) : null;
     if (i == null){ const r = rcRows().find(x => x.a.estimated); i = r ? r.i : null; }
     S.peek = null; S.peekStack = [];
-    try { BotlienAssistant.ask('I want to use my own numbers' + (i != null ? ' for ' + OURS_NAMES[i] : ''), { send:true }); } catch(e){}
+    try { BotlienAssistant.ask('I want to use my own numbers' + (i != null ? ' for ' + (LIVE ? robotLabel(i) : OURS_NAMES[i]) : ''), { send:true }); } catch(e){}
   },
   rcInstall: (el) => {
     const i = Number(el.dataset.i), v = el.dataset.v;
@@ -13923,6 +13933,9 @@ const OURS_LOGO = LOGO;
   var ICONS = {};
   var LOGO = "";
   var CFG = { getConnected: function () { return {}; }, getLive: function () { return null; }, onDashboardChange: null };
+  /* A real account (the server put its data in the page). Its arms and their cost numbers come from the account and a
+     cost change is saved to it. Nothing about it is read from, or written to, the sample rules this browser keeps. */
+  var ACCT = typeof LIVE !== 'undefined' && !!LIVE;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function ic(n, s, st) { s = s || 16; return '<svg class="ba-ico" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="' + (st || '') + '">' + (ICONS[n] || '') + '</svg>'; }
@@ -13971,16 +13984,16 @@ const OURS_LOGO = LOGO;
   }
   function normalize(o) { o = o && typeof o === 'object' && !Array.isArray(o) ? o : {}; var d = clone(DEFAULTS); Object.keys(d).forEach(function (k) { if (o[k] == null) o[k] = d[k]; }); if (typeof o.cost_inputs !== 'object' || Array.isArray(o.cost_inputs)) o.cost_inputs = {}; o.version = 1; return deriveRouting(o); }
   var RULES = normalize(null), BC = null, listeners = [];
-  try { var raw = localStorage.getItem('botlien_rules'); if (raw) RULES = normalize(JSON.parse(raw)); } catch (e) { /* in memory defaults */ }
+  if (!ACCT) try { var raw = localStorage.getItem('botlien_rules'); if (raw) RULES = normalize(JSON.parse(raw)); } catch (e) { /* in memory defaults */ }
   function notify() { var seen = []; listeners.forEach(function (f) { if (seen.indexOf(f) < 0) { seen.push(f); try { f(clone(RULES)); } catch (e) { } } }); }
   function commit(next) {
     RULES = deriveRouting(next);
-    try { localStorage.setItem('botlien_rules', JSON.stringify(RULES)); } catch (e) { /* in memory only */ }
+    if (!ACCT) try { localStorage.setItem('botlien_rules', JSON.stringify(RULES)); } catch (e) { /* in memory only */ }
     try { if (BC) BC.postMessage({ type: 'rules', rules: RULES }); } catch (e) { }
     notify(); refreshAll();
   }
   function onExternal(r) { RULES = normalize(r); notify(); refreshAll(); }
-  try { BC = new BroadcastChannel('botlien_rules'); BC.onmessage = function (e) { if (e.data && e.data.type === 'rules') onExternal(e.data.rules); }; } catch (e) { BC = null; }
+  if (!ACCT) try { BC = new BroadcastChannel('botlien_rules'); BC.onmessage = function (e) { if (e.data && e.data.type === 'rules') onExternal(e.data.rules); }; } catch (e) { BC = null; }
 
   /* ---------- describing rules in plain words ---------- */
   function tierLine(r, tier) {
@@ -14066,15 +14079,16 @@ const OURS_LOGO = LOGO;
 
   /* ---------- chat state (shared by every mounted instance, kept in localStorage) ---------- */
   var ST = { msgs: [], proposals: {}, hours: 4000, draft: '', typing: false, page: 'Dashboard', seq: 0 };
-  var GREETING = 'Hi. I read your robot data and I set up who hears what. Tell me, for example, who should know about big stops, when to interrupt, or how your dashboard should look. I propose, you confirm, and I never control a robot.';
+  var CHATKEY = ACCT ? 'botlien_chat_account' : 'botlien_chat';
+  var GREETING = ACCT ? 'Hi. Tell me what your arms cost you and I will use your numbers: the arm, what you paid for it, the install, the hours a year it is scheduled, and what it could resell for. I propose, you confirm, and I never control a robot.' : 'Hi. I read your robot data and I set up who hears what. Tell me, for example, who should know about big stops, when to interrupt, or how your dashboard should look. I propose, you confirm, and I never control a robot.';
   function greet() { return { who: 'bot', html: GREETING }; }
-  function saveChat() { try { localStorage.setItem('botlien_chat', JSON.stringify({ msgs: ST.msgs.slice(-60), proposals: ST.proposals, hours: ST.hours })); } catch (e) { } }
+  function saveChat() { try { localStorage.setItem(CHATKEY, JSON.stringify({ msgs: ST.msgs.slice(-60), proposals: ST.proposals, hours: ST.hours })); } catch (e) { } }
   function loadChat() {
-    try { var o = JSON.parse(localStorage.getItem('botlien_chat') || 'null'); if (o && o.msgs && o.msgs.length) { ST.msgs = o.msgs; ST.proposals = o.proposals || {}; if (o.hours) ST.hours = o.hours; return; } } catch (e) { }
+    try { var o = JSON.parse(localStorage.getItem(CHATKEY) || 'null'); if (o && o.msgs && o.msgs.length) { ST.msgs = o.msgs; ST.proposals = o.proposals || {}; if (o.hours) ST.hours = o.hours; return; } } catch (e) { }
     ST.msgs = [greet()];
   }
   loadChat();
-  try { window.addEventListener('storage', function (e) { if (e.key === 'botlien_chat') { loadChat(); refreshAll(); } else if (e.key === 'botlien_rules' && e.newValue) { try { onExternal(JSON.parse(e.newValue)); } catch (x) { } } }); } catch (e) { }
+  try { window.addEventListener('storage', function (e) { if (e.key === CHATKEY) { loadChat(); refreshAll(); } else if (!ACCT && e.key === 'botlien_rules' && e.newValue) { try { onExternal(JSON.parse(e.newValue)); } catch (x) { } } }); } catch (e) { }
 
   function propose(summary, changes, extra) {
     var id = 'c' + (Date.now() % 1000000) + '_' + (++ST.seq);
@@ -14183,19 +14197,23 @@ const OURS_LOGO = LOGO;
 
   /* ---------- cost inputs said in chat (botlien_rules.cost_inputs, per robot id, source chat) ---------- */
   var UR = { UR3e: [33011, 150], UR5e: [38363, 250], UR10e: [49596, 350], UR16e: [57754, 350], UR20: [62990, 500], UR30: [61415, 300] };
-  var CROBOTS = [['Loader 1', 'UR10e', 23], ['Loader 2', 'UR10e', 8], ['Deburr', 'UR5e', 38], ['Inspection', 'UR3e', 21]];
+  var CROBOTS_SAMPLE = [['Loader 1', 'UR10e', 23], ['Loader 2', 'UR10e', 8], ['Deburr', 'UR5e', 38], ['Inspection', 'UR3e', 21]];
+  /* the arms to talk about, as [name, arm, working share]: the account's own, or the sample cell */
+  function crobots() { if (!ACCT) return CROBOTS_SAMPLE; try { var r = CFG.getRobots && CFG.getRobots(); if (r && r.length) return r; } catch (e) { } return []; }
+  function robotRx(name) { return new RegExp('(^|[^a-z0-9])' + String(name).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s_-]+/g, '[ _-]?') + '($|[^a-z0-9])'); }
+  function namedRobots(t) { var out = []; crobots().forEach(function (r, i) { if (robotRx(r[0]).test(t)) out.push(i); }); return out; }
   var INSTALLN = { 1: 'Simple cell', 1.5: 'Complex cell', 2: 'Welding cell' };
   function ciOf(r, i) { return (r.cost_inputs && r.cost_inputs[i]) || {}; }
   /* the model of costs.json: C = (deployed - resale x arm) / life hours + 5 percent a year / hours + watts / 1000 x 0.0977 */
   function costOf(i, r, over) {
-    var c = Object.assign({}, ciOf(r, i), over || {}), arm = UR[c.arm] ? c.arm : CROBOTS[i][1], price = c.armPrice > 0 ? c.armPrice : UR[arm][0], inst = c.install != null ? c.install : 1.5,
+    var c = Object.assign({}, ciOf(r, i), over || {}), arm = UR[c.arm] ? c.arm : crobots()[i][1], price = c.armPrice > 0 ? c.armPrice : UR[arm][0], inst = c.install != null ? c.install : 1.5,
       hrs = c.hoursYear > 0 ? c.hoursYear : 4000, rs = c.resale != null ? c.resale : 0.4, dep = price * (1 + inst), own = (dep - rs * price) / Math.min(7 * hrs, 35000), mt = 0.05 * price / hrs, en = UR[arm][1] / 1000 * 0.0977, tot = own + mt + en;
     var w0 = null; try { w0 = CFG.getWorking ? CFG.getWorking(i) : null; } catch (e) { }
-    var wp = Math.min(100, Math.max(0.5, (w0 != null ? w0 : CROBOTS[i][2]) * 4000 / hrs));
+    var wp = Math.min(100, Math.max(0.5, (w0 != null ? w0 : crobots()[i][2]) * 4000 / hrs));
     return { arm: arm, price: price, install: inst, hours: hrs, resale: rs, deployed: dep, own: own, maint: mt, energy: en, perHour: tot, working: wp, perWork: tot / (wp / 100), idle: tot * hrs * (1 - wp / 100) };
   }
   var money0 = function (n) { return '$' + Math.round(n).toLocaleString('en-US'); };
-  function costLine(i, c) { return CROBOTS[i][0] + ': ' + money2(c.perHour) + ' an hour, ' + money2(c.perWork) + ' per hour of real work, ' + money0(c.idle) + ' idle a year'; }
+  function costLine(i, c) { return crobots()[i][0] + ': ' + money2(c.perHour) + ' an hour, ' + money2(c.perWork) + ' per hour of real work, ' + money0(c.idle) + ' idle a year'; }
   function numTok(x) { return Number(String(x).replace(/,/g, '')); }
   function parseFields(t) {
     var F = { any: false, bad: null }, m;
@@ -14233,22 +14251,24 @@ const OURS_LOGO = LOGO;
   }
   /* which robots does the sentence mean? ids, or a question to ask */
   function resolveRobots(t) {
-    var ids = [];
-    [[0, /loader[ -]?(1|one)\b/], [1, /loader[ -]?(2|two)\b/], [2, /deburr\w*/], [3, /inspection/]].forEach(function (x) { if (x[1].test(t)) ids.push(x[0]); });
+    var ids = [], N = crobots().map(function (r, i) { return i; });
+    if (ACCT) ids = namedRobots(t);
+    else [[0, /loader[ -]?(1|one)\b/], [1, /loader[ -]?(2|two)\b/], [2, /deburr\w*/], [3, /inspection/]].forEach(function (x) { if (x[1].test(t)) ids.push(x[0]); });
     var mm = /\bur\s?(3e|5e|10e|16e|20e?|30)\b/.exec(t), key = mm ? ('UR' + mm[1]).replace(/^UR20e$/, 'UR20') : null, all = /\b(all|every|each|both)\b/.test(t);
-    if (!ids.length && /\b(both|all) (my |the |of the )?loaders\b|\bboth loaders\b/.test(t)) ids = [0, 1];
-    if (!ids.length && /\b(all|every)\b[^.]{0,25}\b(robots?|arms?)\b|\bevery robot\b|\ball four\b|\beverything\b/.test(t) && !(key && all)) ids = [0, 1, 2, 3];
-    if (!ids.length && key && all) CROBOTS.forEach(function (r, i) { if (r[1] === key) ids.push(i); });
-    if (!ids.length && key) { var m2 = []; CROBOTS.forEach(function (r, i) { if (r[1] === key) m2.push(i); }); if (m2.length === 1) ids = m2; else if (m2.length > 1) return { ask: m2 }; }
+    if (!ACCT && !ids.length && /\b(both|all) (my |the |of the )?loaders\b|\bboth loaders\b/.test(t)) ids = [0, 1];
+    if (!ids.length && /\b(all|every)\b[^.]{0,25}\b(robots?|arms?)\b|\bevery robot\b|\ball four\b|\beverything\b/.test(t) && !(key && all)) ids = N.slice();
+    if (!ids.length && key && all) crobots().forEach(function (r, i) { if (r[1] === key) ids.push(i); });
+    if (!ids.length && key) { var m2 = []; crobots().forEach(function (r, i) { if (r[1] === key) m2.push(i); }); if (m2.length === 1) ids = m2; else if (m2.length > 1) return { ask: m2 }; }
     if (!ids.length && ST.cxRobot != null) ids = [ST.cxRobot];
-    if (!ids.length) { var pg = /loader 1|loader 2|deburr|inspection/i.exec(ST.page || ''); if (pg) ids = [CROBOTS.map(function (r) { return r[0].toLowerCase(); }).indexOf(pg[0].toLowerCase())]; }
-    return ids.length ? { ids: ids } : { ask: [0, 1, 2, 3] };
+    if (!ids.length && ACCT) { var np = namedRobots(String(ST.page || '').toLowerCase()); if (np.length === 1) ids = np; }
+    if (!ids.length && !ACCT) { var pg = /loader 1|loader 2|deburr|inspection/i.exec(ST.page || ''); if (pg) ids = [crobots().map(function (r) { return r[0].toLowerCase(); }).indexOf(pg[0].toLowerCase())]; }
+    return ids.length ? { ids: ids } : N.length === 1 ? { ids: N } : { ask: N };
   }
-  function namesOf(ids) { return joinNames(ids.map(function (i) { return CROBOTS[i][0]; })); }
+  function namesOf(ids) { return joinNames(ids.map(function (i) { return crobots()[i][0]; })); }
   function askWhich(ids, F) {
     ST.pendingCost = F;
-    var q = ids.length === 2 ? 'Which robot, ' + CROBOTS[ids[0]][0] + ' or ' + CROBOTS[ids[1]][0] + '?' : 'Which robot: ' + joinNames(ids.map(function (i) { return CROBOTS[i][0]; })) + '?';
-    return reply(q + ' You can also say both, or all of them.', null, ids.map(function (i) { return [CROBOTS[i][0], CROBOTS[i][0]]; }).concat(ids.length > 1 ? [['Both', ids.length === 2 ? 'both' : 'all robots']] : []));
+    var q = ids.length === 2 ? 'Which robot, ' + crobots()[ids[0]][0] + ' or ' + crobots()[ids[1]][0] + '?' : 'Which robot: ' + joinNames(ids.map(function (i) { return crobots()[i][0]; })) + '?';
+    return reply(q + ' You can also say both, or all of them.', null, ids.map(function (i) { return [crobots()[i][0], crobots()[i][0]]; }).concat(ids.length > 1 ? [['Both', ids.length === 2 ? 'both' : 'all robots']] : []));
   }
   function fieldsOver(F) { var o = {}; ['arm', 'armPrice', 'install', 'hoursYear', 'resale'].forEach(function (k) { if (F[k] != null) o[k] = F[k]; }); return o; }
   function costProposal(ids, F, resetting) {
@@ -14265,7 +14285,7 @@ const OURS_LOGO = LOGO;
       before.push(costLine(i, b)); after.push(costLine(i, a)); parts.push([i, b.perHour, a.perHour]);
     });
     var same = parts.every(function (x) { return money2(x[1]) === money2(parts[0][1]) && money2(x[2]) === money2(parts[0][2]); });
-    eff.push(same ? namesOf(ids) + (ids.length > 1 ? ' go' : ' goes') + ' from ' + money2(parts[0][1]) + ' to ' + money2(parts[0][2]) + ' an hour.' : parts.map(function (x) { return CROBOTS[x[0]][0] + ' goes from ' + money2(x[1]) + ' to ' + money2(x[2]); }).join(', ') + ' an hour.');
+    eff.push(same ? namesOf(ids) + (ids.length > 1 ? ' go' : ' goes') + ' from ' + money2(parts[0][1]) + ' to ' + money2(parts[0][2]) + ' an hour.' : parts.map(function (x) { return crobots()[x[0]][0] + ' goes from ' + money2(x[1]) + ' to ' + money2(x[2]); }).join(', ') + ' an hour.');
     var summary = resetting ? 'Use list prices again for ' + namesOf(ids) : 'Update ' + namesOf(ids) + ': ' + Object.keys(fields).map(function (k) { return nm[k].toLowerCase() + ' ' + fmt[k](fields[k]); }).join(', ');
     var id = 'k' + (Date.now() % 1000000) + '_' + (++ST.seq);
     var p = { id: id, summary: summary, changes: [resetting ? { type: 'cost_reset', robots: ids } : { type: 'cost_input', robots: ids, fields: fields, at: nowIso() }], state: 'open', before: before, after: after, effect: eff, warn: [] };
@@ -14275,7 +14295,7 @@ const OURS_LOGO = LOGO;
   /* guided flow: one question at a time, like a chat. The same machinery asks a single question from the Numbers page. */
   var FLOW_N = 4;
   var FLOW_Q = [
-    ['arm', 'Which arm is it?', function (i) { return ['UR3e', 'UR5e', 'UR10e', 'UR16e', 'UR20', 'UR30'].map(function (k) { return [k + (k === CROBOTS[i][1] ? ' (list default)' : ''), k]; }); }],
+    ['arm', 'Which arm is it?', function (i) { return ['UR3e', 'UR5e', 'UR10e', 'UR16e', 'UR20', 'UR30'].map(function (k) { return [k + (k === crobots()[i][1] ? ' (list default)' : ''), k]; }); }],
     ['armPrice', 'What did you pay for the arm? A number like $45,000 is fine.', function (i) { return [['Use list price ' + money0(UR[costOf(i, RULES).arm][0]), 'skip']]; }],
     ['install', 'How complex was the install?', function () { return [['Simple cell 1.0x', 'simple cell install'], ['Complex cell 1.5x', 'complex cell install'], ['Welding cell 2.0x', 'welding cell install'], ['Skip', 'skip']]; }],
     ['hoursYear', 'How many hours a year is it scheduled? For example two shifts, five days is 4,000.', function () { return [['Two shifts, 5 days (4,000)', 'two shifts five days'], ['Three shifts (6,000)', 'three shifts five days'], ['Skip', 'skip']]; }],
@@ -14284,11 +14304,11 @@ const OURS_LOGO = LOGO;
   ];
   function qOf(f) { return f.single ? FLOW_Q.filter(function (x) { return x[0] === f.key; })[0] : FLOW_Q[f.step]; }
   function flowAsk() { var f = ST.flow, q = qOf(f); return reply((f.single ? '' : '<b>' + (f.step + 1) + ' of ' + FLOW_N + '.</b> ') + q[1], null, q[2](f.robot)); }
-  function startFlow(i) { ST.flow = { robot: i, step: 0, fields: {} }; ST.cxRobot = i; return reply('Good, we will use your own numbers for <b>' + esc(CROBOTS[i][0]) + '</b>. Four quick questions, one at a time. Say <b>skip</b> to keep the list value for any of them, or <b>cancel</b> to stop.<br><br>' + flowAsk().html); }
+  function startFlow(i) { ST.flow = { robot: i, step: 0, fields: {} }; ST.cxRobot = i; return reply('Good, we will use your own numbers for <b>' + esc(crobots()[i][0]) + '</b>. Four quick questions, one at a time. Say <b>skip</b> to keep the list value for any of them, or <b>cancel</b> to stop.<br><br>' + flowAsk().html); }
   function startSingle(i, key) { ST.flow = { robot: i, key: key, single: true, step: 0, fields: {} }; ST.cxRobot = i; return flowAsk(); }
   function flowDone() {
     var f = ST.flow, fl = f.fields, i = f.robot; ST.flow = null;
-    if (!Object.keys(fl).length) return reply('Nothing to change, so I left <b>' + esc(CROBOTS[i][0]) + '</b> as it was.');
+    if (!Object.keys(fl).length) return reply('Nothing to change, so I left <b>' + esc(crobots()[i][0]) + '</b> as it was.');
     return costProposal([i], fl, false);
   }
   function flowStep(s) {
@@ -14308,6 +14328,7 @@ const OURS_LOGO = LOGO;
   }
   function costIntent(t) {
     var s = t.replace(/\s+/g, ' ').trim();
+    if (ACCT && !crobots().length) return /cost|price|paid|pay|hours|install|resale|numbers/.test(s) ? reply('There are no arms on this account yet, so there is nothing to price. Connect or confirm your robots first.') : null;
     if (ST.flow) return flowStep(s);
     if (/(use|go back to|back to|reset to|return to|revert to|switch back to) (the |my )?(list|default) (prices?|numbers|costs?)|reset (my |the )?(cost|number)s?\b/.test(s)) {
       var rr = resolveRobots(s); if (rr.ask) return askWhich(rr.ask, { reset: true });
@@ -14316,15 +14337,17 @@ const OURS_LOGO = LOGO;
       return costProposal(rr.ids, {}, true);
     }
     var F = parseFields(s);
+    /* what an arm does is set when its robots are confirmed, not here */
+    if (ACCT && F.work != null) { delete F.work; F.any = ['arm', 'armPrice', 'install', 'hoursYear', 'resale'].some(function (k) { return F[k] != null; }); }
     if (ST.pendingCost) {
-      var named = /loader|deburr|inspection|\bboth\b|\ball\b|every/.test(s);
+      var named = (ACCT ? namedRobots(s).length > 0 : /loader|deburr|inspection/.test(s)) || /\bboth\b|\ball\b|every/.test(s);
       if (named && !F.any) { var pf = ST.pendingCost; ST.pendingCost = null; var rp = resolveRobots(s); if (rp.ask) return askWhich(rp.ask, pf); return pf.reset ? costProposal(rp.ids, {}, true) : costProposal(rp.ids, pf, false); }
     }
     if (/(my own|our own|real|actual) (numbers|costs?|prices?|inputs)|use my numbers|enter my (numbers|costs?|prices?)/.test(s) && !F.any) {
       var rf = resolveRobots(s); if (rf.ask && rf.ask.length > 1 && !/loader|deburr|inspection/.test(s) && ST.cxRobot == null && !/loader|deburr|inspection/i.test(ST.page || '')) return askWhich(rf.ask, { guided: true });
       return startFlow(rf.ids ? rf.ids[0] : rf.ask[0]);
     }
-    if (ST.pendingCost && ST.pendingCost.guided && /loader|deburr|inspection/.test(s)) { ST.pendingCost = null; var rg = resolveRobots(s); return startFlow(rg.ids ? rg.ids[0] : 0); }
+    if (ST.pendingCost && ST.pendingCost.guided && (ACCT ? namedRobots(s).length > 0 : /loader|deburr|inspection/.test(s))) { ST.pendingCost = null; var rg = resolveRobots(s); return startFlow(rg.ids ? rg.ids[0] : 0); }
     if (F.bad && (/arm|paid|price|hours|install|resale|shift|cost/.test(s) || F.any)) return reply(F.bad);
     if (!F.any) return null;
     if (!/arm|paid|pay|price|cost|bought|install|hours|hrs|shift|resale|\bur\s?\d|loader|deburr|inspection|robot|spent|integration|own|it does|doing|used for|tending|24\s*\/\s*7/.test(s)) return null;
@@ -14334,11 +14357,21 @@ const OURS_LOGO = LOGO;
     return costProposal(R.ids, F, false);
   }
 
+  /* A real account: only the cost numbers are connected. Anything else says so plainly instead of answering from the sample. */
+  function acctReply(t) {
+    var s = t.replace(/[^a-z0-9'+ ?!.,]/g, ' ').replace(/\s+/g, ' ').trim(), own = [['Use my own numbers', 'I want to use my own numbers']];
+    if (/^(thanks|thank you|thank u|thx|ty|cheers)\b/.test(s)) return tag(reply('Anytime.'), 'thanks');
+    if (/^(bye|goodbye|see you|see ya|later|good night|goodnight)\b/.test(s)) return tag(reply('See you. Nothing changes until you confirm it.'), 'bye');
+    if (/^(hello|hi|hey|howdy|good (morning|afternoon|evening))\b/.test(s)) return tag(reply('Hey. Tell me what an arm cost you and I will use your numbers.', null, own), 'greeting');
+    return tag(reply('Right now I can change what your arms cost: the arm, what you paid for it, the install, the hours a year it is scheduled, and what it could resell for. Who hears about stops and how the dashboard is laid out are not connected to your account yet.', null, own), 'account');
+  }
+
   function botReply(q) {
     var t = q.toLowerCase(), d = detect(t), num = (/(\d+)\s*(min|minute)/.exec(t) || [])[1];
     if (/(stop|pause|shut|restart|start|slow|speed|move|reset|turn (it )?off|halt).*(loader|deburr|inspection|robot|arm\b|cnc|mill)|^stop (the )?(loader|deburr|inspection|robot|cnc)/.test(t))
-      return reply('I cannot do that. Botlien is <b>read only</b>: it watches your robots and tells people what it sees, but it never starts, stops or changes a robot. To stop Loader 2, use the robot\'s own controls or ask your maintenance team. I can help you decide who should be told about it.');
+      return reply('I cannot do that. Botlien is <b>read only</b>: it watches your robots and tells people what it sees, but it never starts, stops or changes a robot. To stop ' + (ACCT ? 'a robot' : 'Loader 2') + ', use the robot\'s own controls or ask your maintenance team. I can help you decide who should be told about it.');
     var cr = costIntent(t); if (cr) return cr;
+    if (ACCT) return acctReply(t);
     var ir = intentLayer(t, q); if (ir) return ir;
     if (/tell me less|too many (alerts|messages|texts|pings)|too noisy|fewer (alerts|messages)|less (noise|often)/.test(t)) {
       var up = Math.min(15, RULES.interrupt.minutes + 3);
@@ -14403,6 +14436,7 @@ const OURS_LOGO = LOGO;
   function pageKey(n) { n = String(n || '').toLowerCase(); return /integrat|workflow/.test(n) ? 'integrations' : /fleet/.test(n) ? 'fleet' : /dash/.test(n) ? 'dashboard' : /line/.test(n) ? 'line' : n; }
   var PAGEQ = { fleet: ['Why is Loader 2 so low?'], dashboard: ['What changed overnight?'], integrations: ['Who hears about big stops?'], line: ['What changed overnight?'] };
   function suggestions(inst) {
+    if (ACCT) return ['I want to use my own numbers', 'Use list prices again'];
     var lead = PAGEQ[pageKey(inst.page || ST.page)] || ['Why is Loader 2 so low?'];
     var all = lead.concat(BASE); return inst.mode === 'panel' ? all.slice(0, 4) : all;
   }
@@ -14455,7 +14489,7 @@ const OURS_LOGO = LOGO;
     var ch = m.choices && !m.chosen ? '<div class="ba-actions">' + m.choices.map(function (c, i) { return '<button type="button" class="ba-chip" data-ba="choice" data-mi="' + idx + '" data-i="' + i + '">' + esc(c[0]) + '</button>'; }).join('') + '</div>' : '';
     return '<div class="ba-m' + (isNew ? ' new' : '') + '"><div class="ba-av"><img src="' + LOGO + '" alt=""></div><div class="ba-bub"><div class="ba-txt">' + m.html + '</div>' + (p ? cardHtml(p, isNew) : '') + ch + '</div></div>';
   }
-  function footnote() { var live = CFG.getLive(); return 'Prototype: answers are scripted and nothing is sent. You confirm every change. ' + (live && live.ok ? 'Working time is live from simulated URSim.' : 'Numbers are sample values.'); }
+  function footnote() { if (ACCT) return 'Answers are scripted. You confirm every change, and cost numbers are saved to your account.'; var live = CFG.getLive(); return 'Prototype: answers are scripted and nothing is sent. You confirm every change. ' + (live && live.ok ? 'Working time is live from simulated URSim.' : 'Numbers are sample values.'); }
   function composerHtml(inst) {
     var id = 'ba-in-' + inst.id, ph = inst.opts.placeholder || (inst.mode === 'panel' ? 'Ask Botlien' : 'Ask about working time, cost, or who hears what');
     return '<form class="ba-cx" data-ba="send"><div class="ba-cxbox" data-ref-composer><label for="' + id + '" style="position:absolute;left:-9999px">' + esc(ph) + '</label>'
@@ -14516,7 +14550,7 @@ const OURS_LOGO = LOGO;
       var b = ARMS.map(function (a) { return costPerHour(a[1], 4000); }), af = ARMS.map(function (a) { return costPerHour(a[1], ST.hours); }), sum = function (x) { return x.reduce(function (a, c) { return a + c; }, 0); };
       msg = 'Done. Hours scheduled a year is now <b>' + ST.hours.toLocaleString() + '</b> ' + SAID('Said') + '. Estimated cost per hour:<br>' + ARMS.map(function (a, i) { return a[0] + ' <b>' + money2(af[i]) + '</b> (was ' + money2(b[i]) + ')'; }).join('<br>') + '<br><b>All four arms: ' + money2(sum(af)) + ' an hour</b>, down from ' + money2(sum(b)) + ' ' + DEF('Default, estimated') + '<br><br>If the robots do not do more work on the new shift, their working share drops too, so I will watch that once night data comes in. Arm prices and the integration type are still defaults.';
     }
-    if (p.changes.some(function (c) { return c.type === 'cost_input' || c.type === 'cost_reset'; })) msg = 'Done. ' + esc(p.effect[0]) + ' Numbers, Fleet and the dashboard show it now, labeled <b>Said in chat</b>. You can undo it any time.';
+    if (p.changes.some(function (c) { return c.type === 'cost_input' || c.type === 'cost_reset'; })) msg = 'Done. ' + esc(p.effect[0]) + ' Numbers, Fleet and the dashboard show it now, labeled <b>Said in chat</b>. You can undo it any time.' + (ACCT ? ' It is saved to your account.' : '');
     var dash = p.changes.filter(function (c) { return c.type === 'dashboard'; });
     if (dash.length) { var how = ''; dash.forEach(function (c) { how = sendDashboard(c) || how; }); msg += how === 'host' ? '<br><br>The dashboard is updated.' : how === 'parent' ? '<br><br>I sent the dashboard part to the dashboard this page is shown in.' : '<br><br>This page is not inside the dashboard, so the dashboard part was saved but not sent anywhere. A dashboard that reads these rules will follow.'; }
     push({ html: msg }); refreshAll(); undoToast(p.summary, p.id);
@@ -14681,7 +14715,7 @@ const OURS_LOGO = LOGO;
     _reset: function () { ST.flow = null; ST.pendingCost = null; ST.cxRobot = null; },
     configure: function (c) {
       c = c || {}; if (c.icons) ICONS = c.icons; if (c.logo) LOGO = c.logo;
-      ['getConnected', 'getLive', 'getWorking', 'onDashboardChange'].forEach(function (k) { if (c[k]) CFG[k] = c[k]; });
+      ['getConnected', 'getLive', 'getWorking', 'getRobots', 'onDashboardChange'].forEach(function (k) { if (c[k]) CFG[k] = c[k]; });
       if (c.strategy && DOCK) { DOCK.strategy = c.strategy === 'overlay' ? 'overlay' : 'reflow'; DOCK.el.classList.toggle('ba-overlay', DOCK.strategy === 'overlay'); updateReserve(); }
       INST.forEach(render);
     },
@@ -14706,6 +14740,8 @@ const OURS_LOGO = LOGO;
       push({ html: (w.active ? 'Pause' : 'Resume') + ' <b>' + esc(w.name) + '</b>? Nothing changes until you confirm.', pid: p.id }); refreshAll();
     },
     rules: function () { return clone(RULES); },
+    /* the cost numbers the account already holds, so a proposal's Before reads what the server has */
+    setCostInputs: function (ci) { RULES.cost_inputs = clone(ci || {}); },
     onRules: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
     newChat: newChat, spring: SPRING,
     util: { fmtDate: fmtDate, fmtWhen: fmtWhen, fmtTime: fmtTime, joinNames: joinNames, wfRule: wfRule, wfWhen: wfWhen, tierLine: function (t) { return tierLine(RULES, t); }, rulesLines: rulesLines, CHN: CHN, TIERN: TIERN, chConnected: chConnected, chanWarn: chanWarn, latestUndoable: latestUndoable }
@@ -15205,6 +15241,7 @@ function oursAgo(sec){
 }
 /* The status chip. Live only when the feed is fresh (live true, lag 30 s or less). Never Live over stale data. */
 function oursChip(){
+  if (LIVE) return '';
   const st = OURS.state || 'offline';
   const lag = OURS.lag != null ? OURS.lag + (Date.now() - OURS.lagAt) / 1000 : null;
   const T = {
@@ -15286,7 +15323,7 @@ async function oursPoll(){
   oursMaybeRender();
   setTimeout(oursPoll, 3000);
 }
-setTimeout(oursPoll, 800);
+if (!LIVE) setTimeout(oursPoll, 800);          // the replay is the sample's, never a real account's
 
 function oursRobotsLive(){
   return OURS_NAMES.map(function(nm, i){
@@ -15406,9 +15443,9 @@ function oursRobotCostBlock(s){
   const row = function(k, v, note){ return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--hair)"><div><div style="font-size:14px;color:var(--fg1)">'+k+'</div>'+(note ? '<div style="font-size:12px;color:var(--fg3);margin-top:2px">'+note+'</div>' : '')+'</div><div style="font-size:15px;font-weight:600;color:var(--fg1);font-variant-numeric:tabular-nums;white-space:nowrap">'+v+'</div></div>'; };
   return '<div style="max-width:560px">'
     + row('Robot cost per scheduled hour', rcHr(a.perHour), esc(a.arm)+': ownership '+rcHr(a.own)+', maintenance '+rcHr(a.maint)+', energy '+rcHr(a.energy))
-    + row('Working share', rcPct(a.workingPct), 'Of scheduled time, in the sample period (Aug 4 to Sep 3, 2026)')
+    + row('Working share', rcPct(a.workingPct), LIVE ? 'Of scheduled time, this period' : 'Of scheduled time, in the sample period (Aug 4 to Sep 3, 2026)')
     + row('Cost per hour of real work', a.perWorking == null ? 'never worked' : rcHr(a.perWorking), 'The hourly cost divided by the working share')
-    + row('Idle cost a year', rcYr(a.idleYear), 'At most, from the sample working share')
+    + row('Idle cost a year', rcYr(a.idleYear), LIVE ? 'At most, from this period\'s working share' : 'At most, from the sample working share')
   + '</div>';
 }
 /* ---------- Drawer, Right now: live state while live, a plain Sample line otherwise ---------- */
@@ -15514,6 +15551,7 @@ function oursOnDash(change){
 function oursAssistantInit(){
   if (typeof BotlienAssistant === 'undefined' || !window.OursIG) return;
   BotlienAssistant.configure({ icons: ICONS, logo: OURS_LOGO, getConnected: function(){ return OursIG.connected(); },
+    getRobots: function(){ return LIVE ? CONFIRM.map(function(c, i){ const a = rcArm(i); return [robotLabel(i), a && UR[a.arm] ? a.arm : 'UR10e', a && a.workingPct != null ? a.workingPct : 0]; }) : null; },
     getLive: function(){ return null; }, getWorking: function(i){ const c = rcCost(i); return c && c.workingPct != null ? c.workingPct : null; }   /* answers use the sample numbers the dashboard shows; live values live on the Line page */, onDashboardChange: oursOnDash });
   const host = document.createElement('div'); host.id = 'ours-dock-host'; document.body.appendChild(host);
   BotlienAssistant.dock(host, { page: 'Dashboard', onNavigate: oursNavigate, onRulesChange: function(r){ oursRulesFromOutside(r); } });
@@ -15770,11 +15808,29 @@ function oursPolishInit(){
    Cost inputs are changed only by telling Ask Botlien. They live in botlien_rules.cost_inputs (per robot id, source chat) and are fed
    into Sam's own overlay S.robotCost, so every page that reads rcArm() (Numbers, Fleet, Dashboard, drawers) recomputes from them.
    Without any, the sample constants stay. Numbers said in chat are never presented as measured. */
+/* Shown on a real account while parts of this page still run on the sample only. */
+function oursPreviewNote(){
+  return '<div style="display:flex;gap:8px;align-items:flex-start;margin:0 0 16px;padding:12px 16px;border:1px solid var(--hair2);border-radius:8px;background:var(--ghost);font-size:13px;line-height:1.5;color:var(--fg2)">'+ic('info',16,'flex:none;margin-top:2px')
+    + '<span><b style="font-weight:600;color:var(--fg1)">Preview of the manufacturing dashboard, on your data.</b> Cost numbers you give Ask Botlien are saved to your account. The Line page, Integrations and the rules for who hears what are not connected to your account yet, so they are left out here.</span></div>';
+}
+function oursHasRobot(k){ const i = Number(k); return Number.isInteger(i) && i >= 0 && i < (LIVE ? CONFIRM.length : OURS_NAMES.length); }
+/* A real account: the server is where cost numbers live. What it saved is what Ask and the Said in chat labels read. */
+function oursCostFromAccount(){
+  if (!LIVE) return;
+  const ci = {};
+  Object.keys(S.robotCost || {}).forEach(function(k){
+    const x = S.robotCost[k], o = {}; if (!x || typeof x !== 'object') return;
+    ['arm', 'armPrice', 'install', 'hoursYear', 'resale'].forEach(function(f){ if (x[f] != null) o[f] = x[f]; });
+    if (Object.keys(o).length) ci[k] = o;
+  });
+  OURS.costInputs = ci; OURS_RULES.cost_inputs = ci;
+  try { BotlienAssistant.setCostInputs(ci); } catch(e){}
+}
 function oursApplyCost(r){
   const ci = r && r.cost_inputs && typeof r.cost_inputs === 'object' && !Array.isArray(r.cost_inputs) ? r.cost_inputs : {};
   const rc = {}, keep = {};
   Object.keys(ci).forEach(function(k){
-    const x = ci[k]; if (!x || typeof x !== 'object' || OURS_NAMES[k] == null) return;
+    const x = ci[k]; if (!x || typeof x !== 'object' || !oursHasRobot(k)) return;
     const o = {}, f = {};
     if (typeof x.arm === 'string' && UR[x.arm]){ o.arm = x.arm; f.arm = x.arm; }
     if (typeof x.armPrice === 'number' && x.armPrice >= 1000 && x.armPrice <= 500000){ o.armPrice = x.armPrice; f.armPrice = x.armPrice; }
@@ -15794,7 +15850,7 @@ const OURS_INSTALL_NAME = { 1: 'Simple cell', 1.5: 'Complex cell', 2: 'Welding c
 function oursCostList(i, s){
   const a = rcArm(i), ci = (OURS.costInputs || {})[i] || {};
   const src = function(k){ return ci[k] != null ? pill('Said in chat', 'message-square') : pill('Estimated from list prices', 'sliders-horizontal', 'warn'); };
-  const ask = function(k, label){ return '<button type="button" class="ours-link" data-ours-ask="'+i+'|'+k+'" aria-label="Change '+esc(label)+' with Ask">Change with Ask</button>'; };
+  const ask = function(k, label){ return LIVE && k === 'work' ? '' : '<button type="button" class="ours-link" data-ours-ask="'+i+'|'+k+'" aria-label="Change '+esc(label)+' with Ask">Change with Ask</button>'; };
   const row = function(k, label, value){
     return '<div class="ours-costrow"><div class="ours-costk">'+label+'</div><div class="ours-costv"><div>'+value+'</div><div style="margin-top:4px">'+src(k)+'</div></div><div class="ours-costa">'+ask(k, label)+'</div></div>';
   };
@@ -15846,6 +15902,7 @@ function oursRulesRead(){
   return null;
 }
 function oursRulesWrite(){
+  if (LIVE) return;                                       // a real account keeps nothing in this browser's sample rules
   /* the assistant owns workflows and history in the same key, so only the dashboard part is replaced */
   try {
     let cur = {}; try { cur = JSON.parse(localStorage.getItem(OURS_RULES_KEY) || '{}') || {}; } catch(e){}
@@ -15915,11 +15972,15 @@ function oursRulesChanged(){
   try { if (S.view === 'alerts' && typeof oursSoftRender === 'function') oursSoftRender(); else render(); } catch(e){}
 }
 function oursRulesFromOutside(r){
+  /* A real account: a cost change confirmed in Ask becomes the page's own input, and the page saves it to the
+     server like any other input. Nothing else in the sample rules touches the account. */
+  if (LIVE){ oursApplyCost(r); OURS_RULES.cost_inputs = (r && r.cost_inputs) || {}; if (S.view === 'ask') persistSoon(); else render(); return; }
   const before = oursRulesSig(OURS_RULES);
   OURS_RULES = oursRulesMerge(r); OURS_RULES.cost_inputs = r && r.cost_inputs && typeof r.cost_inputs === 'object' ? r.cost_inputs : {}; oursApplyCost(r);
   if (oursRulesSig(OURS_RULES) !== before) oursRulesChanged();
 }
 function oursRulesInit(){
+  if (LIVE) return;                                       // nothing is read from the browser for a real account
   const r = oursRulesRead(); if (r){ OURS_RULES = oursRulesMerge(r); OURS_RULES.cost_inputs = r.cost_inputs && typeof r.cost_inputs === 'object' ? r.cost_inputs : {}; }
   oursApplyCost(r);
   oursApplyDashboard();
@@ -15993,6 +16054,7 @@ oursPolishInit();
 oursRulesInit();
 oursAssistantInit();
 bootScreen();
+oursCostFromAccount();
 lvBoot();
 if (LIVE && !S.demoMode) persistBase = persistSnapshot();
 render();
