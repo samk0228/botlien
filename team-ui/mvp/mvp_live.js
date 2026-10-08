@@ -60,9 +60,10 @@ function liveSend(path,body){
 function liveAck(id,kind){liveSend('/stops/'+encodeURIComponent(id)+'/ack',kind==='snooze'?{kind:kind,minutes:30}:{kind:kind});say('stop',kind==='on'?'Thanks, noted. I will stay with it and tell you when the robot runs again.':kind==='snooze'?'Snoozed. I still log everything.':'Looking into it. This is a pattern from the logged history, not a diagnosis. A person decides.',{wait:250,tag:liveTag({source:LIVE.seen[id]&&LIVE.seen[id].source})})}
 function liveFix(id,i,mins,what){
  liveSend('/stops/'+encodeURIComponent(id)+'/fix',{what:what});
- pushRec('log',{k:'ai',html:'<b>Updated.</b> '+esc(R[i].name)+', '+mins+' minutes down. What fixed it: '+esc(what)+'.',short:nowShort(),tag:'Live, note added'});
+ pushRec('log',{k:'ai',html:'<b>Updated.</b> '+esc(R[i].name)+', '+mins+' minute'+(mins===1?'':'s')+' down. What fixed it: '+esc(what)+'.',short:nowShort(),tag:'Live, note added'});
  say('stop','Thanks. I added that to the log. This stop now has a cause on record.',{wait:200});
 }
+function liveSig(st){return [(st.leftWaiting||[]).filter(Boolean).join(','),st.repeatCount||'',st.errorCode||'',st.type||''].join('|')}
 function liveStop(st){
  var i=liveRobot(st),mins=liveMins(st),seen=LIVE.seen[st.id],id=st.id;
  var open=st.state!=='closed';
@@ -70,16 +71,22 @@ function liveStop(st){
  /* The same stop opening again (it came back within 10 minutes and stopped again): say so, and
     get ready to say it is running again a second time. */
  if(seen&&open&&seen.closedSaid){
-  seen.closedSaid=false;seen.state='open';
+  seen.closedSaid=false;seen.state='open';seen.alertP=null;
   say('stop','<b>'+esc(R[i].name)+' stopped again.</b> '+liveCause(st),{tag:liveTag(st),wait:150});
  }
  if(!seen){
   seen=LIVE.seen[id]={state:st.state,acks:0,source:st.source,closedSaid:false};
   if(open){
    var a=liveAlert(st,mins,i);
-   say('stop',a.m,{plain:a.p,tag:liveTag(st),wait:150,choices:{title:'What do you want to do?',sub:'I will not change anything on the robot.',options:[
+   seen.alertSig=liveSig(st);
+   seen.alertP=say('stop',a.m,{plain:a.p,tag:liveTag(st),wait:150,choices:{title:'What do you want to do?',sub:'I will not change anything on the robot.',options:[
     {label:'I am on it',fn:function(){liveAck(id,'on')}},{label:'Look into it',fn:function(){liveAck(id,'look')}},{label:'Snooze 30 minutes',fn:function(){liveAck(id,'snooze')}}]}});
   }
+ }
+ /* Details that arrive after the alert was written (what it left waiting, how often it has stopped) change the alert in place. */
+ if(open&&seen.alertP&&!seen.closedSaid){
+  var sg=liveSig(st);
+  if(sg!==seen.alertSig){seen.alertSig=sg;var a2=liveAlert(st,mins,i);seen.alertP.then(function(rec){if(!rec||rec===DEAD)return;rec.html=a2.m;rec.p=a2.p;if(S.cur==='stop')renderThread()})}
  }
  var acks=(st.acks||[]);
  if(acks.length>seen.acks){
@@ -96,7 +103,7 @@ function liveStop(st){
    {label:'Reset the machine it waits on',fn:function(){liveFix(id,i,mins,'Reset the machine it waits on')}},
    {label:'Something else',fn:function(){liveFix(id,i,mins,'Something else')}}]};
   say('stop',txt+(st.fix?' What fixed it: '+esc(st.fix)+'.':''),{plain:plain+(st.fix?' What fixed it: '+esc(st.fix)+'.':''),tag:liveTag(st)+', closed',wait:150,choices:opts||undefined});
-  pushRec('log',{k:'ai',html:'<b>Logged.</b> '+esc(R[i].name)+', '+mins+' minutes down'+(st.errorCode?', error '+esc(st.errorCode):'')+(st.fix?'. What fixed it: '+esc(st.fix):'')+'.',short:nowShort(),tag:'Live, new entry'});
+  pushRec('log',{k:'ai',html:'<b>Logged.</b> '+esc(R[i].name)+', '+mins+' minute'+(mins===1?'':'s')+' down'+(st.errorCode?', error '+esc(st.errorCode):'')+(st.fix?'. What fixed it: '+esc(st.fix):'')+'.',short:nowShort(),tag:'Live, new entry'});
  }
 }
 function liveTick(){

@@ -605,7 +605,7 @@ function seed(){
   var id=r.id,mine=INC.filter(function(x){return x.r===i}),mins=mine.reduce(function(a,x){return a+x.min},0);
   stamp(id,'Setup');
   pushRec(id,{k:'ai',quiet:true,short:'Today',html:'Hi, I am the '+r.name+' Watcher. I watch the '+r.model+' and tell the Stop Watcher when it stops. I only read data.'});
-  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
+  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minute'+(mins===1?'':'s')+' down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
  });
  stamp('stop','Setup');
  pushRec('stop',{k:'ai',quiet:true,short:'Today',html:'Hi, I am the Stop Watcher. When a cell stays stopped past your limit I tell the right person, with what it is holding up. If nobody answers, I use the backup.'});
@@ -675,7 +675,7 @@ function fix(){
  say('stop',handledCard(simD),{wait:700,tag:'Demo, how it was handled'});
 }
 function logFix(r,mins,what,auto){
- var row='<b>Logged.</b> '+R[r].name+', '+mins+' minutes down'+(what?'. What fixed it: '+what:'')+'. (Demo stop, not part of the sample history.)';
+ var row='<b>Logged.</b> '+R[r].name+', '+mins+' minute'+(mins===1?'':'s')+' down'+(what?'. What fixed it: '+what:'')+'. (Demo stop, not part of the sample history.)';
  if(auto){pushRec('log',{k:'ai',html:row,short:nowShort(),quiet:false,tag:'Demo, new entry'});return}
  pushRec('log',{k:'ai',html:'<b>Updated.</b> Added "what fixed it": '+what+'.',short:nowShort(),tag:'Demo, note added'});
  if(S.sim)sl('Technician','tapped what fixed it: '+what);
