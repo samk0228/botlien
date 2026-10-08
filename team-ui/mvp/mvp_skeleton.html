@@ -1,0 +1,40 @@
+<div id="app">
+ <aside id="side" aria-label="Your team"><div id="sidein">
+  <div class="stop">
+   <img class="brandmark" id="brandmark" alt="" draggable="false">
+   <span class="brand">Botlien</span>
+  </div>
+  <label class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14"/></svg><input id="q" type="text" placeholder="Search" aria-label="Search your team"></label>
+  <div id="list"><i id="railmark"></i><div id="listin"></div><button type="button" id="morebtn" class="emp more" aria-haspopup="true" aria-expanded="false" aria-label="More team members"><span class="avw"><svg class="av" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="9" fill="#E6E6EA"/><g fill="#2B2B30"><circle cx="12" cy="20" r="2.2"/><circle cx="20" cy="20" r="2.2"/><circle cx="28" cy="20" r="2.2"/></g></svg></span><span class="eb"><span class="en"><span>More</span></span><span class="ep" id="moren"></span></span></button></div>
+  <div id="morepop" role="dialog" aria-label="More team members"><div id="morelist"></div></div>
+  <div class="sbot">
+  <div class="menuwrap"><button class="demo tbtn" id="demoBtn" aria-haspopup="true" aria-expanded="false" aria-controls="demoMenu" type="button" title="Settings" aria-label="Settings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h10M3 11h10"/><circle cx="6" cy="5" r="1.7" fill="var(--side)"/><circle cx="10.5" cy="11" r="1.7" fill="var(--side)"/></svg><span>Settings</span></button>
+    <div id="demoMenu" role="menu" aria-labelledby="demoBtn"><button type="button" role="menuitem" data-s="who">Who sees what</button><button type="button" role="menuitem" data-s="int">Integrations</button><button type="button" role="menuitem" data-s="voice">Voice</button><button type="button" role="menuitem" data-s="alert">Alert order</button><button type="button" role="menuitem" data-s="demo">Demo tools</button><hr><button type="button" role="menuitem" data-d="reset">Reset</button></div>
+   </div>
+<button id="roleBtn" type="button">Viewing as: Owner</button></div>
+</div></aside>
+ <section id="chat" aria-label="Chat">
+  <div id="chtop"><button type="button" id="menuBtn" class="tbtn" aria-label="Team" aria-controls="side" aria-expanded="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg></button><header id="chead"></header></div>
+  <div id="thread" role="log" aria-live="polite" aria-label="Conversation"></div>
+  <div id="chips" role="group" aria-label="Suggested replies"></div>
+  <div id="voicestat" role="status" aria-live="polite"></div>
+  <form id="composer" autocomplete="off"><textarea id="input" rows="1" maxlength="500" aria-label="Message"></textarea><div class="cbar"><button class="plus" id="plusBtn" type="button" aria-label="Quick questions" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button><span class="cspace"></span><button class="micbtn" id="micBtn" type="button" aria-label="Talk to Mara" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="1.8" width="4" height="8" rx="2"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.2"/></svg></button><button class="voicebtn" id="voiceBtn" type="button" aria-label="Read replies aloud" aria-pressed="false" title="Read replies aloud"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 8.5v3M6.5 5.5v9M10 3v14M13.5 6.5v7M17 8.5v3"/></svg></button><button class="send" type="submit" aria-label="Send"><svg class="up" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg></button></div><div id="plusMenu" role="menu" hidden></div></form>
+ </section>
+ <section id="right" aria-label="Employee screen">
+  <div id="rtop"><div id="rtabs" role="tablist"></div><span id="feedchip" class="fchip" role="status">Connecting to the feed</span><button id="rclose" type="button">Close screen</button></div>
+  <div id="rbody">
+   <div id="livepanel"></div>
+   <div id="builtpanel" style="display:none"></div>
+   <div id="valpanel" style="display:none"></div>
+   
+   <div id="framewrap"><iframe id="samframe" title="Botlien dashboard"></iframe></div>
+   <div id="rdrawer"></div>
+  </div>
+  <div id="routines"></div>
+ </section>
+ <button type="button" id="screenBtn" class="tbtn" aria-label="Show or hide the screen" aria-controls="right" aria-pressed="true" title="Show or hide the screen"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M9.5 3v10"/></svg></button>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="onb" role="dialog" aria-modal="true" aria-label="Set up Botlien" hidden><aside id="onbside"><div class="onbbrand"><img id="onbmark" alt="" draggable="false"><span>Botlien</span></div><ol id="onbsteps"></ol><p class="onbdemo">Demo. Nothing is saved or sent.</p></aside><div id="onbwrap"><div id="onbprog"><img id="onbmark2" alt="" draggable="false"><span id="onbproglabel"></span></div><main id="onbmain"></main></div></div>
+<div id="tv" role="dialog" aria-modal="true" aria-label="Wall view" hidden><div id="tvtop"><b>CNC cell 1</b><span>Recorded replay of a simulated run, not live</span><button type="button" id="tvx">Close</button></div><div id="tvgrid"></div><div id="tvfoot"></div></div>
+<div id="smodal" role="dialog" aria-modal="true" aria-label="Settings" hidden><div id="sdlg"><aside id="snav"><label class="ssearch"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14"/></svg><input id="ssearch" type="text" placeholder="Search settings" aria-label="Search settings"></label><div class="snavlbl">Settings</div><div id="snavlist"></div><p class="snote">Mara can set any of this up for you. Just ask.</p></aside><section id="sbody" tabindex="-1"></section><button type="button" id="sclose" aria-label="Close settings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div></div>
