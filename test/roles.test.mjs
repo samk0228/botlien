@@ -150,12 +150,13 @@ test("over HTTP: the owner invites a technician, who sees times and causes, no d
     }
     const stopsSeen = await json("/api/v1/agent/stops?since=0", dana);
     assert.deepEqual([stopsSeen.stops[0].code, stopsSeen.stops[0].minutes.value, stopsSeen.stops[0].cost.stopCents.value], ["C153", 12, null]);
-    const page = await (await api("/app", dana)).text();
-    assert.match(page, /<title>Botlien · Floor<\/title>/, "a technician gets the floor page, not the dollar dashboard");
-    assert.match(page, /C153/);
-    assert.match(page, /Loader 2/);
-    assert.doesNotMatch(page, /\$\s?\d/);
-    assert.doesNotMatch(page, /BOTLIEN_LIVE/);
+    // A robot-arm shop's technician goes to the Team page, told to show no
+    // dollars; it carries no account data, only who is looking.
+    assert.equal((await api("/app", dana)).headers.get("location"), "/team");
+    const page = await (await api("/team", dana)).text();
+    assert.match(page, /window\.__BOTLIEN_HOSTED=\{"onboarding":"[a-z]+","dollars":false/);
+    assert.doesNotMatch(page, /window\.__ONB=true/);
+    assert.doesNotMatch(page, /window\.BOTLIEN_LIVE=\{/, "no account data is written into it");
 
     // Looks, never touches.
     for (const [path, method, body] of [["/api/v1/inputs", "POST", "{}"], ["/api/v1/members", "POST", JSON.stringify({ email: "x@linelab.io", role: "manager" })], ["/api/v1/slack", "DELETE"], ["/api/v1/keys", "POST", "{}"]]) {

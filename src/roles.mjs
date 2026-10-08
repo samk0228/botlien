@@ -17,6 +17,21 @@ export const ROLES = ["owner", "manager", "technician"];
 export const INVITABLE = ["manager", "technician"];
 
 export const seesDollars = (role) => role === "owner" || role === "manager";
+
+// Who sees dollar figures, as the owner chose in onboarding (src/onboarding.mjs).
+//   owner_lead  the owner, managers, and the maintenance lead (the default)
+//   owner       the owner only
+//   everyone    every role
+export const DOLLAR_POLICIES = ["owner_lead", "owner", "everyone"];
+
+/** Whether this viewer sees dollars on this account. An owner who said they
+ *  are a technician sees none in their own view; they stay the owner. */
+export function viewerSeesDollars(viewer, { policy = "owner_lead", leadEmail = null, ownerView = null } = {}) {
+  if (viewer.role === "owner") return ownerView !== "technician";
+  if (policy === "everyone") return true;
+  if (policy === "owner") return false;
+  return viewer.role === "manager" || (!!leadEmail && viewer.email === leadEmail);
+}
 export const canWrite = (role) => role === "owner" || role === "manager";
 export const canManageTeam = (role) => role === "owner";
 

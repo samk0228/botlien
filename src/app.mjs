@@ -12,6 +12,26 @@ export const APP_HTML_PATH = join(ROOT, "prototype", "botlien-prototype.html");
 // it still run on a sample, so it is served only where a caller asks for it
 // by name; see /app?page=mfg in board.mjs.
 export const APP_MFG_HTML_PATH = join(ROOT, "prototype", "botlien-mfg.html");
+// Antonio's Team page and onboarding (team-ui/, built by team-ui/mvp/build_mvp.py),
+// served at /team. It runs as his scripted demo until it is told where the API
+// is, so the server tells it that, who is looking, and where first run stands.
+export const TEAM_UI_HTML_PATH = join(ROOT, "team-ui", "mvp", "botlien_team_mvp.html");
+
+/** Antonio's Team page, live on this account. */
+export function renderTeamUiHTML({ account, dollars = true, onboarding = "done", demo = false, html = pageHTML(TEAM_UI_HTML_PATH) }) {
+  const viewer = account.viewer ?? { email: account.email, role: "owner" };
+  const firstRun = onboarding !== "done" && viewer.role === "owner";
+  const inject =
+    `<script>window.__BOTLIEN_API="/api/v1";` +
+    `window.__BOTLIEN_ACCOUNT=${scriptJSON({ email: viewer.email, role: viewer.role, owner: account.email })};` +
+    `window.__BOTLIEN_HOSTED=${scriptJSON({ onboarding, dollars, demo })};` +
+    (firstRun ? "window.__ONB=true;" : "") +
+    `</script>\n`;
+  const body = html.indexOf("<body");
+  const at = html.indexOf("<script", body);
+  if (body < 0 || at < 0) throw new Error("team page has no <body> script to inject before");
+  return html.slice(0, at) + inject + html.slice(at);
+}
 
 const cached = new Map();
 function pageHTML(path = APP_HTML_PATH) {
@@ -22,6 +42,7 @@ function pageHTML(path = APP_HTML_PATH) {
 export function mfgPageHTML() {
   return pageHTML(APP_MFG_HTML_PATH);
 }
+
 
 /** Whether the built page runs first run itself (business, connect or
  *  upload, confirm) against /api/v1/setup. Until the design pass that adds

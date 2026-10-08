@@ -37,7 +37,8 @@ import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./r
 import { normalizeEmail, MemberError } from "./control.mjs";
 import { requestLink, validEmail } from "./auth.mjs";
 import { inviteEmail } from "./mailer.mjs";
-import { seesDollars, canManageTeam, redactDollars, INVITABLE } from "./roles.mjs";
+import { viewerSeesDollars, canManageTeam, redactDollars, INVITABLE } from "./roles.mjs";
+import { onboardingState, onboardingV2Step, usesOnboardingV2, dollarRules, saveAccountStep, saveFloorStep, saveConnectStep, saveAlertsStep, finishOnboarding, OnboardingError } from "./onboarding.mjs";
 
 /** Parse the operator allowlist from a comma-separated string or an array into
  * a normalized Set. The ops board shows the operator's own fleet, so only these
@@ -114,6 +115,11 @@ export function createTenancy({
     readBody,
     /** Whether a signed-in account may see the ops board. */
     isOperator: (email) => opsSet.has(normalizeEmail(email)),
+    /** Whether this signed-in viewer sees dollars on their account: their
+     *  role, and who the owner said sees dollar figures. */
+    dollarsFor: (account) => viewerSeesDollars(account.viewer ?? { email: account.email, role: "owner" }, dollarRules(tenants.get(account.id))),
+    /** Whether an account is a demo account (BOTLIEN_DEMO_EMAILS). */
+    isDemo: (email) => demoSet.has(normalizeEmail(email)),
     // Pass the whole payload through. An earlier version took (name, detail)
     // and wrapped it, which silently dropped accountId: `account_created` was
     // then stored unattached, funnel() could not join it to `activated`, and
@@ -154,7 +160,8 @@ export function createTenancy({
     const viewer = account.viewer ?? { email: account.email, role: "owner" };
     // Everything this account hands out passes through here for a viewer who
     // may not see dollars. The router redacts JSON again on the way out.
-    const forViewer = (data) => (seesDollars(viewer.role) ? data : redactDollars(data));
+    // Read each time: the owner can change who sees dollars at any moment.
+    const forViewer = (data) => (viewerSeesDollars(viewer, dollarRules(store)) ? data : redactDollars(data));
     const bucketMs = config.engine?.rollup_bucket_ms ?? DEFAULT_BUCKET_MS;
 
     const getOwnerState = () => {
@@ -411,7 +418,9 @@ export function createTenancy({
     // things a person does to a stop. Acknowledging and logging a fix are
     // open to every role; they are the technician's job.
     const stops = {
-      feed: (since) => forViewer(stopFeed(store, fleetContract(store, now(), config), now(), parseCursor(since))),
+      // `epoch` changes when a replay is rewound, which starts the stop ids
+      // again from 1: a dashboard that sees it change drops what it holds.
+      feed: (since) => forViewer({ ...stopFeed(store, fleetContract(store, now(), config), now(), parseCursor(since)), epoch: replayStatus(store, now()).startedAt ?? null }),
       ack: (id, body) => {
         const inc = ackStop(store, id, body ?? {}, viewer.email, now());
         return forViewer(stopRecord(store, fleetContract(store, now(), config), inc, now()));
@@ -441,7 +450,44 @@ export function createTenancy({
         throw new ReplayError("action is rewind or stop.");
       },
     };
-    return { store, account, viewer, members, stops, replay, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
+    // The five-step first run. Only the owner answers it; everyone else
+    // waits for it to be done.
+    const ownerOnly = () => {
+      if (viewer.role !== "owner") throw new OnboardingError("The account's owner sets this up.");
+    };
+    const onboardingV2 = {
+      uses: () => usesOnboardingV2(store),
+      step: () => onboardingV2Step(store),
+      state: () => {
+        const nowMs = now();
+        const robots = store.listRobots().map((r) => ({ id: r.id, name: r.display_name ?? r.external_id, model: r.model }));
+        return onboardingState(store, { email: viewer.email, demo: replay.allowed, robots, at: nowMs });
+      },
+      async save(step, body = {}) {
+        ownerOnly();
+        const nowMs = now();
+        if (step === "account") saveAccountStep(store, body, nowMs);
+        else if (step === "floor") saveFloorStep(store, body, nowMs);
+        else if (step === "connect") {
+          if (body.mode === "replay") {
+            if (!replay.allowed) throw new OnboardingError("The recorded demo plays on a demo account only.");
+            replay.control("rewind", { speed: Number(body.speed ?? 10) });
+          }
+          saveConnectStep(store, body, nowMs);
+        } else if (step === "alerts") {
+          saveAlertsStep(store, body, nowMs);
+          // The lead they named is invited, as a technician: whether they
+          // see dollars is the rule they just picked, not their role.
+          const lead = String(body.leadEmail ?? "").trim().toLowerCase();
+          if (lead && lead !== account.email && !control.memberByEmail(lead) && !control.accountByEmail(lead)) await members.invite({ email: lead, role: "technician" });
+        } else if (step === "team") {
+          finishOnboarding(store, nowMs);
+          onceEvent(account.id, "fleet_confirmed", { onboarding: "v2" });
+        } else throw new OnboardingError("No such step.");
+        return onboardingV2.state();
+      },
+    };
+    return { store, account, viewer, members, stops, replay, onboardingV2, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

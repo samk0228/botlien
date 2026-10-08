@@ -105,7 +105,8 @@ export function stopRecord(store, contract, inc, nowMs) {
 }
 
 export function parseCursor(raw) {
-  if (raw === null || raw === undefined || raw === "") return null;
+  // "0" is what a client sends before it has a cursor (the team page does).
+  if (raw === null || raw === undefined || raw === "" || raw === "0") return null;
   const m = /^(\d+)-(\d+)$/.exec(String(raw));
   if (!m) throw new StopError("since is the cursor a previous answer gave.");
   return { updatedAt: Number(m[1]), id: Number(m[2]) };
@@ -153,9 +154,10 @@ export function ackStop(store, id, { kind, minutes = null } = {}, who, nowMs) {
 
 /** What fixed it, for the logbook. Said once the stop is over, or while it
  *  is still open; said again, it replaces the last answer. */
-export function fixStop(store, id, { text } = {}, who, nowMs) {
+export function fixStop(store, id, { text, what } = {}, who, nowMs) {
   const inc = openStop(store, id);
-  const t = String(text ?? "").trim();
+  // `what` is the team page's name for it (its one-tap answers).
+  const t = String(text ?? what ?? "").trim();
   if (!t) throw new StopError("Say what fixed it.");
   if (t.length > FIX_MAX) throw new StopError(`At most ${FIX_MAX} characters.`);
   return store.updateIncident(inc.id, { fixText: t, fixedBy: who, fixedAt: nowMs }, nowMs);

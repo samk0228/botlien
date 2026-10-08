@@ -346,6 +346,7 @@ export function startBoard(port, {
       let agent = null;
       let members = null;
       let stops = null;
+      let onboardingV2 = null;
       let replay = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
@@ -378,7 +379,8 @@ export function startBoard(port, {
           // route wrote it, and the old statement pages (all dollars) send
           // them to the dashboard.
           const { canWrite, seesDollars, redactJSONResponses } = await import("./roles.mjs");
-          if (!seesDollars(viewer.role)) redactJSONResponses(res);
+          const viewerDollars = tenancy.ctx.dollarsFor(account);
+          if (!viewerDollars) redactJSONResponses(res);
           // Acknowledging a stop and saying what fixed it are the
           // technician's job, so those two stay open to them.
           const stopAction = req.method === "POST" && /^\/api\/v1\/stops\/\d+\/(ack|fix)$/.test(path);
@@ -387,7 +389,7 @@ export function startBoard(port, {
             res.end(JSON.stringify({ error: "Your role can look but not change anything. Ask the account's owner." }));
             return;
           }
-          if (!seesDollars(viewer.role) && (path === "/owner" || path.startsWith("/owner/") || path === "/api/owner")) {
+          if (!viewerDollars && (path === "/owner" || path.startsWith("/owner/") || path === "/api/owner")) {
             res.writeHead(303, { Location: "/app" });
             res.end();
             return;
@@ -406,6 +408,7 @@ export function startBoard(port, {
           agent = bound.agent ?? null;
           members = bound.members ?? null;
           stops = bound.stops ?? null;
+          onboardingV2 = bound.onboardingV2 ?? null;
           replay = bound.replay ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
@@ -538,6 +541,33 @@ export function startBoard(port, {
           }
         }
         return reply(404, { error: "not a ticket route" });
+      }
+
+      // ---- first run, five steps: account, floor, connect, alerts, team ----
+      if (onboardingV2 && (path === "/api/v1/onboarding" || path.startsWith("/api/v1/onboarding/"))) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        const { OnboardingError } = await import("./onboarding.mjs");
+        if (path === "/api/v1/onboarding" && req.method === "GET") return reply(200, onboardingV2.state());
+        const step = /^\/api\/v1\/onboarding\/(account|floor|connect|alerts|team)$/.exec(path);
+        if (step && req.method === "POST") {
+          let body;
+          try {
+            body = JSON.parse((await readBody(req, 4096)) || "{}");
+          } catch {
+            return reply(400, { error: "Send JSON." });
+          }
+          try {
+            return reply(200, await onboardingV2.save(step[1], body));
+          } catch (err) {
+            const known = err instanceof OnboardingError || err?.constructor?.name === "MemberError" || err?.constructor?.name === "ReplayError";
+            if (known) return reply(/owner sets this up/.test(err.message) ? 403 : 400, { error: err.message });
+            throw err;
+          }
+        }
+        return reply(405, { error: "GET /api/v1/onboarding, POST /api/v1/onboarding/<step>." });
       }
 
       // ---- stops in the dashboard: the feed, acknowledge, what fixed it ----
@@ -764,6 +794,14 @@ export function startBoard(port, {
         }
       }
 
+      // ---- the Team page (Antonio's): Mara, the watchers, the Stop Watcher, the logbook ----
+      if (signedIn && req.method === "GET" && path === "/team") {
+        const { renderTeamUiHTML } = await import("./app.mjs");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderTeamUiHTML({ account: signedIn, dollars: tenancy.ctx.dollarsFor(signedIn), onboarding: onboardingV2?.uses() ? onboardingV2.step() : "done", demo: !!replay?.allowed }));
+        return;
+      }
+
       // ---- the dashboard: the Demo's screens on this account's data ----
       if (getFleetContract && req.method === "GET" && path === "/app") {
         const { renderAppHTML, mfgPageHTML } = await import("./app.mjs");
@@ -773,7 +811,21 @@ export function startBoard(port, {
         // not wired to an account yet, and the page says so. Anyone else who
         // asks for it gets the usual page, so it is not advertised.
         const viewerIsOperator = !!signedIn && (signedIn.viewer?.role ?? "owner") === "owner" && !!tenancy?.ctx?.isOperator?.(signedIn.viewer?.email ?? signedIn.email);
-        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && viewerIsOperator;
+        // The demo account sees what an operator sees, so the team layout and
+        // the manufacturing page can be shown on it.
+        const demoAccount = !!signedIn && !!tenancy?.ctx?.isDemo?.(signedIn.email);
+        const viewerSeesDollars = !!signedIn && tenancy.ctx.dollarsFor(signedIn);
+        // A robot-arm shop (any account that did not pick another business
+        // under the old first run) gets the team layout and its five-step
+        // first run; so do operators and the demo account when they ask.
+        const v2 = !!onboardingV2?.uses();
+        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && viewerSeesDollars && (viewerIsOperator || demoAccount || v2);
+        // Their home is the Team page (Antonio's, at /team), first run included.
+        if (!demo && !mfg && (v2 || (/[?&]layout=team(&|$)/.test(req.url ?? "") && (viewerIsOperator || demoAccount)))) {
+          res.writeHead(303, { Location: "/team" });
+          res.end();
+          return;
+        }
         // An account with no fleet yet has nothing to show here: send it to
         // the first-run step that gets it one (business, then connect or
         // upload, then confirm). Numbers is not a gate; /app has its own.
