@@ -42,10 +42,10 @@ export function stopsIn(tl, robotIds) {
 }
 
 /** The words for a jam, open or over. */
-export function jamText(ev, { line, names, tz, nowMs, estimated }) {
+export function jamText(ev, { line, names, tz, nowMs, estimated, dollars = true }) {
   const minutes = Math.max(1, Math.round(((ev.ended_at ?? nowMs) - ev.started_at) / 60_000));
   const who = names.length ? list(names) : "the robots around it";
-  const cost = ev.priced ? `, ${money(ev.cost_cents)} in robot time${estimated ? " (estimated)" : ""}` : "";
+  const cost = ev.priced && dollars ? `, ${money(ev.cost_cents)} in robot time${estimated ? " (estimated)" : ""}` : "";
   const side = ev.confidence === "one side" ? " Only one robot is next to it, so this is read from one side." : "";
   if (ev.status === "open") return `${ev.station} is likely holding ${line}: ${who} ${names.length === 1 ? "has" : "have"} been waiting on it since ${clock(ev.started_at, tz)}, ${fmtMin(minutes)} so far, and no robot has stopped. ${ev.idle_minutes} robot-minutes idle${cost}.${side}`;
   return `${ev.station} held ${line} for ${fmtMin(minutes)}, from ${clock(ev.started_at, tz)}: ${who} waited. ${ev.idle_minutes} robot-minutes idle${cost}.${side}`;
@@ -107,7 +107,7 @@ export function createLineJob({ control, tenants, vault, config = {}, fetchImpl 
             results.push({ accountId: account.id, line: line.name, kind: f.kind, station: f.station, id: row.id, open: f.endedAt === null });
             if (f.kind === "jam" && client) {
               const names = Object.keys(f.idle).map((id) => nameOf(Number(id)));
-              const text = jamText(row, { line: line.name, names, tz, nowMs, estimated: Object.keys(f.idle).some((id) => estimated.has(Number(id))) });
+              const text = jamText(row, { line: line.name, names, tz, nowMs, estimated: Object.keys(f.idle).some((id) => estimated.has(Number(id))), dollars: settings.dollars !== false });
               const stale = row.rendered_at != null && nowMs - row.rendered_at >= REFRESH_MS;
               // Post once, refresh while it goes on, and once more when it
               // ends (the last render predates the end).

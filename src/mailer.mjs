@@ -28,6 +28,27 @@ export function linkEmail({ url, expiresMinutes = 15 }) {
   };
 }
 
+/** An owner added someone to their account. The link in it is an ordinary
+ *  sign-in link, so it expires like one; the address keeps working at
+ *  /signin after that. */
+export function inviteEmail({ url, signinUrl, invitedBy, role, expiresMinutes = 15 }) {
+  return {
+    subject: `${invitedBy} added you to Botlien`,
+    text: [
+      `${invitedBy} added you to their Botlien account as a ${role}.`,
+      "",
+      "Sign in here:",
+      "",
+      url,
+      "",
+      `That link works once and expires in ${expiresMinutes} minutes. After that, sign in`,
+      `any time at ${signinUrl} with this email address.`,
+      "",
+      "Botlien only reads robot data. It never controls a robot.",
+    ].join("\n"),
+  };
+}
+
 /** Writes the link where a developer will actually see it. Returns the same
  * shape as the live sender so no caller has to branch on which one is active. */
 export function createConsoleMailer({ logPath = null, log = console.log } = {}) {

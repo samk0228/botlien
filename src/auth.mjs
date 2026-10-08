@@ -125,7 +125,11 @@ export function redeemLink(control, token, nowMs, { userAgent = null } = {}) {
   const consumed = control.consumeLoginToken(token, nowMs);
   if (!consumed.ok) return { ok: false, reason: consumed.reason };
 
-  const { account, created } = control.upsertAccount(consumed.email, nowMs);
+  // Someone the owner invited lands in the owner's account and never gets
+  // one of their own.
+  const member = control.memberByEmail(consumed.email);
+  const { account, created } = member ? { account: control.accountById(member.account_id), created: false } : control.upsertAccount(consumed.email, nowMs);
+  if (!account) return { ok: false, reason: "unknown" };
   control.touchAccount(account.id, nowMs);
 
   const sessionToken = newToken();
@@ -135,6 +139,7 @@ export function redeemLink(control, token, nowMs, { userAgent = null } = {}) {
     createdAt: nowMs,
     expiresAt: nowMs + SESSION_TTL_MS,
     userAgent,
+    email: consumed.email,
   });
 
   return { ok: true, account, created, sessionToken };

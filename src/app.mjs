@@ -46,7 +46,7 @@ export function renderAppHTML({ contract = null, account = null, html = pageHTML
   if (!contract) return html;
   const inject =
     `<script>window.BOTLIEN_LIVE=${scriptJSON(contract)};` +
-    `window.BOTLIEN_ACCOUNT=${scriptJSON(account ? { email: account.email } : null)};</script>\n`;
+    `window.BOTLIEN_ACCOUNT=${scriptJSON(account ? { email: account.viewer?.email ?? account.email, role: account.viewer?.role ?? "owner", owner: account.email } : null)};</script>\n`;
   // Before the page's own script, which is the first <script> after <body>.
   const body = html.indexOf("<body");
   const at = html.indexOf("<script", body);

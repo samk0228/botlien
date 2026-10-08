@@ -28,7 +28,7 @@ export function createSlackAlertsJob({ control, tenants, vault, config = {}, fet
     const cr = contract.robots.find((r) => r.id === inc.robot_id) ?? null;
     const tz = store.getKV(KV_TZ) || config.owner?.tz || DEFAULT_TZ;
     const pace = cr?.baselineReady ? usualPace(store, inc.robot_id, nowMs) : null;
-    return incidentView(inc, { robot, contractRobot: cr, tz, nowMs, lead: settings.lead, manager: settings.manager, pace });
+    return incidentView(inc, { robot, contractRobot: cr, tz, nowMs, lead: settings.lead, manager: settings.manager, pace, dollars: settings.dollars !== false });
   }
 
   /** Post the alert if it never went out, else bring it up to date. */

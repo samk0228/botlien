@@ -109,10 +109,30 @@ Postgres is worth doing when we need two machines or a shared analytics
 query, not before. Raw samples older than 90 days can be pruned once the
 rollups cover them; nothing prunes them yet.
 
+## Roles (second PR)
+
+The owner adds people by email (`POST /api/v1/members` with `{ email, role }`;
+`PATCH` and `DELETE /api/v1/members/:id`). Each signs in with their own link
+and lands in the owner's account. Roles are read on every request, so a
+change or a removal counts at once.
+
+| Role | Sees dollars | Changes things | Manages the team |
+| --- | --- | --- | --- |
+| owner | yes | yes | yes |
+| manager | yes | yes | no |
+| technician | no | no | no |
+
+For a technician every JSON answer is redacted on the server on its way
+out, whichever route wrote it: a field named `*Cents` or a known money field
+keeps its shape with every value null, and any string still holding a dollar
+amount is blanked. Every write is a 403. `/app` shows a plain floor page
+(robots now, the week's stops with codes and minutes) because the dashboard
+leads with money on almost every screen; a technician view of the full
+dashboard is a design task. Slack settings take `dollars: false` to keep the
+cost line out of a shared channel.
+
 ## Not in this version
 
-- Role rules on the server (a technician never receives a `*Cents` field).
-  Next PR.
 - A read-scoped API key so Mara's backend can call these without a browser
   session. Next after roles, since the key has to carry a role.
 - Text messages (10DLC) and phone calls.

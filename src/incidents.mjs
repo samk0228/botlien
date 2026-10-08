@@ -128,7 +128,7 @@ const mention = (id) => (id ? (/^[UW][A-Z0-9]{6,12}$/.test(id) ? `<@${id}>` : id
 /** Everything the alert says, as lines. `contractRobot` is the robot as the
  *  contract carries it (name, cost block, baseline flag); `pace` is
  *  usualPace() and is only passed once the baseline is ready. */
-export function incidentView(inc, { robot, contractRobot = null, tz = "America/Los_Angeles", nowMs, lead = null, manager = null, pace = null }) {
+export function incidentView(inc, { robot, contractRobot = null, tz = "America/Los_Angeles", nowMs, lead = null, manager = null, pace = null, dollars = true }) {
   const name = contractRobot?.name ?? robot?.display_name ?? robot?.external_id ?? `Robot ${inc.robot_id}`;
   const open = inc.status === "open";
   const endMs = open ? nowMs : inc.ended_at;
@@ -146,7 +146,7 @@ export function incidentView(inc, { robot, contractRobot = null, tz = "America/L
   const downLine = open ? `Down ${fmtMin(minutes)} so far` : `Was down ${fmtMin(minutes)}, back at ${clock(inc.ended_at, tz)}`;
   const cost = contractRobot?.cost ?? null;
   const costCents = cost?.perHourCents != null ? Math.round((cost.perHourCents * minutes) / 60) : null;
-  const costLine = costCents === null ? null : `${money(costCents)} in robot time${cost.estimated ? " (estimated, from list prices)" : " (from your numbers)"}`;
+  const costLine = costCents === null || !dollars ? null : `${money(costCents)} in robot time${cost.estimated ? " (estimated, from list prices)" : " (from your numbers)"}`;
   const unit = contractRobot?.unitLabel ?? "units";
   const outputLine = pace && pace.perHour > 0 ? `About ${Math.max(1, Math.round((pace.perHour * minutes) / 60))} ${unit} not made (its usual pace is ${Math.round(pace.perHour)} an hour)` : null;
   const repeatsLine = inc.repeats > 1 ? `${ordinal(inc.repeats)} stop in a row, each within ${REOPEN_MS / MIN} minutes of the last` : null;

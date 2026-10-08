@@ -56,6 +56,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
 
+-- People the owner invited onto the account, each with their own sign-in. An
+-- email is on at most one account, and never one that owns an account itself,
+-- so a sign-in link always lands in exactly one place.
+CREATE TABLE IF NOT EXISTS members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL,
+  invited_by TEXT,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_members_account ON members(account_id);
+
 -- The six onboarding events from the spec, plus room for more. Kept here and
 -- not in the tenant database so a funnel can be read across all accounts with
 -- one query, which is the entire point of measuring landed -> activated.
@@ -108,8 +122,14 @@ export function openControl(path) {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(SCHEMA);
+  // Sessions made before team members existed have no email; they were all
+  // the owner's, and sessionAccount reads a missing email as the owner.
+  const cols = new Set(db.prepare(`PRAGMA table_info(sessions)`).all().map((c) => c.name));
+  if (!cols.has("email")) db.exec(`ALTER TABLE sessions ADD COLUMN email TEXT`);
   return new Control(db);
 }
+
+export class MemberError extends Error {}
 
 /** Emails are matched case-insensitively and stored lowercase. Owners type
  * their address differently than they did at signup often enough that treating
@@ -245,30 +265,80 @@ export class Control {
 
   // ---- sessions ----
 
-  insertSession({ token, accountId, createdAt, expiresAt, userAgent = null }) {
+  /** `email` is who signed in: the owner, or a member of the owner's account. */
+  insertSession({ token, accountId, createdAt, expiresAt, userAgent = null, email = null }) {
     this.db
       .prepare(
-        `INSERT INTO sessions (token, account_id, created_at, expires_at, user_agent)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (token, account_id, created_at, expires_at, user_agent, email)
+         VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      .run(token, accountId, createdAt, expiresAt, userAgent);
+      .run(token, accountId, createdAt, expiresAt, userAgent, email === null ? null : normalizeEmail(email));
   }
 
   /** Resolve a cookie to an account. An expired row returns null and is left in
    * place for pruneSessions rather than deleted mid-read, so a request never
    * writes just by looking at a cookie. */
+  /** `viewer` is who is looking and their role, read from the members table
+   *  on every request, so a role changed or a member removed counts at once.
+   *  A member who has been removed has no session. */
   sessionAccount(token, nowMs) {
     if (!token) return null;
     const row = this.db
       .prepare(
-        `SELECT s.account_id, s.expires_at, a.id, a.email, a.created_at, a.last_seen_at
+        `SELECT s.account_id, s.expires_at, s.email AS viewer_email, a.id, a.email, a.created_at, a.last_seen_at, m.role AS member_role
          FROM sessions s JOIN accounts a ON a.id = s.account_id
+         LEFT JOIN members m ON m.email = s.email AND m.account_id = s.account_id
          WHERE s.token=?`,
       )
       .get(token);
     if (!row) return null;
     if (nowMs > row.expires_at) return null;
-    return { id: row.id, email: row.email, created_at: row.created_at, last_seen_at: row.last_seen_at };
+    const viewerEmail = row.viewer_email ?? row.email;
+    const role = viewerEmail === row.email ? "owner" : row.member_role;
+    if (!role) return null;
+    return { id: row.id, email: row.email, created_at: row.created_at, last_seen_at: row.last_seen_at, viewer: { email: viewerEmail, role } };
+  }
+
+  // ---- members ----
+
+  /** Invite someone onto an account. Throws MemberError when the address
+   *  already owns an account or is already on one. */
+  insertMember({ accountId, email, role, invitedBy = null }, nowMs) {
+    const e = normalizeEmail(email);
+    if (!["manager", "technician"].includes(role)) throw new MemberError("A role is manager or technician.");
+    if (this.accountByEmail(e)) throw new MemberError(`${e} already has its own Botlien account.`);
+    if (this.memberByEmail(e)) throw new MemberError(`${e} is already on a Botlien account.`);
+    const r = this.db
+      .prepare(`INSERT INTO members (account_id, email, role, invited_by, created_at) VALUES (?, ?, ?, ?, ?)`)
+      .run(accountId, e, role, invitedBy === null ? null : normalizeEmail(invitedBy), nowMs);
+    return this.memberById(accountId, Number(r.lastInsertRowid));
+  }
+
+  memberByEmail(email) {
+    return this.db.prepare(`SELECT * FROM members WHERE email=?`).get(normalizeEmail(email)) ?? null;
+  }
+
+  memberById(accountId, id) {
+    return this.db.prepare(`SELECT * FROM members WHERE account_id=? AND id=?`).get(accountId, id) ?? null;
+  }
+
+  listMembers(accountId) {
+    return this.db.prepare(`SELECT * FROM members WHERE account_id=? ORDER BY created_at, id`).all(accountId);
+  }
+
+  setMemberRole(accountId, id, role) {
+    if (!["manager", "technician"].includes(role)) throw new MemberError("A role is manager or technician.");
+    this.db.prepare(`UPDATE members SET role=? WHERE account_id=? AND id=?`).run(role, accountId, id);
+    return this.memberById(accountId, id);
+  }
+
+  /** Take someone off an account and end their sessions there. */
+  removeMember(accountId, id) {
+    const m = this.memberById(accountId, id);
+    if (!m) return false;
+    this.db.prepare(`DELETE FROM sessions WHERE account_id=? AND email=?`).run(accountId, m.email);
+    this.db.prepare(`DELETE FROM members WHERE id=?`).run(id);
+    return true;
   }
 
   deleteSession(token) {

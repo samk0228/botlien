@@ -6,7 +6,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export class SlackError extends Error {}
-export const KV_SLACK = "slack.settings"; // { channel, lead, manager, team, botUserId, connectedAt, sealed }
+export const KV_SLACK = "slack.settings"; // { channel, lead, manager, dollars, team, botUserId, connectedAt, sealed }
 const API = process.env.BOTLIEN_SLACK_BASE ?? "https://slack.com/api";
 const REPLAY_WINDOW_S = 5 * 60;
 
@@ -56,7 +56,10 @@ export async function saveSlackSettings(store, vault, input, nowMs, { fetchImpl 
   const manager = memberId(input?.manager, "Manager");
   const who = await createSlackClient({ token, fetchImpl }).call("auth.test", {});
   if (!who.ok) throw new SlackError(`Slack did not accept that token (${who.error ?? "no reason given"}).`);
-  const settings = { channel, lead, manager, team: who.team ?? null, botUserId: who.user_id ?? null, connectedAt: nowMs, sealed: vault.seal({ token }) };
+  // A channel is shared, technicians included, so the owner says whether
+  // alerts there carry a dollar line. On unless they say no.
+  const dollars = input?.dollars !== false;
+  const settings = { channel, lead, manager, dollars, team: who.team ?? null, botUserId: who.user_id ?? null, connectedAt: nowMs, sealed: vault.seal({ token }) };
   store.setKV(KV_SLACK, JSON.stringify(settings), nowMs);
   const { sealed, ...pub } = settings;
   return pub;
