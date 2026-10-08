@@ -10,11 +10,38 @@ import { dirname } from "node:path";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-/** Plain text only. A magic-link email has one job and every image, tracking
- * pixel and multipart boundary in it is another reason to land in spam. */
+const escHTML = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+/** The same words as the text, with the link as a button and as a link,
+ * because some mail apps (Hostinger's webmail among them) leave a URL in a
+ * plain-text email unclickable. Nothing else: no images, no tracking, no
+ * outside styles, so it is still a one-job email that stays out of spam. */
+function linkHTML(lines, url, button) {
+  const p = (t) => `<p style="margin:0 0 14px;font:15px/1.5 -apple-system,Segoe UI,Arial,sans-serif;color:#16204A">${t}</p>`;
+  const a = escHTML(url);
+  return (
+    `<!doctype html><html><body style="margin:0;padding:24px;background:#ffffff">` +
+    lines.before.map((t) => p(escHTML(t))).join("") +
+    `<p style="margin:0 0 18px"><a href="${a}" style="display:inline-block;background:#0A0A0A;color:#ffffff;text-decoration:none;font:600 15px -apple-system,Segoe UI,Arial,sans-serif;padding:12px 20px;border-radius:8px">${escHTML(button)}</a></p>` +
+    p(`Or open this link: <a href="${a}" style="color:#3760C9;word-break:break-all">${a}</a>`) +
+    lines.after.map((t) => p(escHTML(t))).join("") +
+    `</body></html>`
+  );
+}
+
+/** A magic-link email has one job: plain text, with a bare HTML twin so the
+ * link can be clicked everywhere. */
 export function linkEmail({ url, expiresMinutes = 15 }) {
   return {
     subject: "Your Botlien sign-in link",
+    html: linkHTML(
+      {
+        before: ["Here is your sign-in link."],
+        after: [`It works once and expires in ${expiresMinutes} minutes.`, "If you did not ask for this, you can ignore this email. Nobody can sign in without the link above."],
+      },
+      url,
+      "Sign in to Botlien",
+    ),
     text: [
       "Here is your sign-in link:",
       "",
@@ -34,6 +61,14 @@ export function linkEmail({ url, expiresMinutes = 15 }) {
 export function inviteEmail({ url, signinUrl, invitedBy, role, expiresMinutes = 15 }) {
   return {
     subject: `${invitedBy} added you to Botlien`,
+    html: linkHTML(
+      {
+        before: [`${invitedBy} added you to their Botlien account as a ${role}.`],
+        after: [`That link works once and expires in ${expiresMinutes} minutes. After that, sign in any time at ${signinUrl} with this email address.`, "Botlien only reads robot data. It never controls a robot."],
+      },
+      url,
+      "Sign in to Botlien",
+    ),
     text: [
       `${invitedBy} added you to their Botlien account as a ${role}.`,
       "",
