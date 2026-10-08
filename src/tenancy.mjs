@@ -114,6 +114,8 @@ export function createTenancy({
     readBody,
     /** Whether a signed-in account may see the ops board. */
     isOperator: (email) => opsSet.has(normalizeEmail(email)),
+    /** Whether an account is a demo account (BOTLIEN_DEMO_EMAILS). */
+    isDemo: (email) => demoSet.has(normalizeEmail(email)),
     // Pass the whole payload through. An earlier version took (name, detail)
     // and wrapped it, which silently dropped accountId: `account_created` was
     // then stored unattached, funnel() could not join it to `activated`, and
@@ -411,7 +413,9 @@ export function createTenancy({
     // things a person does to a stop. Acknowledging and logging a fix are
     // open to every role; they are the technician's job.
     const stops = {
-      feed: (since) => forViewer(stopFeed(store, fleetContract(store, now(), config), now(), parseCursor(since))),
+      // `epoch` changes when a replay is rewound, which starts the stop ids
+      // again from 1: a dashboard that sees it change drops what it holds.
+      feed: (since) => forViewer({ ...stopFeed(store, fleetContract(store, now(), config), now(), parseCursor(since)), epoch: replayStatus(store, now()).startedAt ?? null }),
       ack: (id, body) => {
         const inc = ackStop(store, id, body ?? {}, viewer.email, now());
         return forViewer(stopRecord(store, fleetContract(store, now(), config), inc, now()));

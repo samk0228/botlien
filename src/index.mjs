@@ -236,7 +236,8 @@ async function main() {
     }, 30_000);
     if (!slackSend) console.log("Slack alerts are logged, not sent (set BOTLIEN_SLACK_SEND=1 to send)");
     // Replays: a recorded run played into a demo account (BOTLIEN_DEMO_EMAILS)
-    // with today's timestamps, a sample at a time, every second.
+    // with today's timestamps, a sample at a time, four times a second, so
+    // a replayed stop is in the feed well inside the 3-second rule.
     const { createReplayJob } = await import("./replay.mjs");
     const replayJob = createReplayJob({ control, tenants, config, log: genesisLog });
     replayInterval = setInterval(() => {
@@ -245,7 +246,7 @@ async function main() {
       } catch (err) {
         genesisLog(`replay job error: ${String(err).slice(0, 200)}`, "warning");
       }
-    }, 1000);
+    }, 250);
     // The line: machine jams and what each stop left waiting, for accounts
     // with a confirmed line map, every two minutes. Jams go to Slack under
     // the same flag as stop alerts.

@@ -12,6 +12,11 @@ export const APP_HTML_PATH = join(ROOT, "prototype", "botlien-prototype.html");
 // it still run on a sample, so it is served only where a caller asks for it
 // by name; see /app?page=mfg in board.mjs.
 export const APP_MFG_HTML_PATH = join(ROOT, "prototype", "botlien-mfg.html");
+// The team layout (prototype/src/botlien-team.part.html): Mara, the robot
+// watchers, the Stop Watcher and the logbook, with the dashboard beside them.
+// It reads everything from the API after it loads, so nothing is written
+// into it but who is looking.
+export const APP_TEAM_HTML_PATH = join(ROOT, "prototype", "botlien-team.html");
 
 const cached = new Map();
 function pageHTML(path = APP_HTML_PATH) {
@@ -21,6 +26,15 @@ function pageHTML(path = APP_HTML_PATH) {
 }
 export function mfgPageHTML() {
   return pageHTML(APP_MFG_HTML_PATH);
+}
+
+/** The team page, told who is looking and what they may do there. */
+export function renderTeamHTML({ account, replay = false, dashboard = true, html = pageHTML(APP_TEAM_HTML_PATH) }) {
+  const viewer = account.viewer ?? { email: account.email, role: "owner" };
+  const inject = `<script>window.BOTLIEN_ACCOUNT=${scriptJSON({ email: viewer.email, role: viewer.role, owner: account.email })};window.BOTLIEN_TEAM=${scriptJSON({ replay, dashboard })};</script>\n`;
+  const at = html.indexOf("<script");
+  if (at < 0) throw new Error("team page has no script to inject before");
+  return html.slice(0, at) + inject + html.slice(at);
 }
 
 /** Whether the built page runs first run itself (business, connect or

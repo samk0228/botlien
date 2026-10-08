@@ -773,7 +773,18 @@ export function startBoard(port, {
         // not wired to an account yet, and the page says so. Anyone else who
         // asks for it gets the usual page, so it is not advertised.
         const viewerIsOperator = !!signedIn && (signedIn.viewer?.role ?? "owner") === "owner" && !!tenancy?.ctx?.isOperator?.(signedIn.viewer?.email ?? signedIn.email);
-        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && viewerIsOperator;
+        // The demo account sees what an operator sees, so the team layout and
+        // the manufacturing page can be shown on it.
+        const demoAccount = !!signedIn && !!tenancy?.ctx?.isDemo?.(signedIn.email);
+        const viewerSeesDollars = (signedIn?.viewer?.role ?? "owner") !== "technician";
+        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && (viewerIsOperator || (demoAccount && viewerSeesDollars));
+        // The team layout: operators and the demo account, for now.
+        if (!demo && /[?&]layout=team(&|$)/.test(req.url ?? "") && (viewerIsOperator || demoAccount)) {
+          const { renderTeamHTML } = await import("./app.mjs");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(renderTeamHTML({ account: signedIn, replay: !!replay?.allowed, dashboard: viewerSeesDollars }));
+          return;
+        }
         // An account with no fleet yet has nothing to show here: send it to
         // the first-run step that gets it one (business, then connect or
         // upload, then confirm). Numbers is not a gate; /app has its own.

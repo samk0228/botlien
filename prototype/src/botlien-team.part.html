@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Botlien · Team</title>
+<link rel="icon" href="__LOGO__">
+<style>
+@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER__") format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url("__INTER_EXT__") format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+/* The dashboard's own tokens, so the two halves of the screen read as one product. */
+:root{
+  --page:#FFFFFF; --page-bg:#F4F5F9; --card:#FFFFFF;
+  --fg1:#16204A; --fg2:#4F5778; --fg3:#5E6685;
+  --hair:rgba(10,10,10,.10); --hair2:rgba(10,10,10,.16); --ghost:rgba(10,10,10,.04);
+  --acc:#3760C9; --acc-fg:#FFFFFF; --acc-soft:#E8F0FF;
+  --good:#05773B; --good-mark:#05773B; --good-soft:#E4F5E9;
+  --warn:#946000; --warn-mark:#A87A00; --warn-soft:#F9EFDE;
+  --bad:#B3363D; --bad-mark:#CC323E; --bad-soft:#FFEAE8;
+  --shadow:0 2px 4px rgba(22,32,74,.08);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--page-bg);color:var(--fg1);font:14px/1.45 'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+input{font:inherit}
+code{font:12.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--ghost);padding:2px 5px;border-radius:4px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
+
+#app{display:grid;grid-template-columns:72px minmax(320px,1fr) minmax(0,1.15fr);height:100vh;height:100dvh}
+#app.pane-closed{grid-template-columns:72px minmax(0,1fr) 0}
+
+/* ---- the rail: who is on the team ---- */
+.rail{background:var(--card);border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:6px;overflow-y:auto}
+.rail .logo{width:32px;height:32px;margin-bottom:8px}
+.rail .sep{width:32px;height:1px;background:var(--hair);margin:6px 0}
+.rail .grp{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--fg3);margin-top:4px}
+.mate{position:relative;width:48px;height:48px;border-radius:12px;border:1px solid transparent;background:var(--ghost);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.mate[aria-current=true]{border-color:var(--fg1);background:var(--card);box-shadow:var(--shadow)}
+.mate .face{font-weight:700;font-size:13px}
+.mate.lead .face{width:36px;height:36px;border-radius:10px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center}
+.mate.down{background:var(--bad-soft);border-color:var(--bad-mark)}
+.mate.down .face{color:var(--bad)}
+.dot{position:absolute;right:4px;bottom:4px;width:9px;height:9px;border-radius:50%;border:2px solid var(--card);background:var(--fg3)}
+.dot.working{background:var(--good-mark)}.dot.waiting{background:var(--warn-mark)}.dot.stopped,.dot.offline{background:var(--bad-mark)}
+.badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--bad-mark);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.rail .foot{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px}
+.iconbtn{width:40px;height:40px;border-radius:10px;border:1px solid var(--hair);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--fg2)}
+.tip{position:fixed;z-index:20;background:var(--fg1);color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;pointer-events:none;white-space:nowrap}
+
+/* ---- the conversation ---- */
+.chat{display:flex;flex-direction:column;min-width:0;background:var(--page-bg);border-right:1px solid var(--hair)}
+.chat header{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--hair);background:var(--card);min-height:56px}
+.chat header h1{font-size:15px;margin:0;font-weight:600}
+.chat header .sub{color:var(--fg3);font-size:12.5px}
+.chat header .grow{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;border-radius:999px;padding:3px 9px;background:var(--ghost);color:var(--fg2)}
+.chip.replay{background:var(--warn-soft);color:var(--warn)}
+.log{flex:1;overflow-y:auto;padding:18px 20px 8px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:640px}
+.msg.me{align-self:flex-end;background:var(--fg1);color:#fff;border-radius:14px 14px 4px 14px;padding:9px 13px}
+.msg.bot{align-self:flex-start}
+.msg.bot .who{font-size:12px;font-weight:600;color:var(--fg2);margin-bottom:3px}
+.msg.bot .body{background:var(--card);border:1px solid var(--hair);border-radius:4px 14px 14px 14px;padding:10px 13px}
+.msg .m-list{margin:8px 0 0;padding-left:18px}.msg .m-sub{color:var(--fg3)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{border:1px solid var(--hair2);background:var(--card);border-radius:999px;padding:5px 11px;cursor:pointer;font-size:13px}
+.note{align-self:center;color:var(--fg3);font-size:12.5px;text-align:center;max-width:520px}
+.compose{padding:10px 20px 16px}
+.compose form{display:flex;gap:8px;background:var(--card);border:1px solid var(--hair2);border-radius:14px;padding:6px 6px 6px 14px}
+.compose input{flex:1;border:0;outline:0;background:transparent;min-width:0;font-size:15px}
+.send{border:0;background:var(--fg1);color:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:500}
+
+/* ---- a stop, as an alert ---- */
+.stop{background:var(--card);border:1px solid var(--hair);border-left:4px solid var(--bad-mark);border-radius:10px;padding:12px 14px;max-width:640px;box-shadow:var(--shadow)}
+.stop.closed{border-left-color:var(--good-mark)}
+.stop .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stop .title{font-weight:600;font-size:15px}
+.stop .meta{color:var(--fg2);margin-top:4px}
+.stop .rows{margin-top:8px;display:grid;gap:3px}
+.stop .rows div{color:var(--fg1)}
+.stop .rows .k{color:var(--fg3)}
+.stop .acks{margin-top:8px;color:var(--fg2);font-size:13px}
+.stop .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.stop .acts button{border:1px solid var(--hair2);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500}
+.stop .acts button.primary{background:var(--fg1);border-color:var(--fg1);color:#fff}
+.stop .acts button[disabled]{opacity:.5;cursor:default}
+.esc{color:var(--bad);font-weight:600}
+.fixform{display:flex;gap:6px;margin-top:10px}
+.fixform input{flex:1;min-width:0;border:1px solid var(--hair2);border-radius:8px;padding:7px 10px}
+.fixform button{border:0;background:var(--fg1);color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer}
+.fixed{margin-top:8px;background:var(--good-soft);color:var(--good);border-radius:8px;padding:7px 10px}
+.err{color:var(--bad);font-size:13px;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg1);color:#fff;border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;z-index:30;box-shadow:0 4px 12px rgba(22,32,74,.25)}
+.toast button{background:#fff;color:var(--fg1);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:600}
+
+/* ---- the dashboard beside it ---- */
+.pane{display:flex;flex-direction:column;min-width:0;background:var(--page-bg)}
+.pane .tabs{display:flex;gap:2px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--hair);min-height:56px;align-items:flex-end;overflow-x:auto}
+.pane .tabs button{border:0;background:none;padding:14px 12px;cursor:pointer;color:var(--fg2);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+.pane .tabs button[aria-selected=true]{color:var(--fg1);border-bottom-color:var(--fg1)}
+.pane .tabs .grow{flex:1}
+.pane iframe{flex:1;border:0;width:100%;background:var(--page-bg)}
+.pane .closepane{display:none}
+#app.pane-closed .pane{display:none}
+
+/* ---- a phone: the rail across the top, one column, the dashboard on demand ---- */
+@media (max-width: 820px){
+  #app,#app.pane-closed{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .rail{flex-direction:row;height:auto;padding:8px 12px;border-right:0;border-bottom:1px solid var(--hair);overflow-x:auto;overflow-y:hidden}
+  .rail .logo{margin:0 4px 0 0}
+  .rail .sep{width:1px;height:32px;margin:0 4px}
+  .rail .grp{display:none}
+  .rail .foot{margin:0 0 0 auto;flex-direction:row}
+  .mate{flex:none;width:44px;height:44px}
+  .pane{position:fixed;inset:0;z-index:40}
+  #app:not(.pane-open) .pane{display:none}
+  .pane .closepane{display:block}
+  .log{padding:14px 12px 8px}
+  .compose{padding:8px 12px 12px}
+  .chat header{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+<div id="app" class="pane-closed">
+  <nav class="rail" aria-label="Your team" id="rail"></nav>
+  <main class="chat" id="chat"></main>
+  <section class="pane" id="pane" aria-label="Dashboard">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <iframe id="dash" title="Dashboard" src="about:blank"></iframe>
+  </section>
+</div>
+<script>
+__MARA__
+</script>
+<script>
+/* The team page. Everything on it comes from the API after it loads:
+   the stop feed every 3 seconds, line status every 15, Mara's answers on
+   demand. Read only, except the two things a person does to a stop:
+   acknowledge it, and say what fixed it. */
+const ACC = window.BOTLIEN_ACCOUNT || { email: '', role: 'owner', owner: '' };
+const TEAM = window.BOTLIEN_TEAM || { replay: false, dashboard: true };
+const LOGO = "__LOGO__";
+const POLL_MS = 1500, LINE_MS = 15000;
+const esc = Mara.esc;
+
+const S = {
+  channel: 'stop',             // mara | stop | log
+  robots: [], line: null, tz: 'America/Los_Angeles',
+  stops: new Map(),            // id -> the latest record the feed gave
+  cursor: null, epoch: undefined, skew: 0,
+  mara: [],                    // Mara's conversation
+  seen: new Set(),             // stop ids already announced
+  unread: 0,
+  pane: 'dashv2', paneOpen: false,
+  replay: null, busy: false,
+};
+const now = () => Date.now() + S.skew;
+
+async function api(path, init) {
+  const r = await fetch(path, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, init || {}));
+  if (r.redirected || r.status === 303 || /\/signin/.test(r.url)) { location.href = '/signin'; throw new Error('signed out'); }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
+  return body;
+}
+
+// ---------------- formatting ----------------
+const clock = (ms) => new Intl.DateTimeFormat('en-US', { timeZone: S.tz, hour: 'numeric', minute: '2-digit' }).format(ms).toLowerCase();
+const money = (c) => '$' + (c < 10000 ? (c / 100).toFixed(2) : Math.round(c / 100).toLocaleString('en-US'));
+const ordinal = (n) => n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10 > 3 || [11, 12, 13].includes(n % 100) ? 0 : n % 10] || 'th');
+const initials = (name) => String(name || '?').split(/\s+/).map((w) => /^\d+$/.test(w) ? w : w[0]).join('').slice(0, 3).toUpperCase();
+const ACK_LABEL = { on: 'is on it', look: 'is looking', snooze: 'snoozed it' };
+function minutesOf(st) { return st.state === 'open' ? Math.max(1, Math.round((now() - st.startedAt) / 60000)) : st.minutes; }
+
+// ---------------- the rail ----------------
+function openStops() { return [...S.stops.values()].filter((s) => s.state === 'open'); }
+function renderRail() {
+  const down = new Set(openStops().map((s) => s.robot.id));
+  const mate = (id, label, face, extra, cls) =>
+    '<button class="mate ' + (cls || '') + '" data-ch="' + id + '" aria-label="' + esc(label) + '" aria-current="' + (S.channel === id) + '"' + (extra || '') + '>' + face + '</button>';
+  let h = '<img class="logo" src="' + LOGO + '" alt="Botlien">';
+  h += mate('mara', 'Mara, the lead. Ask her anything.', '<span class="face">M</span>', '', 'lead');
+  h += '<div class="sep" role="presentation"></div><div class="grp">Cells</div>';
+  for (const r of S.robots) {
+    const isDown = down.has(r.id);
+    h += mate('robot:' + r.id, r.name + ' watcher, ' + (isDown ? 'stopped' : r.state), '<span class="face">' + esc(initials(r.name)) + '</span><span class="dot ' + esc(isDown ? 'stopped' : r.state) + '"></span>', '', isDown ? 'down' : '');
+  }
+  h += '<div class="sep" role="presentation"></div>';
+  h += mate('stop', 'Stop Watcher' + (S.unread ? ', ' + S.unread + ' new' : ''), '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>' + (S.unread ? '<span class="badge">' + S.unread + '</span>' : ''));
+  h += mate('log', 'Logbook Keeper', '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h8M8 11h6"/></svg>');
+  h += '<div class="foot">' + (TEAM.dashboard ? '<button class="iconbtn" id="togglePane" aria-label="' + (S.paneOpen ? 'Hide the dashboard' : 'Show the dashboard') + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/></svg></button>' : '') + '</div>';
+  document.getElementById('rail').innerHTML = h;
+}
+
+// ---------------- a stop card ----------------
+function stopCard(st) {
+  const open = st.state === 'open';
+  const mine = (k) => st.acks.some((a) => a.by === ACC.email && a.kind === k && (k !== 'snooze' || a.until > now()));
+  const answered = st.acks.some((a) => a.kind === 'on' || a.kind === 'look');
+  const title = open
+    ? esc(st.robot.name) + ' ' + (st.type === 'offline' ? 'went offline' : 'hit ' + (/^[aeiou]/i.test(st.typeLabel) ? 'an ' : 'a ') + esc(st.typeLabel)) + ' at ' + clock(st.startedAt)
+    : esc(st.robot.name) + ' is back after ' + st.minutes + ' min';
+  const rows = [];
+  if (st.errorCode || st.description) rows.push('<div>' + (st.errorCode ? '<code>' + esc(st.errorCode) + '</code> ' : '') + esc(st.description || '') + '</div>');
+  rows.push('<div>' + (open ? 'Down ' + minutesOf(st) + ' min so far' : 'Was down ' + st.minutes + ' min, back at ' + clock(st.endedAt)) + '</div>');
+  if (st.repeatCount > 1) rows.push('<div>' + ordinal(st.repeatCount) + ' stop in a row, each within 10 minutes of the last</div>');
+  if (st.robotTimeCost && st.robotTimeCost.cents != null) rows.push('<div>' + money(st.robotTimeCost.cents) + ' in robot time <span class="k">(' + (st.robotTimeCost.basis === 'estimated' ? 'estimated, from list prices' : 'from your numbers') + ')</span></div>');
+  if (st.leftWaiting && st.leftWaiting.length) rows.push('<div><span class="k">Left waiting:</span> ' + st.leftWaiting.map((w) => esc(w.name) + ' ' + w.minutes + ' min').join(', ') + '</div>');
+  if (open && !answered && st.escalation.level > 0) rows.push('<div class="esc">Nobody has answered. ' + (st.escalation.level >= 2 ? 'The manager' : 'The lead') + ' was told at ' + clock(st.escalation.at) + '.</div>');
+  if (open && st.escalation.snoozedUntil) rows.push('<div class="k">Snoozed until ' + clock(st.escalation.snoozedUntil) + '</div>');
+  const acks = st.acks.length ? '<div class="acks">' + st.acks.map((a) => esc(a.by === ACC.email ? 'You' : a.by.split('@')[0]) + ' ' + (a.by === ACC.email && a.kind !== 'snooze' ? ({ on: 'are on it', look: 'are looking' })[a.kind] : ACK_LABEL[a.kind]) + (a.kind === 'snooze' ? ' until ' + clock(a.until) : '') + ' · ' + clock(a.at)).join('<br>') + '</div>' : '';
+  const acts = open
+    ? '<div class="acts"><button class="primary" data-ack="on" data-id="' + st.id + '"' + (mine('on') ? ' disabled' : '') + '>I’m on it</button><button data-ack="look" data-id="' + st.id + '"' + (mine('look') ? ' disabled' : '') + '>Looking</button><button data-ack="snooze" data-id="' + st.id + '">Snooze 15 min</button></div>'
+    : st.fix
+      ? '<div class="fixed">Fixed: ' + esc(st.fix.text) + ' <span class="k">· ' + esc(st.fix.by === ACC.email ? 'you' : st.fix.by.split('@')[0]) + '</span></div>'
+      : '<form class="fixform" data-fix="' + st.id + '"><label class="k" for="fix' + st.id + '" style="position:absolute;left:-9999px">What fixed it?</label><input id="fix' + st.id + '" placeholder="What fixed it?" maxlength="500" autocomplete="off"><button>Save to logbook</button></form>';
+  return '<article class="stop' + (open ? '' : ' closed') + '" id="stop-' + st.id + '" aria-label="' + (open ? 'Open stop' : 'Closed stop') + ' on ' + esc(st.robot.name) + '">'
+    + '<div class="head"><span class="title">' + title + '</span>' + (st.source === 'replay' ? '<span class="chip replay">Replay</span>' : '') + '</div>'
+    + '<div class="rows">' + rows.join('') + '</div>' + acks + acts + '<div class="err" data-err="' + st.id + '"></div></article>';
+}
+
+// ---------------- the conversation pane ----------------
+function header() {
+  const ch = S.channel;
+  if (ch === 'mara') return '<h1>Mara</h1><span class="sub">Line lead. Answers from your robots’ data, read only.</span>';
+  if (ch === 'stop') return '<h1>Stop Watcher</h1><span class="sub">Tells the floor when a robot stops.</span>';
+  if (ch === 'log') return '<h1>Logbook Keeper</h1><span class="sub">Every stop that ended, and what fixed it.</span>';
+  const r = S.robots.find((x) => 'robot:' + x.id === ch);
+  return '<h1>' + esc(r ? r.name : 'Robot') + ' watcher</h1><span class="sub">' + esc(r ? (r.model || '') : '') + '</span>';
+}
+function replayBar() {
+  if (!TEAM.replay || S.channel !== 'stop') return '';
+  return '<span class="grow"></span><span class="chip replay">' + (S.replay && S.replay.running ? 'Replay running' : 'Replay') + '</span>'
+    + '<button class="send" id="rewind" style="padding:6px 10px">Rewind</button>'
+    + '<select id="speed" aria-label="Replay speed" style="border:1px solid var(--hair2);border-radius:8px;padding:5px"><option value="1">1x</option><option value="10" selected>10x</option><option value="60">60x</option></select>';
+}
+function body() {
+  const ch = S.channel;
+  if (ch === 'stop') {
+    const list = [...S.stops.values()].sort((a, b) => a.startedAt - b.startedAt || a.id - b.id);
+    return list.length ? list.map(stopCard).join('') : '<div class="note">No stops in the last 7 days. When a robot stops, it shows up here within seconds.</div>';
+  }
+  if (ch === 'log') {
+    const done = [...S.stops.values()].filter((s) => s.state === 'closed').sort((a, b) => b.endedAt - a.endedAt);
+    return done.length ? done.map(stopCard).join('') : '<div class="note">Nothing in the logbook yet. A stop lands here when it ends.</div>';
+  }
+  if (ch.startsWith('robot:')) {
+    const id = Number(ch.slice(6));
+    const r = S.robots.find((x) => x.id === id);
+    const mineStops = [...S.stops.values()].filter((s) => s.robot.id === id).sort((a, b) => a.startedAt - b.startedAt);
+    const status = r ? '<div class="note">' + esc(r.name) + ' is ' + esc(r.state) + (r.live ? '' : r.lagSeconds != null ? ', last heard ' + Math.round(r.lagSeconds / 60) + ' min ago' : '') + '. Ask Mara about it, or see its stops below.</div>' : '';
+    return status + (mineStops.length ? mineStops.map(stopCard).join('') : '<div class="note">No stops in the last 7 days.</div>');
+  }
+  // Mara
+  return '<div class="note">Mara’s replies are written from templates, with every number read from your robots. No AI model is connected yet.</div>'
+    + S.mara.map((m) => m.me
+      ? '<div class="msg me">' + esc(m.text) + '</div>'
+      : '<div class="msg bot"><div class="who">Mara</div><div class="body">' + m.html + (m.chips && m.chips.length ? '<div class="chips">' + m.chips.map((c) => '<button data-ask="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>' : '') + '</div></div>').join('');
+}
+function renderChat(keepScroll) {
+  const el = document.getElementById('chat');
+  const log = el.querySelector('.log');
+  const atBottom = !log || log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  const prevTop = log ? log.scrollTop : 0;
+  const draft = el.querySelector('#ask') ? el.querySelector('#ask').value : '';
+  const fixDrafts = {};
+  el.querySelectorAll('.fixform input').forEach((i) => { if (i.value) fixDrafts[i.id] = i.value; });
+  const focusId = document.activeElement && document.activeElement.id;
+  el.innerHTML = '<header>' + header() + replayBar() + '</header>'
+    + '<div class="log" role="log" aria-live="polite">' + body() + '</div>'
+    + (S.channel === 'mara' || S.channel.startsWith('robot:') ? '<div class="compose"><form id="askForm"><input id="ask" placeholder="Ask Mara" autocomplete="off" aria-label="Message Mara"><button class="send">Send</button></form></div>' : '');
+  const nl = el.querySelector('.log');
+  nl.scrollTop = keepScroll && !atBottom ? prevTop : nl.scrollHeight;
+  if (el.querySelector('#ask')) el.querySelector('#ask').value = draft;
+  for (const [id, v] of Object.entries(fixDrafts)) { const i = document.getElementById(id); if (i) i.value = v; }
+  if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus();
+}
+function render(keepScroll) { renderRail(); renderChat(keepScroll); }
+
+// ---------------- the stop feed ----------------
+function toast(st) {
+  if (S.channel === 'stop') return;
+  const old = document.querySelector('.toast'); if (old) old.remove();
+  const t = document.createElement('div');
+  t.className = 'toast'; t.setAttribute('role', 'status');
+  t.innerHTML = '<span>' + esc(st.robot.name) + ' stopped' + (st.errorCode ? ' (' + esc(st.errorCode) + ')' : '') + '</span><button>Open</button>';
+  t.querySelector('button').onclick = () => { t.remove(); go('stop'); };
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 8000);
+}
+async function pollStops() {
+  try {
+    const f = await api('/api/v1/stops' + (S.cursor ? '?since=' + encodeURIComponent(S.cursor) : ''));
+    S.skew = f.serverTime - Date.now();
+    // A rewound replay starts the ids again: forget everything and reload.
+    if (S.epoch !== undefined && f.epoch !== S.epoch) { S.epoch = f.epoch; S.stops.clear(); S.seen.clear(); S.cursor = null; S.unread = 0; return pollStops(); }
+    S.epoch = f.epoch;
+    const first = S.cursor === null;
+    for (const st of f.stops) {
+      S.stops.set(st.id, st);
+      if (!S.seen.has(st.id)) {
+        S.seen.add(st.id);
+        if (!first && st.state === 'open') { if (S.channel !== 'stop') S.unread++; toast(st); }
+      }
+    }
+    S.cursor = f.cursor;
+    if (f.stops.length) render(true);
+    if (f.more) return pollStops();
+  } catch (e) { if (e.message !== 'signed out') console.warn('stop feed', e.message); }
+}
+async function pollLine() {
+  try {
+    const l = await api('/api/v1/agent/line');
+    S.line = l; S.tz = l.tz || S.tz; S.robots = l.robots;
+    renderRail();
+  } catch (e) { if (e.message !== 'signed out') console.warn('line', e.message); }
+}
+async function pollReplay() {
+  if (!TEAM.replay) return;
+  try { S.replay = await api('/api/v1/replay'); } catch (e) {}
+}
+
+// ---------------- doing things to a stop ----------------
+async function ack(id, kind) {
+  const errEl = document.querySelector('[data-err="' + id + '"]');
+  try {
+    const r = await api('/api/v1/stops/' + id + '/ack', { method: 'POST', body: JSON.stringify({ kind, minutes: kind === 'snooze' ? 15 : undefined }) });
+    S.stops.set(r.stop.id, r.stop); render(true);
+  } catch (e) { if (errEl) errEl.textContent = e.message; }
+}
+async function fix(id, text) {
+  const errEl = document.querySelector('[data-err="' + id + '"]');
+  try {
+    const r = await api('/api/v1/stops/' + id + '/fix', { method: 'POST', body: JSON.stringify({ text }) });
+    S.stops.set(r.stop.id, r.stop); render(true);
+  } catch (e) { if (errEl) errEl.textContent = e.message; }
+}
+
+// ---------------- Mara ----------------
+async function ask(q) {
+  q = String(q || '').trim(); if (!q || S.busy) return;
+  if (S.channel !== 'mara') S.channel = 'mara';
+  S.mara.push({ me: true, text: q }); S.busy = true; render();
+  try {
+    const p = Mara.plan(q, { robots: S.robots, nowMs: now() });
+    const data = {};
+    for (const path of p.calls) data[path] = await api(path);
+    const a = Mara.answer(p, data, { tz: S.tz, role: ACC.role });
+    S.mara.push({ html: a.html, chips: a.chips });
+    if (a.view && TEAM.dashboard) showPane(a.view, false);
+  } catch (e) {
+    S.mara.push({ html: 'I could not read that just now (' + esc(e.message) + '). Try again in a moment.', chips: [] });
+  }
+  S.busy = false; render();
+}
+
+// ---------------- the dashboard pane ----------------
+const TABS = [['dashv2', 'Overview'], ['robots', 'Fleet'], ['incidents', 'Incidents']];
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = TABS.map(([v, l]) => '<button role="tab" data-pane="' + v + '" aria-selected="' + (S.pane === v) + '">' + l + '</button>').join('')
+    + '<span class="grow"></span><button class="closepane" data-closepane aria-label="Close the dashboard">Close</button>';
+}
+function hideChrome() {
+  // The dashboard brings its own rail, top bar and assistant; here they are the team's.
+  try {
+    const d = document.getElementById('dash').contentDocument;
+    if (!d || d.getElementById('team-embed')) return;
+    const st = d.createElement('style'); st.id = 'team-embed';
+    st.textContent = '[data-side],[data-topbar],[data-subnav],#assistant-slot,#ours-ask-mount,[data-assistant-slot]{display:none !important}[data-grid]{grid-template-columns:minmax(0,1fr) !important}';
+    d.head.appendChild(st);
+  } catch (e) {}
+}
+function paneGo(view) {
+  try { const w = document.getElementById('dash').contentWindow; if (w && typeof w.goView === 'function') { w.goView(view); hideChrome(); } } catch (e) {}
+}
+function showPane(view, open) {
+  if (!TEAM.dashboard) return;
+  S.pane = view || S.pane;
+  if (open !== false) S.paneOpen = true;
+  const frame = document.getElementById('dash');
+  if (frame.src === 'about:blank' || frame.getAttribute('src') === 'about:blank') {
+    frame.onload = () => { hideChrome(); paneGo(S.pane); setTimeout(hideChrome, 300); };
+    frame.src = '/app?page=mfg&view=' + encodeURIComponent(S.pane);
+  } else paneGo(S.pane);
+  layout(); renderTabs();
+}
+function layout() {
+  const app = document.getElementById('app');
+  const wide = window.matchMedia('(min-width: 821px)').matches;
+  app.classList.toggle('pane-closed', !TEAM.dashboard || (!S.paneOpen && !wide) || (wide && !S.paneOpen));
+  app.classList.toggle('pane-open', !!S.paneOpen);
+}
+
+// ---------------- events ----------------
+function go(ch) {
+  S.channel = ch;
+  if (ch === 'stop') S.unread = 0;
+  if (ch.startsWith('robot:') && TEAM.dashboard && window.matchMedia('(min-width: 821px)').matches && S.paneOpen) paneGo('robots');
+  render();
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, [data-ch]');
+  if (!t) return;
+  if (t.dataset.ch) return go(t.dataset.ch);
+  if (t.dataset.ack) { t.disabled = true; return ack(Number(t.dataset.id), t.dataset.ack); }
+  if (t.dataset.ask) return ask(t.dataset.ask);
+  if (t.dataset.pane) return showPane(t.dataset.pane);
+  if (t.hasAttribute('data-closepane')) { S.paneOpen = false; layout(); renderRail(); return; }
+  if (t.id === 'togglePane') { if (S.paneOpen) { S.paneOpen = false; layout(); } else showPane(S.pane); renderRail(); return; }
+  if (t.id === 'rewind') {
+    const speed = Number(document.getElementById('speed').value) || 1;
+    t.disabled = true;
+    api('/api/v1/replay', { method: 'POST', body: JSON.stringify({ action: 'rewind', speed }) })
+      .then((r) => { S.replay = r; S.stops.clear(); S.seen.clear(); S.cursor = null; S.epoch = r.startedAt; S.unread = 0; render(); return pollStops(); })
+      .catch((err) => alertLine(err.message));
+  }
+});
+document.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (e.target.id === 'askForm') { const i = document.getElementById('ask'); const q = i.value; i.value = ''; return ask(q); }
+  const id = e.target.dataset.fix;
+  if (id) { const v = e.target.querySelector('input').value.trim(); if (v) fix(Number(id), v); }
+});
+document.addEventListener('mouseover', (e) => {
+  const m = e.target.closest('.mate'); const old = document.querySelector('.tip'); if (old) old.remove();
+  if (!m || !window.matchMedia('(hover:hover)').matches) return;
+  const r = m.getBoundingClientRect(); const t = document.createElement('div');
+  t.className = 'tip'; t.textContent = m.getAttribute('aria-label');
+  t.style.left = (r.right + 8) + 'px'; t.style.top = (r.top + r.height / 2 - 12) + 'px';
+  document.body.appendChild(t);
+});
+function alertLine(text) { S.mara.push({ html: esc(text), chips: [] }); render(); }
+window.addEventListener('resize', layout);
+
+// ---------------- start ----------------
+(async function start() {
+  S.mara.push({ html: 'Hi, I am Mara. I read your robots’ data and never control a robot. Ask me anything below, or open the Stop Watcher to see stops as they happen.', chips: Mara.SUGGESTED.slice(0, 3) });
+  render(); renderTabs();
+  if (TEAM.dashboard && window.matchMedia('(min-width: 1100px)').matches) showPane('dashv2');
+  await Promise.all([pollLine(), pollStops(), pollReplay()]);
+  render();
+  setInterval(pollStops, POLL_MS);
+  setInterval(pollLine, LINE_MS);
+  setInterval(pollReplay, 10000);
+  // Open stops count up between polls.
+  setInterval(() => { if (openStops().length) renderChat(true); }, 20000);
+})();
+</script>
+</body>
+</html>
