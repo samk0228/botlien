@@ -28,6 +28,7 @@ import { connectVendor, describeConnections, VENDORS } from "./connections.mjs";
 import { newApiKey, hashApiKey, pushEvents, MAX_KEYS } from "./push.mjs";
 import { publicSlackSettings, saveSlackSettings, clearSlackSettings } from "./slack.mjs";
 import { incidentOut } from "./incidents.mjs";
+import { createAgentApi } from "./agent-api.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { addTicket, updateTicket } from "./tickets.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -353,7 +354,10 @@ export function createTenancy({
       });
       return setupState();
     };
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack };
+    // The agents' read-only questions (line, stops, costs, history), from the
+    // same contract the dashboard reads.
+    const agent = createAgentApi({ store, config, now });
+    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

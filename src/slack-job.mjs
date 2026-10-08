@@ -1,6 +1,7 @@
-// Stop alerts in Slack, checked every half minute for every account that has
-// connected a channel. Each tick brings every robot's incident record in
-// line with its latest sample (incidents.mjs), then for each open stop:
+// Stop records, and stop alerts in Slack, checked every half minute. Each tick
+// brings every account's robots' incident records in line with their latest
+// samples (incidents.mjs), Slack or not. Then, for an account that has
+// connected a channel, for each open stop:
 // posts the alert once, keeps that one message up to date (down time, cost,
 // who claimed it) rather than posting again, and escalates in a thread reply
 // that mentions the lead after ten unclaimed minutes and the manager ten
@@ -77,6 +78,13 @@ export function createSlackAlertsJob({ control, tenants, vault, config = {}, fet
     for (const account of control.listAccounts()) {
       try {
         const store = tenants.get(account.id);
+        // Every account's stops are recorded, Slack or not: the agents' API
+        // and the stop feed read them. Only posting needs a channel.
+        const changes = new Map();
+        for (const robot of store.listRobots()) {
+          const r = reconcile(store, robot, nowMs);
+          if (r.change) changes.set(r.incident.id, r);
+        }
         const settings = slackSettings(store);
         if (!settings) continue;
         const token = slackToken(store, vault);
@@ -85,11 +93,6 @@ export function createSlackAlertsJob({ control, tenants, vault, config = {}, fet
           continue;
         }
         const client = createSlackClient({ token, fetchImpl });
-        const changes = new Map();
-        for (const robot of store.listRobots()) {
-          const r = reconcile(store, robot, nowMs);
-          if (r.change) changes.set(r.incident.id, r);
-        }
         const open = store.openIncidents();
         const closed = [...changes.values()].filter((c) => c.change === "closed").map((c) => c.incident);
         if (open.length === 0 && closed.length === 0) continue;

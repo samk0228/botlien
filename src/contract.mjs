@@ -59,7 +59,7 @@ function hhmm(ms, tz) {
   return new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(ms);
 }
 
-function localMidnightMs(key, tz) {
+export function localMidnightMs(key, tz) {
   // The UTC instant at which `key` begins in tz. Found by correcting a UTC
   // guess by the zone's offset on that date; exact outside DST switch hours,
   // which a billing boundary never falls on.

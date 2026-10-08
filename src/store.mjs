@@ -927,6 +927,25 @@ export class Store {
     return this.db.prepare(`SELECT * FROM incidents WHERE started_at>=? ORDER BY started_at DESC, id DESC LIMIT ?`).all(sinceMs, limit);
   }
 
+  /** Stops for the agents' API. With `after` ({ updatedAt, id }) it is a
+   *  feed: every stop changed since that cursor, oldest change first, so a
+   *  caller that pages with the last row's cursor never skips one. Without
+   *  it, the stops that started in [sinceMs, untilMs), newest first. */
+  queryIncidents({ robotId = null, sinceMs = 0, untilMs = Number.MAX_SAFE_INTEGER, after = null, limit = 200 } = {}) {
+    const where = ["started_at>=?", "started_at<?"];
+    const vals = [sinceMs, untilMs];
+    if (robotId !== null) {
+      where.push("robot_id=?");
+      vals.push(robotId);
+    }
+    if (after) {
+      where.push("(updated_at>? OR (updated_at=? AND id>?))");
+      vals.push(after.updatedAt, after.updatedAt, after.id);
+    }
+    const order = after ? "updated_at, id" : "started_at DESC, id DESC";
+    return this.db.prepare(`SELECT * FROM incidents WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`).all(...vals, limit);
+  }
+
   /** Change some of an incident's fields (camelCase names); undefined fields
    *  are left alone. Always stamps updated_at. Returns the row. */
   updateIncident(id, fields, nowMs) {
