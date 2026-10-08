@@ -9,7 +9,8 @@
 // null until the owner enters a profit per part. Both live under fields the
 // role rules know as money, so a technician never receives either.
 import { incidentView, KINDS, ESCALATE_AFTER_MS } from "./incidents.mjs";
-import { lineEventOut, STEP_MS } from "./line.mjs";
+import { lineEventOut, timeline, stopImpacts, STEP_MS, MAX_GAP_MS } from "./line.mjs";
+import { loadInputs } from "./inputs.mjs";
 
 export class StopError extends Error {}
 
@@ -59,10 +60,24 @@ export function escalateStops(store, nowMs) {
   return out;
 }
 
-/** The robots a stop left waiting, from the line job's record of it. Empty
- *  until that job has read the stretch (every two minutes) or when the
- *  account has no line map. */
+/** The robots a stop left waiting. While it is open, worked out now from the
+ *  line's own timeline with the line job's rule (never a twin, never a wait
+ *  shorter than a cycle's), so it fills in as the stop goes on instead of on
+ *  the line job's next two-minute tick. Once it is over, the line job's
+ *  record of it. Empty with no line map, or a robot on no line. */
 function leftWaiting(store, inc, nameOf, nowMs) {
+  const shape = (idle) => Object.entries(idle).map(([id, ms]) => ({ robotId: Number(id), name: nameOf(Number(id)), minutes: Math.round(ms / 60_000) })).filter((w) => w.minutes > 0);
+  if (inc.status === "open") {
+    const map = loadInputs(store).account.lineMap ?? null;
+    const line = map?.lines?.find((l) => l.stations.some((st) => st.kind === "robot" && st.robotId === inc.robot_id));
+    if (!line) return [];
+    const ids = line.stations.filter((st) => st.kind === "robot").map((st) => st.robotId);
+    const from = Math.floor(inc.started_at / STEP_MS) * STEP_MS;
+    const to = Math.max(from, Math.floor(nowMs / STEP_MS) * STEP_MS);
+    const tl = timeline(Object.fromEntries(ids.map((id) => [id, store.snapshotsBetween(id, from - MAX_GAP_MS, to)])), from, to);
+    const [impact] = stopImpacts(line, tl, [{ robotId: inc.robot_id, startedAt: from, endedAt: null }]);
+    return impact ? shape(impact.idle) : [];
+  }
   const near = store.listLineEvents({ sinceMs: inc.started_at - 2 * STEP_MS, untilMs: inc.started_at + 2 * STEP_MS + 1, limit: 50 });
   const own = near.find((e) => e.kind === "stop" && e.robot_id === inc.robot_id);
   return own ? lineEventOut(own, nameOf, nowMs).idle.filter((w) => w.minutes > 0) : [];
