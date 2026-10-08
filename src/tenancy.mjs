@@ -29,6 +29,8 @@ import { newApiKey, hashApiKey, pushEvents, MAX_KEYS } from "./push.mjs";
 import { publicSlackSettings, saveSlackSettings, clearSlackSettings } from "./slack.mjs";
 import { incidentOut } from "./incidents.mjs";
 import { createAgentApi } from "./agent-api.mjs";
+import { stopFeed, stopRecord, ackStop, fixStop, parseCursor } from "./stops.mjs";
+import { rewind, stopReplay, replayStatus, advance, ReplayError } from "./replay.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { addTicket, updateTicket } from "./tickets.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
@@ -75,11 +77,14 @@ export function createTenancy({
   secureCookies = false,
   readBody,
   opsEmails = process.env.BOTLIEN_OPS_EMAILS ?? "",
+  // Accounts whose fleet a replay may wipe and refill. Never a customer's.
+  demoEmails = process.env.BOTLIEN_DEMO_EMAILS ?? "",
   log = () => {},
   vault = null,
   fetchImpl = fetch,
 }) {
   const opsSet = parseOpsEmails(opsEmails);
+  const demoSet = parseOpsEmails(demoEmails);
   const pushHits = new Map(); // key id -> recent request times
   const connectHits = new Map(); // account id -> recent connect attempts
   /** Events with no account attached (`landed`) still belong in the funnel. */
@@ -402,7 +407,41 @@ export function createTenancy({
         return gone;
       },
     };
-    return { store, account, viewer, members, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
+    // Stops in the dashboard: the feed the Stop Watcher polls, and the two
+    // things a person does to a stop. Acknowledging and logging a fix are
+    // open to every role; they are the technician's job.
+    const stops = {
+      feed: (since) => forViewer(stopFeed(store, fleetContract(store, now(), config), now(), parseCursor(since))),
+      ack: (id, body) => {
+        const inc = ackStop(store, id, body ?? {}, viewer.email, now());
+        return forViewer(stopRecord(store, fleetContract(store, now(), config), inc, now()));
+      },
+      fix: (id, body) => {
+        const inc = fixStop(store, id, body ?? {}, viewer.email, now());
+        return forViewer(stopRecord(store, fleetContract(store, now(), config), inc, now()));
+      },
+    };
+    // The replay, on a demo account only: rewind wipes the fleet.
+    const isDemo = demoSet.has(normalizeEmail(account.email));
+    const replay = {
+      allowed: isDemo && viewer.role === "owner",
+      status: () => ({ demo: isDemo, ...replayStatus(store, now()) }),
+      control(action, body = {}) {
+        if (!replay.allowed) throw new ReplayError("Replays run on a demo account only, by its owner.");
+        if (action === "rewind") {
+          const s = rewind(store, { recording: body.recording ?? "stop-story", speed: body.speed === undefined ? 1 : Number(body.speed), by: viewer.email }, now());
+          advance(store, now(), config);
+          log(`account ${account.id} rewound the ${s.recording} replay`);
+          return replay.status();
+        }
+        if (action === "stop") {
+          stopReplay(store, now());
+          return replay.status();
+        }
+        throw new ReplayError("action is rewind or stop.");
+      },
+    };
+    return { store, account, viewer, members, stops, replay, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

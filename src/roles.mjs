@@ -26,7 +26,7 @@ export const canManageTeam = (role) => role === "owner";
 const MONEY_KEY = /cents/i;
 const MONEY_KEYS = new Set([
   "cost", "costs", "derivation", "coverage", "coverageDelta", "siteCoverage", "payback", "contracts",
-  "inputs", "rateHistory", "resaleShare", "installMultiple", "priceSource",
+  "inputs", "rateHistory", "resaleShare", "installMultiple", "priceSource", "robotTimeCost", "partsLost",
 ]);
 const DOLLAR_TEXT = /\$\s?\d/;
 export const HIDDEN = "[hidden for your role]";

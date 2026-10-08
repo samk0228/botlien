@@ -81,7 +81,10 @@ export function reconcile(store, robot, nowMs, { silentMs = SILENT_MS } = {}) {
       const inc = store.updateIncident(last.id, { status: "open", endedAt: null, lastSeenAt: latest.at, repeats: last.repeats + 1, code: found.code, description: found.description }, nowMs);
       return { incident: inc, change: "reopened" };
     }
-    const id = store.insertIncident({ robotId: robot.id, kind: found.kind, code: found.code, description: found.description, severity: found.severity, startedAt: latest.at, lastSeenAt: latest.at }, nowMs);
+    // A stop read from a replay says so for the rest of its life, so it is
+    // never shown as a live robot's.
+    const source = latest.source === "replay" ? "replay" : "robot";
+    const id = store.insertIncident({ robotId: robot.id, kind: found.kind, code: found.code, description: found.description, severity: found.severity, startedAt: latest.at, lastSeenAt: latest.at, source }, nowMs);
     return { incident: store.incident(id), change: "opened" };
   }
   if (open && !found) {

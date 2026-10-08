@@ -322,6 +322,23 @@ export const MIGRATIONS = [
      UNIQUE(line, kind, station, started_at)
    );
    CREATE INDEX IF NOT EXISTS line_events_time ON line_events(started_at);`,
+  // 7. Stops in the dashboard, Slack or not (src/stops.mjs). Where the stop
+  //    came from (a robot, or a replay, which is never shown as live), what
+  //    fixed it and who said so, and every acknowledgement: on it, looking,
+  //    or snoozed until a time.
+  `ALTER TABLE incidents ADD COLUMN source TEXT NOT NULL DEFAULT 'robot';
+   ALTER TABLE incidents ADD COLUMN fix_text TEXT;
+   ALTER TABLE incidents ADD COLUMN fixed_by TEXT;
+   ALTER TABLE incidents ADD COLUMN fixed_at INTEGER;
+   CREATE TABLE IF NOT EXISTS stop_acks (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     incident_id INTEGER NOT NULL,
+     kind TEXT NOT NULL,
+     by_email TEXT NOT NULL,
+     at INTEGER NOT NULL,
+     until INTEGER
+   );
+   CREATE INDEX IF NOT EXISTS stop_acks_incident ON stop_acks(incident_id, at);`,
 ];
 
 export function migrate(db) {
@@ -897,14 +914,41 @@ export class Store {
   }
 
   // ---- incidents (migration 5) ----
-  insertIncident({ robotId, kind, code = null, description = null, severity = "critical", startedAt, lastSeenAt = null }, nowMs) {
+  insertIncident({ robotId, kind, code = null, description = null, severity = "critical", startedAt, lastSeenAt = null, source = "robot" }, nowMs) {
     const r = this.db
       .prepare(
-        `INSERT INTO incidents (robot_id, kind, code, description, severity, started_at, last_seen_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO incidents (robot_id, kind, code, description, severity, started_at, last_seen_at, updated_at, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(robotId, kind, code, description, severity, startedAt, lastSeenAt ?? startedAt, nowMs);
+      .run(robotId, kind, code, description, severity, startedAt, lastSeenAt ?? startedAt, nowMs, source);
     return Number(r.lastInsertRowid);
+  }
+
+  insertStopAck({ incidentId, kind, by, until = null }, nowMs) {
+    this.db.prepare(`INSERT INTO stop_acks (incident_id, kind, by_email, at, until) VALUES (?, ?, ?, ?, ?)`).run(incidentId, kind, by, nowMs, until);
+    // An acknowledgement is a change to the stop: its cursor moves so every
+    // dashboard polling the feed sees it.
+    this.db.prepare(`UPDATE incidents SET updated_at=MAX(?, updated_at + 1) WHERE id=?`).run(nowMs, incidentId);
+  }
+
+  stopAcks(incidentId) {
+    return this.db.prepare(`SELECT * FROM stop_acks WHERE incident_id=? ORDER BY at, id`).all(incidentId);
+  }
+
+  /** Forget every robot, sample, stop and line event, and start the ids
+   *  again from 1. Only the replay's rewind calls this, on a demo account,
+   *  so the same recording gives the same stops with the same ids. */
+  clearFleetData() {
+    this.transaction(() => {
+      for (const t of ["status_snapshots", "raw_events", "heartbeats", "utilization_rollups", "flags", "incidents", "stop_acks", "line_events", "robot_exclusions", "robots"]) {
+        try {
+          this.db.exec(`DELETE FROM ${t}`);
+        } catch {}
+      }
+      try {
+        this.db.exec(`DELETE FROM sqlite_sequence WHERE name IN ('status_snapshots','raw_events','heartbeats','flags','incidents','stop_acks','line_events','robots')`);
+      } catch {}
+    });
   }
 
   incident(id) {
@@ -953,7 +997,8 @@ export class Store {
       kind: "kind", code: "code", description: "description", severity: "severity", startedAt: "started_at",
       lastSeenAt: "last_seen_at", endedAt: "ended_at", repeats: "repeats", status: "status", channel: "channel",
       messageTs: "message_ts", notifiedAt: "notified_at", renderedAt: "rendered_at", claimedBy: "claimed_by",
-      claimedAt: "claimed_at", escalated: "escalated", escalatedAt: "escalated_at",
+      claimedAt: "claimed_at", escalated: "escalated", escalatedAt: "escalated_at", source: "source",
+      fixText: "fix_text", fixedBy: "fixed_by", fixedAt: "fixed_at",
     };
     const sets = [], vals = [];
     for (const [k, v] of Object.entries(fields ?? {})) {
@@ -961,7 +1006,10 @@ export class Store {
       sets.push(`${cols[k]}=?`);
       vals.push(v);
     }
-    sets.push("updated_at=?");
+    // Strictly later than the last change, even within the same
+    // millisecond, so a feed cursor taken between two changes never
+    // skips the second.
+    sets.push("updated_at=MAX(?, updated_at + 1)");
     vals.push(nowMs, id);
     this.db.prepare(`UPDATE incidents SET ${sets.join(", ")} WHERE id=?`).run(...vals);
     return this.incident(id);

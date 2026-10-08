@@ -51,8 +51,8 @@ export function createEngine({ store, connectors, config, log = () => {} }) {
    * storeRaw=false skips the raw_events archive. Backfill generates six figures
    * of synthetic rows whose JSON payload dwarfs everything else in the file,
    * and replaying a simulator is not an audit trail worth keeping. */
-  function ingest(connectorName, events, receivedAtMs, { storeRaw = true } = {}) {
-    const source = connectorName === "sim" ? "sim" : "live";
+  function ingest(connectorName, events, receivedAtMs, { storeRaw = true, source: as = null } = {}) {
+    const source = as ?? (connectorName === "sim" ? "sim" : "live");
     for (const ev of events ?? []) {
       const robotKey = `${connectorName}:${ev.externalId}`;
       const rawEventId = storeRaw

@@ -14,6 +14,7 @@
 import { fleetContract, KV_TZ } from "./contract.mjs";
 import { reconcile, incidentView, escalationDue, usualPace, ESCALATE_AFTER_MS } from "./incidents.mjs";
 import { slackSettings, slackToken, createSlackClient, incidentBlocks, incidentText, verifySlackSignature, parseInteraction } from "./slack.mjs";
+import { escalateStops } from "./stops.mjs";
 
 const DEFAULT_TZ = "America/Los_Angeles";
 // An open stop's message is brought up to date at least this often.
@@ -86,7 +87,12 @@ export function createSlackAlertsJob({ control, tenants, vault, config = {}, fet
           if (r.change) changes.set(r.incident.id, r);
         }
         const settings = slackSettings(store);
-        if (!settings) continue;
+        if (!settings) {
+          // No channel: the dashboard is where the stop is seen, and it
+          // escalates there.
+          for (const inc of escalateStops(store, nowMs)) results.push({ accountId: account.id, incident: inc.id, escalated: inc.escalated });
+          continue;
+        }
         const token = slackToken(store, vault);
         if (!token) {
           results.push({ accountId: account.id, skip: "no key to open the Slack token" });
