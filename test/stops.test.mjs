@@ -199,3 +199,14 @@ test("over HTTP: the feed, acknowledge and fix; a technician acts on stops but n
     control.close();
   }
 });
+
+test("the Team page's request shapes are accepted: since=0 before a cursor, and `what` for the fix", async () => {
+  const s = openStore(":memory:");
+  rewind(s, {}, T0);
+  await play(s, { untilMs: T0 + 17 * MIN });
+  const { parseCursor } = await import("../src/stops.mjs");
+  assert.equal(parseCursor("0"), null);
+  assert.deepEqual(stopFeed(s, fleetContract(s, T0 + 17 * MIN, {}), T0 + 17 * MIN, parseCursor("0")).stops.map((x) => x.id), [1]);
+  fixStop(s, 1, { what: "Reset the machine it waits on" }, "dana@linelab.io", T0 + 17 * MIN);
+  assert.equal(s.incident(1).fix_text, "Reset the machine it waits on");
+});

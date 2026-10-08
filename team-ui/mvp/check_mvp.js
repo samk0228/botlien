@@ -48,6 +48,17 @@ function team(){return[
  {id:'log',g:'Specialists',name:'Logbook Keeper',role:'Keeps a record of stops',shape:'log',color:'#6A6A70'}
 ]}
 var GEN=0,DEAD=new Promise(function(){});
+/* Hosted on app.botlien.com with a signed-in account: stops come from the live feed only, so the
+   sample story's test alert, sample history and sample incidents are left out. */
+var HOSTED=!!window.__BOTLIEN_HOSTED;
+/* Hosted, the view follows the account: someone the server sends no dollars to sees the
+   technician view and cannot switch it (the server already strips the figures). */
+var HOSTED_ROLE_LOCKED=false;
+function hostedRole(){
+ if(!HOSTED)return;
+ var h=window.__BOTLIEN_HOSTED;
+ if(h.dollars===false){HOSTED_ROLE_LOCKED=true;setRole('Technician',true);var b=$('roleBtn');if(b){b.textContent='Viewing as: Technician';b.setAttribute('aria-disabled','true');b.title='Your account shows times and causes only'}}
+}
 function whenFeed(cb){var g=GEN,n=0;(function go(){if(g!==GEN)return;if(feed().ok)cb();else if(n++>40)say('mara','I could not reach the sample feed. Please reload the page.',{wait:200});else TIMERS.push(setTimeout(go,1000))})()}
 function initThreads(){GEN++;TH={};QS={};SEEDED=false;TIMERS.forEach(clearTimeout);TIMERS=[];team().forEach(function(d){TH[d.id]=Object.assign({msgs:[],unread:0,last:'',time:'',chips:[],typing:false},d)})}
 function visible(){return Object.keys(TH).map(function(k){return TH[k]}).filter(function(t){return t.hired||S.hired})}
@@ -545,7 +556,9 @@ function resetAll(){
 }
 function startReady(){
  resetAll();initRoutines();S.setup.on=false;S.hired=true;seed();renderAll();
- say('mara','Hi, I am Mara. Your team is ready. I only read data, I never control a robot.',{wait:450}).then(function(){whenFeed(firstHour)});
+ say('mara','Hi, I am Mara. Your team is ready. I only read data, I never control a robot.',{wait:450}).then(function(){
+  if(HOSTED){say('mara','When a robot stops, the Stop Watcher shows it within seconds, with the cause, the robot time it cost and what it held up.',{wait:300});setChips('mara',askChips());return}
+  whenFeed(firstHour)});
 }
 function startSetup(){
  resetAll();initRoutines();
@@ -594,12 +607,13 @@ function seed(){
   var id=r.id,mine=INC.filter(function(x){return x.r===i}),mins=mine.reduce(function(a,x){return a+x.min},0);
   stamp(id,'Setup');
   pushRec(id,{k:'ai',quiet:true,short:'Today',html:'Hi, I am the '+r.name+' Watcher. I watch the '+r.model+' and tell the Stop Watcher when it stops. I only read data.'});
-  pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
+  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
  });
  stamp('stop','Setup');
  pushRec('stop',{k:'ai',quiet:true,short:'Today',html:'Hi, I am the Stop Watcher. When a cell stays stopped past your limit I tell the right person, with what it is holding up. If nobody answers, I use the backup.'});
  stamp('log','Setup');
  var rows='';INC.forEach(function(x){rows+='<tr><td>'+x.d+' '+x.t+'</td><td>'+R[x.r].name+'</td><td>'+x.min+' min</td><td>'+esc(x.err)+'</td></tr>'});
+ if(HOSTED){pushRec('log',{k:'ai',quiet:true,short:'Today',html:'I keep the record so nobody has to type it. Every stop that ends lands here, with what fixed it.'});return}
  pushRec('log',{k:'ai',quiet:true,short:'Today',html:'I keep the record so nobody has to type it. Logged for the sample period (Aug 4 to Sep 3):<table class="lg"><tr><th>When</th><th>Robot</th><th>Down</th><th>It reported</th></tr>'+rows+'</table>'});
 }
 
@@ -1047,7 +1061,9 @@ var ONB={step:0,acct:{name:'Alex Morgan',email:'alex@demo-plant.example',co:'Dem
 var ONB_STEPS=['Create account','Your floor','Connect robots','Alerts','Your team'];
 function onbOpen(){
  ONB.step=0;ONB.conn=0;ONB.rows=[];ONB.tok++;
- var o=$('onb');o.hidden=false;document.body.classList.add('onbopen');$('onbmark').src=LOGO;$('onbmark2').src=LOGO;renderOnb();
+ var o=$('onb');o.hidden=false;document.body.classList.add('onbopen');$('onbmark').src=LOGO;$('onbmark2').src=LOGO;
+ if(HOSTED){var demo=o.querySelector('.onbdemo');if(demo)demo.textContent='Read only. Botlien never controls a robot.';onbHostLoad().then(function(){renderOnb();onbHostPoll()}).catch(function(e){ONBH.err=e.message;ONBH.st={brands:[],robots:[],alerts:{}};renderOnb()});return}
+ renderOnb();
 }
 function onbClose(){var o=$('onb');o.hidden=true;document.body.classList.remove('onbopen');ONB.tok++}
 function onbGo(n){ONB.step=n;ONB.tok++;if(n!==2){ONB.conn=0;ONB.rows=[]}renderOnb();var m=$('onbmain');m.scrollTop=0;var h=m.querySelector('h1');if(h){h.setAttribute('tabindex','-1');h.focus({preventScroll:true})}}
@@ -1058,6 +1074,7 @@ function onbSteps(){
  return h;
 }
 function onbBody(){
+ if(HOSTED&&ONBH.st)return onbHostBody();
  var s=ONB.step,a=ONB.acct,c=ONB.cfg,h='';
  if(s===0){
   h+='<h1>Create your account</h1><p class="osub">Demo account. Nothing is saved or sent.</p>';
@@ -1135,6 +1152,7 @@ function onbFinish(){
 }
 function onbClick(e){
  var b=e.target.closest&&e.target.closest('[data-onb]');if(!b||b.disabled)return;
+ if(HOSTED&&onbHostClick(b))return;
  var k=b.getAttribute('data-onb');
  if(k==='acct'){
   var n=$('onbName').value.trim(),m=$('onbEmail').value.trim(),c=$('onbCo').value.trim();
@@ -1148,19 +1166,108 @@ function onbClick(e){
  if(k==='set'){
   var key=b.getAttribute('data-k'),v=b.getAttribute('data-v');
   if(key==='role')ONB.role=v;else if(key==='escalate')ONB.cfg.escalate=v==='true';else if(key==='delay')ONB.cfg.delay=+v;else ONB.cfg[key]=v;
+  if(HOSTED&&$('onbLead'))ONBH.lead=$('onbLead').value.trim();
   var ps=b.parentNode.querySelectorAll('button');for(var i=0;i<ps.length;i++)ps[i].setAttribute('aria-pressed',ps[i]===b?'true':'false');
  }
+}
+
+/* ===== hosted on app.botlien.com: the same five screens, saved for real =====
+   Each step posts to /api/v1/onboarding/<step>; where the account stands is read back from the
+   server, so a reload or a second device opens on the same step. The connect step is the honest
+   one: a small gateway on the shop network (we set it up with them) and a real key, with the
+   robots listed as their first readings arrive. Read only throughout. */
+var ONBH={st:null,key:null,err:'',busy:false,poll:0,lead:''};
+var ONBH_STEPS=['account','floor','connect','alerts','team'];
+var ONBH_MONEY={'owner_lead':'Owner and lead','owner':'Only the owner','everyone':'Everyone'};
+function onbApi(path,body){
+ return fetch('/api/v1/onboarding'+path,body===undefined?{credentials:'same-origin',cache:'no-store'}:{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j})});
+}
+function onbHostLoad(){
+ return onbApi('').then(function(st){
+  ONBH.st=st;var i=ONBH_STEPS.indexOf(st.step);ONB.step=i<0?4:i;
+  ONB.acct={name:st.name,email:st.email,co:st.company};ONB.role=st.role==='technician'?'Technician':'Owner';
+  ONBH.lead=st.alerts.leadEmail||'';
+  ONB.cfg={first:st.alerts.tellFirst,escalate:st.alerts.backup,delay:st.alerts.afterMinutes,managers:st.alerts.dollars};
+ });
+}
+function onbHostPoll(){
+ clearInterval(ONBH.poll);
+ if(ONB.step!==2)return;
+ ONBH.poll=setInterval(function(){if(ONB.step!==2){clearInterval(ONBH.poll);return}onbApi('').then(function(st){var had=ONBH.st.robots.length;ONBH.st=st;if(st.robots.length!==had)renderOnb()}).catch(function(){})},3000);
+}
+function onbHostBody(){
+ var s=ONB.step,a=ONB.acct,c=ONB.cfg,st=ONBH.st,h='',err=ONBH.err?'<p class="onote" role="alert" style="color:#D93A43">'+esc(ONBH.err)+'</p>':'';
+ var back='<button type="button" class="obtn" data-onb="hback">Back</button>';
+ if(s===0){
+  h+='<div class="otick"><i><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg></i>Signed in as '+esc(a.email)+'</div>';
+  h+='<h1>Create your account</h1><p class="osub">Two details, then your floor.</p>';
+  h+='<label class="ofld"><span>Your name</span><input id="onbName" type="text" value="'+esc(a.name)+'" autocomplete="name"></label>';
+  h+='<label class="ofld"><span>Company</span><input id="onbCo" type="text" value="'+esc(a.co)+'" autocomplete="organization"></label>';
+  h+='<div class="oact"><button type="button" class="obtn pri" data-onb="hacct">Continue</button></div>';
+ }else if(s===1){
+  h+='<h1>Your floor</h1><p class="osub">Two quick questions.</p>';
+  h+='<div class="olbl">What robots do you run?</div><div class="ocards">'+st.brands.map(function(b){return '<button type="button" class="ocard'+(b.key==='ur'?' on':'')+'"'+(b.available?' aria-pressed="true"':' disabled')+'><b>'+esc(b.label)+'</b><small>'+(b.available?'Available':'Later')+'</small></button>'}).join('')+'</div>';
+  h+='<div class="olbl">Your role</div>'+seg('role',[['Owner','Owner or manager'],['Technician','Technician']],ONB.role)+'<p class="onote">Owners and managers see dollars. Technicians see times and causes only.</p>';
+  h+='<div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="hfloor">Continue</button></div>';
+ }else if(s===2){
+  h+='<h1>Connect your robots</h1><p class="osub">Read only. Botlien never sends a command to a robot.</p>';
+  h+='<ol class="oinst"><li>A small gateway runs on a PC on your network, next to your arms. We set it up with you.</li><li>It needs this account’s key.</li><li>Your robots show up below as their first readings arrive.</li></ol>';
+  h+=ONBH.key?'<div class="ocode"><small>Your gateway key. It is shown once, so copy it now.</small><b style="font-size:15px;word-break:break-all">'+esc(ONBH.key)+'</b></div>':'<div class="oact" style="margin-top:0"><button type="button" class="obtn" data-onb="hkey">Make the gateway key</button></div>';
+  h+='<div class="oconn" aria-live="polite">'+(st.robots.length?st.robots.map(function(r){return '<div class="ocr rob"><span class="ocd green"></span><span><b>'+esc(r.name)+'</b><small>'+esc(r.model||'')+', found</small></span></div>'}).join(''):'<div class="ocr"><span class="ocd amber"></span><span><b>Waiting for the first readings</b></span></div>')+'</div>';
+  h+='<div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="hconn" data-mode="robots"'+(st.robots.length?'':' disabled')+'>Continue</button><button type="button" class="obtn" data-onb="hconn" data-mode="later">Connect later</button>'+(st.demo?'<button type="button" class="obtn" data-onb="hconn" data-mode="replay">Use the recorded demo</button>':'')+'</div>';
+ }else if(s===3){
+  var ln=ONBH.lead?ONBH.lead.split('@')[0]:'';
+  h+='<h1>Who hears about stops?</h1><p class="osub">Defaults are set. Change anything, or continue.</p>';
+  h+='<label class="ofld"><span>Your maintenance lead’s email (optional)</span><input id="onbLead" type="email" value="'+esc(ONBH.lead)+'" placeholder="lead@yourplant.com" autocomplete="off"></label>';
+  h+='<div class="olbl">Tell first</div>'+seg('first',[['owner','Me, the owner']].concat(ln?[['lead',ln+', maintenance lead']]:[]),c.first);
+  h+='<div class="olbl">If no answer in 10 minutes</div>'+seg('escalate',[['true','Tell the backup'],['false','No backup']],String(c.escalate));
+  h+='<div class="olbl">Alert after a stop lasts</div>'+seg('delay',[['2','2 minutes'],['5','5 minutes'],['10','10 minutes']],c.delay);
+  h+='<div class="olbl">Who sees dollar figures</div>'+seg('managers',[['owner_lead',ln?'Owner and '+ln:'Owner and lead'],['owner','Only the owner'],['everyone','Everyone']],c.managers);
+  h+='<p class="onote">Every stop shows in the Stop Watcher at once. These pick who gets pinged when texts or Slack are on.'+(ONBH.lead?' We will invite '+esc(ONBH.lead)+'.':'')+'</p>';
+  h+='<div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="halerts">Continue</button></div>';
+ }else{
+  h+='<h1>Your team is ready</h1><p class="osub">Mara is the lead. You talk to her, and she hands work to the watchers.</p><ul class="oteam">';
+  var rows=[['Mara','mara','Lead. Answers your questions.']];
+  st.robots.forEach(function(r){var i=-1;R.forEach(function(x,j){if(x.name===r.name)i=j});rows.push([r.name+' Watcher',i>=0?R[i].id:'','Watches '+r.name])});
+  if(!st.robots.length)rows.push(['Robot watchers','','One for each robot, once it is connected']);
+  rows.push(['Stop Watcher','stop','Tells the right person when a robot stops'],['Logbook Keeper','log','Keeps the record and what fixed each stop']);
+  rows.forEach(function(t,i){h+='<li style="animation-delay:'+(i*90)+'ms">'+avatar(t[1]||'log','#3A3A3F','sm')+'<b>'+esc(t[0])+'</b><small>'+esc(t[2])+'</small></li>'});
+  h+='</ul><p class="onote">Read only. Nothing here can control a robot.</p><div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="hfinish">Open Botlien</button></div>';
+ }
+ return h+err;
+}
+function onbHostSave(step,body){
+ if(ONBH.busy)return;ONBH.busy=true;ONBH.err='';
+ return onbApi('/'+step,body).then(function(st){
+  ONBH.busy=false;ONBH.st=st;
+  if(st.step==='done'){onbClose();startReady();hostedRole();return}
+  onbGo(ONBH_STEPS.indexOf(st.step));onbHostPoll();
+ }).catch(function(e){ONBH.busy=false;ONBH.err=e.message;renderOnb()});
+}
+/* Typing the lead's email puts their name on the choices that name them. */
+document.addEventListener('change',function(e){if(HOSTED&&e.target&&e.target.id==='onbLead'){ONBH.lead=e.target.value.trim();renderOnb()}});
+function onbHostClick(b){
+ var k=b.getAttribute('data-onb');
+ if(k==='hback'){ONBH.err='';onbGo(Math.max(0,ONB.step-1));onbHostPoll();return true}
+ if(k==='hacct'){onbHostSave('account',{name:$('onbName').value,company:$('onbCo').value});return true}
+ if(k==='hfloor'){onbHostSave('floor',{brand:'ur',role:ONB.role==='Technician'?'technician':'owner'});return true}
+ if(k==='hkey'){b.disabled=true;fetch('/api/v1/keys',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:'Gateway'})}).then(function(r){return r.json()}).then(function(j){if(!j.key)throw new Error(j.error||'Could not make a key');ONBH.key=j.key;renderOnb()}).catch(function(e){ONBH.err=e.message;renderOnb()});return true}
+ if(k==='hconn'){onbHostSave('connect',{mode:b.getAttribute('data-mode'),speed:10});return true}
+ if(k==='halerts'){var c=ONB.cfg,lead=($('onbLead')||{}).value||'';onbHostSave('alerts',{leadEmail:lead.trim()||null,tellFirst:lead.trim()?c.first:'owner',backup:c.escalate!==false&&c.escalate!=='false',afterMinutes:+c.delay,dollars:c.managers});return true}
+ if(k==='hfinish'){onbHostSave('team',{});return true}
+ return false;
 }
 /* ===== live stops: our own dashboard and chat, no Slack needed =====
    Turns on only when an API base is given (window.__BOTLIEN_API, or ?api=https://host/path in the page URL).
    Without it the page behaves exactly as the scripted demo. Contract: LIVE_STOPS_API_CONTRACT.md */
-var LIVE={api:null,cursor:0,seen:{},t:0,fails:0,on:false};
+var LIVE={api:null,cursor:0,seen:{},t:0,fails:0,on:false,epoch:undefined};
 function liveInit(){
  var q=(location.search.match(/[?&]api=([^&]+)/)||[])[1];
  LIVE.api=window.__BOTLIEN_API||(q?decodeURIComponent(q):null);
  if(!LIVE.api)return;
  LIVE.api=LIVE.api.replace(/\/+$/,'');LIVE.on=true;S.liveOpen={};
- clearInterval(LIVE.t);LIVE.t=setInterval(function(){if(!document.hidden)liveTick()},3000);liveTick();
+ clearInterval(LIVE.t);LIVE.t=setInterval(function(){if(!document.hidden)liveTick()},1500);liveTick();
 }
 function liveRobot(st){
  var n=String(st.robot==null?'':st.robot).toLowerCase(),i;
@@ -1190,10 +1297,27 @@ function liveAlert(st,mins,i){
  return{m:head+(m?' That is about <b>'+usd(cost)+'</b> of robot time'+parts+' so far.':(st.partsLost!=null?' About '+Math.round(st.partsLost)+' parts not made so far.':''))+leftTxt,
         p:head+(st.partsLost!=null?' About '+Math.round(st.partsLost)+' parts not made so far.':'')+leftTxt};
 }
+/* Botlien's API (app.botlien.com/api/v1) sends richer shapes than this page's contract:
+   robot as {id,name,model}, type "stop" for a protective stop, leftWaiting as [{name,minutes}],
+   robotTimeCost as {cents,basis,math}, fix as {text,by,at}, times in milliseconds. One place
+   turns them into the contract's, so the rest of the page is unchanged. */
+function liveNorm(st){
+ var o={},k;for(k in st)o[k]=st[k];
+ if(st.robot&&typeof st.robot==='object')o.robot=st.robot.name;
+ if(o.type==='stop')o.type='protective';
+ if(Array.isArray(st.leftWaiting))o.leftWaiting=st.leftWaiting.map(function(w){return w&&typeof w==='object'?w.name:w}).filter(Boolean);
+ if(st.robotTimeCost&&typeof st.robotTimeCost==='object')o.robotTimeCost=st.robotTimeCost.cents==null?null:st.robotTimeCost.cents/100;
+ if(st.partsLost&&typeof st.partsLost==='object')o.partsLost=st.partsLost.cents==null?null:st.partsLost.cents;
+ if(st.fix&&typeof st.fix==='object')o.fix=st.fix.text;
+ if(typeof st.startedAt==='number')o.startedAt=new Date(st.startedAt).toISOString();
+ if(typeof st.endedAt==='number')o.endedAt=new Date(st.endedAt).toISOString();
+ if(Array.isArray(st.acks))o.acks=st.acks.map(function(a){return{by:a.by&&a.by.indexOf('@')>0?(a.by===(window.__BOTLIEN_ACCOUNT||{}).email?'You':a.by.split('@')[0]):a.by,kind:a.kind,at:typeof a.at==='number'?new Date(a.at).toISOString():a.at,local:a.by===(window.__BOTLIEN_ACCOUNT||{}).email}});
+ return o;
+}
 function liveSend(path,body){
  try{fetch(LIVE.api+path,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).catch(function(){})}catch(e){}
 }
-function liveAck(id,kind){liveSend('/stops/'+encodeURIComponent(id)+'/ack',{kind:kind});say('stop',kind==='on'?'Thanks, noted. I will stay with it and tell you when the robot runs again.':kind==='snooze'?'Snoozed. I still log everything.':'Looking into it. This is a pattern from the logged history, not a diagnosis. A person decides.',{wait:250,tag:liveTag({source:LIVE.seen[id]&&LIVE.seen[id].source})})}
+function liveAck(id,kind){liveSend('/stops/'+encodeURIComponent(id)+'/ack',kind==='snooze'?{kind:kind,minutes:30}:{kind:kind});say('stop',kind==='on'?'Thanks, noted. I will stay with it and tell you when the robot runs again.':kind==='snooze'?'Snoozed. I still log everything.':'Looking into it. This is a pattern from the logged history, not a diagnosis. A person decides.',{wait:250,tag:liveTag({source:LIVE.seen[id]&&LIVE.seen[id].source})})}
 function liveFix(id,i,mins,what){
  liveSend('/stops/'+encodeURIComponent(id)+'/fix',{what:what});
  pushRec('log',{k:'ai',html:'<b>Updated.</b> '+esc(R[i].name)+', '+mins+' minutes down. What fixed it: '+esc(what)+'.',short:nowShort(),tag:'Live, note added'});
@@ -1203,6 +1327,12 @@ function liveStop(st){
  var i=liveRobot(st),mins=liveMins(st),seen=LIVE.seen[st.id],id=st.id;
  var open=st.state!=='closed';
  if(open)S.liveOpen[i]=true;else delete S.liveOpen[i];
+ /* The same stop opening again (it came back within 10 minutes and stopped again): say so, and
+    get ready to say it is running again a second time. */
+ if(seen&&open&&seen.closedSaid){
+  seen.closedSaid=false;seen.state='open';
+  say('stop','<b>'+esc(R[i].name)+' stopped again.</b> '+liveCause(st),{tag:liveTag(st),wait:150});
+ }
  if(!seen){
   seen=LIVE.seen[id]={state:st.state,acks:0,source:st.source,closedSaid:false};
   if(open){
@@ -1235,8 +1365,10 @@ function liveTick(){
   .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
   .then(function(j){
    LIVE.fails=0;
+   /* A rewound replay starts the stop ids again from 1: forget what was seen and read from the start. */
+   if(j&&j.epoch!==undefined){if(LIVE.epoch!==undefined&&j.epoch!==LIVE.epoch){LIVE.epoch=j.epoch;LIVE.seen={};LIVE.cursor=0;S.liveOpen={};return liveTick()}LIVE.epoch=j.epoch}
    var list=(j&&j.stops)||[];
-   list.forEach(function(st){try{liveStop(st)}catch(e){}});
+   list.forEach(function(st){try{liveStop(liveNorm(st))}catch(e){}});
    if(j&&j.cursor!=null)LIVE.cursor=j.cursor;
    renderSide();renderHead();
    if(S.tab==='ov'||S.tab==='line')renderLive();
@@ -1469,7 +1601,7 @@ function onSamLoad(){
 function boot(){
  F=$('samframe');window.__F=F;
  F.addEventListener('load',onSamLoad);
- initThreads();if(window.__ONB){resetAll();onbOpen()}else startReady();liveInit();
+ initThreads();if(window.__ONB){resetAll();onbOpen()}else startReady();liveInit();hostedRole();
  /* the dashboard is started after the chat has painted */
  var started=false;
  function start(){if(started)return;started=true;
@@ -1482,7 +1614,7 @@ function boot(){
  $('demoBtn').addEventListener('click',function(e){e.stopPropagation();openMore(false);openMenu($('demoMenu').className!=='open')});
  document.addEventListener('click',function(e){if(!e.target.closest('.menuwrap'))openMenu(false)});
  [].forEach.call($('demoMenu').querySelectorAll('button'),function(b){b.addEventListener('click',function(){openMenu(false);var sec=b.getAttribute('data-s');if(sec){if(window.closeDrawer)closeDrawer();openSettings(sec)}else{$('demoBtn').focus();demo(b.getAttribute('data-d'))}})});
- $('roleBtn').addEventListener('click',function(){setRole(S.role==='Owner'?'Technician':'Owner')});
+ $('roleBtn').addEventListener('click',function(){if(HOSTED_ROLE_LOCKED)return;setRole(S.role==='Owner'?'Technician':'Owner')});
  $('composer').addEventListener('submit',function(e){e.preventDefault();submit($('input').value)});
 $('input').addEventListener('input',function(){$('composer').classList.toggle('has',!!$('input').value.trim());growInput()});
  $('input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('composer').dispatchEvent(new Event('submit',{cancelable:true}))}});

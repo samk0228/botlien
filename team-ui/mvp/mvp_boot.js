@@ -224,7 +224,7 @@ function onSamLoad(){
 function boot(){
  F=$('samframe');window.__F=F;
  F.addEventListener('load',onSamLoad);
- initThreads();if(window.__ONB){resetAll();onbOpen()}else startReady();liveInit();
+ initThreads();if(window.__ONB){resetAll();onbOpen()}else startReady();liveInit();hostedRole();
  /* the dashboard is started after the chat has painted */
  var started=false;
  function start(){if(started)return;started=true;
@@ -237,7 +237,7 @@ function boot(){
  $('demoBtn').addEventListener('click',function(e){e.stopPropagation();openMore(false);openMenu($('demoMenu').className!=='open')});
  document.addEventListener('click',function(e){if(!e.target.closest('.menuwrap'))openMenu(false)});
  [].forEach.call($('demoMenu').querySelectorAll('button'),function(b){b.addEventListener('click',function(){openMenu(false);var sec=b.getAttribute('data-s');if(sec){if(window.closeDrawer)closeDrawer();openSettings(sec)}else{$('demoBtn').focus();demo(b.getAttribute('data-d'))}})});
- $('roleBtn').addEventListener('click',function(){setRole(S.role==='Owner'?'Technician':'Owner')});
+ $('roleBtn').addEventListener('click',function(){if(HOSTED_ROLE_LOCKED)return;setRole(S.role==='Owner'?'Technician':'Owner')});
  $('composer').addEventListener('submit',function(e){e.preventDefault();submit($('input').value)});
 $('input').addEventListener('input',function(){$('composer').classList.toggle('has',!!$('input').value.trim());growInput()});
  $('input').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('composer').dispatchEvent(new Event('submit',{cancelable:true}))}});

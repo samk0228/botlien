@@ -14,8 +14,6 @@ function build(part, iconSet){
   out=out.replace('__INTER__', assets.INTER);
   // The live data adapter lives in its own file so a node test can require it.
   out=out.replace('__LIVE_ADAPTER__', () => fs.readFileSync('live-adapter.cjs','utf8').replace(/\nif \(typeof module[^\n]*\n?$/, '\n'));
-  // Mara's scripted engine, likewise its own file for the node test.
-  out=out.replace('__MARA__', () => fs.readFileSync('mara.cjs','utf8').replace(/\nif \(typeof module[^\n]*\n?$/, '\n'));
   if(/__[A-Z_]+__/.test(out)){ console.error('LEFTOVER PLACEHOLDER in '+part+':', out.match(/__[A-Z_]+__/g).slice(0,5)); process.exit(1); }
   return out;
 }
@@ -28,9 +26,3 @@ console.log('built', (out.length/1024).toFixed(0)+'KB', '-> src/botlien-combined
 const mfg=build('botlien-mfg.part.html', Object.assign({}, icons, icons_mfg));
 fs.writeFileSync('../botlien-mfg.html', mfg);
 console.log('built', (mfg.length/1024).toFixed(0)+'KB', '-> botlien-mfg.html');
-/* botlien-team.part.html -> ../botlien-team.html  the team layout: Mara, the robot
-   watchers, the Stop Watcher and the logbook, with the manufacturing dashboard
-   beside them. Served at /app?layout=team. */
-const team=build('botlien-team.part.html', {});
-fs.writeFileSync('../botlien-team.html', team);
-console.log('built', (team.length/1024).toFixed(0)+'KB', '-> botlien-team.html');

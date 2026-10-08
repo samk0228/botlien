@@ -388,12 +388,16 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
 test("/app sends a brand-new account to first run, and old pages forward once it has a fleet", async () => {
   const app = await boot();
   try {
-    // A brand-new account is a robot-arm shop: the team page, on the first of
-    // its five onboarding steps, with no industry picker.
+    // A brand-new account is a robot-arm shop: /app sends it to the Team page,
+    // which opens on the first of its five onboarding steps, no industry picker.
     const fresh = await app.signIn("arms@example.com");
-    const team = await (await app.get("/app", fresh)).text();
-    assert.match(team, /<title>Botlien · Team<\/title>/);
-    assert.match(team, /"onboarding":"account"/);
+    const home = await app.get("/app", fresh);
+    assert.equal(home.status, 303);
+    assert.equal(home.headers.get("location"), "/team");
+    const team = await (await app.get("/team", fresh)).text();
+    assert.match(team, /<title>Botlien Team<\/title>/);
+    assert.match(team, /window\.__BOTLIEN_HOSTED=\{"onboarding":"account"/);
+    assert.match(team, /window\.__ONB=true/);
     // An account that already picked another business under the old first
     // run keeps it.
     const cookie = await app.signIn("new@example.com");

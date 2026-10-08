@@ -46,6 +46,17 @@ function team(){return[
  {id:'log',g:'Specialists',name:'Logbook Keeper',role:'Keeps a record of stops',shape:'log',color:'#14B8A6'}
 ]}
 var GEN=0,DEAD=new Promise(function(){});
+/* Hosted on app.botlien.com with a signed-in account: stops come from the live feed only, so the
+   sample story's test alert, sample history and sample incidents are left out. */
+var HOSTED=!!window.__BOTLIEN_HOSTED;
+/* Hosted, the view follows the account: someone the server sends no dollars to sees the
+   technician view and cannot switch it (the server already strips the figures). */
+var HOSTED_ROLE_LOCKED=false;
+function hostedRole(){
+ if(!HOSTED)return;
+ var h=window.__BOTLIEN_HOSTED;
+ if(h.dollars===false){HOSTED_ROLE_LOCKED=true;setRole('Technician',true);var b=$('roleBtn');if(b){b.textContent='Viewing as: Technician';b.setAttribute('aria-disabled','true');b.title='Your account shows times and causes only'}}
+}
 function whenFeed(cb){var g=GEN,n=0;(function go(){if(g!==GEN)return;if(feed().ok)cb();else if(n++>40)say('mara','I could not reach the sample feed. Please reload the page.',{wait:200});else TIMERS.push(setTimeout(go,1000))})()}
 function initThreads(){GEN++;TH={};QS={};SEEDED=false;TIMERS.forEach(clearTimeout);TIMERS=[];team().forEach(function(d){TH[d.id]=Object.assign({msgs:[],unread:0,last:'',time:'',chips:[],typing:false},d)})}
 function visible(){return Object.keys(TH).map(function(k){return TH[k]}).filter(function(t){return t.hired||S.hired})}
@@ -543,7 +554,9 @@ function resetAll(){
 }
 function startReady(){
  resetAll();initRoutines();S.setup.on=false;S.hired=true;seed();renderAll();
- say('mara','Hi, I am Mara. Your team is ready. I only read data, I never control a robot.',{wait:450}).then(function(){whenFeed(firstHour)});
+ say('mara','Hi, I am Mara. Your team is ready. I only read data, I never control a robot.',{wait:450}).then(function(){
+  if(HOSTED){say('mara','When a robot stops, the Stop Watcher shows it within seconds, with the cause, the robot time it cost and what it held up.',{wait:300});setChips('mara',askChips());return}
+  whenFeed(firstHour)});
 }
 function startSetup(){
  resetAll();initRoutines();
@@ -592,12 +605,13 @@ function seed(){
   var id=r.id,mine=INC.filter(function(x){return x.r===i}),mins=mine.reduce(function(a,x){return a+x.min},0);
   stamp(id,'Setup');
   pushRec(id,{k:'ai',quiet:true,short:'Today',html:'Hi, I am the '+r.name+' Watcher. I watch the '+r.model+' and tell the Stop Watcher when it stops. I only read data.'});
-  pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
+  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
  });
  stamp('stop','Setup');
  pushRec('stop',{k:'ai',quiet:true,short:'Today',html:'Hi, I am the Stop Watcher. When a cell stays stopped past your limit I tell the right person, with what it is holding up. If nobody answers, I use the backup.'});
  stamp('log','Setup');
  var rows='';INC.forEach(function(x){rows+='<tr><td>'+x.d+' '+x.t+'</td><td>'+R[x.r].name+'</td><td>'+x.min+' min</td><td>'+esc(x.err)+'</td></tr>'});
+ if(HOSTED){pushRec('log',{k:'ai',quiet:true,short:'Today',html:'I keep the record so nobody has to type it. Every stop that ends lands here, with what fixed it.'});return}
  pushRec('log',{k:'ai',quiet:true,short:'Today',html:'I keep the record so nobody has to type it. Logged for the sample period (Aug 4 to Sep 3):<table class="lg"><tr><th>When</th><th>Robot</th><th>Down</th><th>It reported</th></tr>'+rows+'</table>'});
 }
 

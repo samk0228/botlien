@@ -794,6 +794,14 @@ export function startBoard(port, {
         }
       }
 
+      // ---- the Team page (Antonio's): Mara, the watchers, the Stop Watcher, the logbook ----
+      if (signedIn && req.method === "GET" && path === "/team") {
+        const { renderTeamUiHTML } = await import("./app.mjs");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(renderTeamUiHTML({ account: signedIn, dollars: tenancy.ctx.dollarsFor(signedIn), onboarding: onboardingV2?.uses() ? onboardingV2.step() : "done", demo: !!replay?.allowed }));
+        return;
+      }
+
       // ---- the dashboard: the Demo's screens on this account's data ----
       if (getFleetContract && req.method === "GET" && path === "/app") {
         const { renderAppHTML, mfgPageHTML } = await import("./app.mjs");
@@ -812,10 +820,10 @@ export function startBoard(port, {
         // first run; so do operators and the demo account when they ask.
         const v2 = !!onboardingV2?.uses();
         const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && viewerSeesDollars && (viewerIsOperator || demoAccount || v2);
+        // Their home is the Team page (Antonio's, at /team), first run included.
         if (!demo && !mfg && (v2 || (/[?&]layout=team(&|$)/.test(req.url ?? "") && (viewerIsOperator || demoAccount)))) {
-          const { renderTeamHTML } = await import("./app.mjs");
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
-          res.end(renderTeamHTML({ account: signedIn, replay: !!replay?.allowed, dashboard: viewerSeesDollars, onboarding: v2 ? onboardingV2.step() : "done" }));
+          res.writeHead(303, { Location: "/team" });
+          res.end();
           return;
         }
         // An account with no fleet yet has nothing to show here: send it to

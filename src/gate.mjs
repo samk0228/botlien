@@ -223,6 +223,7 @@ export function requiresSession(path) {
     path === "/api/owner" ||
     (path.startsWith("/api/v1/") && path !== "/api/v1/events") ||
     path === "/app" ||
+    path === "/team" ||
     path === "/ops" ||
     path === "/api/state"
   );
