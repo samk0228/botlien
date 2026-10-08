@@ -2297,7 +2297,7 @@ function onbHostBody(){
  }else if(s===2){
   h+='<h1>Connect your robots</h1><p class="osub">Read only. Botlien never sends a command to a robot.</p>';
   h+='<ol class="oinst"><li>A small gateway runs on a PC on your network, next to your arms. We set it up with you.</li><li>It needs this account’s key.</li><li>Your robots show up below as their first readings arrive.</li></ol>';
-  h+=ONBH.key?'<div class="ocode"><small>Your gateway key. It is shown once, so copy it now.</small><b style="font-size:15px;word-break:break-all">'+esc(ONBH.key)+'</b></div>':'<div class="oact" style="margin-top:0"><button type="button" class="obtn" data-onb="hkey">Make the gateway key</button></div>';
+  h+=ONBH.key?'<div class="ocode"><small>Your gateway key. It is shown once, so copy it now.</small><b style="font-size:15px;word-break:break-all">'+esc(ONBH.key)+'</b></div>'+onbInstallCmds():'<div class="oact" style="margin-top:0"><button type="button" class="obtn" data-onb="hkey">Make the gateway key</button></div>';
   h+='<div class="oconn" aria-live="polite">'+(st.robots.length?st.robots.map(function(r){return '<div class="ocr rob"><span class="ocd green"></span><span><b>'+esc(r.name)+'</b><small>'+esc(r.model||'')+', found</small></span></div>'}).join(''):'<div class="ocr"><span class="ocd amber"></span><span><b>Waiting for the first readings</b></span></div>')+'</div>';
   h+='<div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="hconn" data-mode="robots"'+(st.robots.length?'':' disabled')+'>Continue</button><button type="button" class="obtn" data-onb="hconn" data-mode="later">Connect later</button>'+(st.demo?'<button type="button" class="obtn" data-onb="hconn" data-mode="replay">Use the recorded demo</button>':'')+'</div>';
  }else if(s===3){
@@ -2320,6 +2320,15 @@ function onbHostBody(){
   h+='</ul><p class="onote">Read only. Nothing here can control a robot.</p><div class="oact">'+back+'<button type="button" class="obtn pri" data-onb="hfinish">Open Botlien</button></div>';
  }
  return h+err;
+}
+/* The one line to run on a PC on the floor network. The installer asks for the key and each arm's IP. */
+function onbInstallCmds(){
+ var o=esc(location.origin),pre='<code style="display:block;white-space:pre-wrap;word-break:break-all;background:#F1F1F3;border-radius:8px;padding:10px 12px;margin:6px 0 12px;font:13px/1.5 ui-monospace,Menlo,monospace">';
+ return '<div class="olbl">On a PC on the same network as the arms, run one line</div>'
+  +'<p class="onote" style="margin:0">Windows, in PowerShell as Administrator:</p>'+pre+'irm '+o+'/gateway/install.ps1 | iex</code>'
+  +'<p class="onote" style="margin:0">Linux:</p>'+pre+'curl -fsSL '+o+'/gateway/install.sh | sudo sh</code>'
+  +'<p class="onote" style="margin:0">Mac:</p>'+pre+'curl -fsSL '+o+'/gateway/install.sh | sh</code>'
+  +'<p class="onote">It asks for the key above and each arm\u2019s IP, then starts by itself after every reboot. It needs Node.js 18 or newer.</p>';
 }
 function onbHostSave(step,body){
  if(ONBH.busy)return;ONBH.busy=true;ONBH.err='';

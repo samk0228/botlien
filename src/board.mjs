@@ -331,6 +331,22 @@ export function startBoard(port, {
         return;
       }
 
+      // ---- the UR gateway, for a PC on a shop floor: no session, read only ----
+      // The installer scripts, with this server's address written in, and the
+      // gateway's own files (an allowlist, nothing else on disk is reachable).
+      if (req.method === "GET" && path.startsWith("/gateway/")) {
+        const { gatewayAsset } = await import("./gateway-dist.mjs");
+        const asset = gatewayAsset(path, tenancy?.ctx?.baseUrl ?? process.env.BOTLIEN_BASE_URL ?? "");
+        if (!asset) {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("not found");
+          return;
+        }
+        res.writeHead(200, { "Content-Type": asset.type, "Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff" });
+        res.end(asset.body);
+        return;
+      }
+
       // Per-request bindings. Without tenancy these are the single store the
       // process was started with; with it, they are the account's own.
       let getOwnerState = baseGetOwnerState;

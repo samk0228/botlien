@@ -18,7 +18,26 @@ Node 18 or newer and the same command. (Before Oct 1 2026 the gateway
 exited silently on Windows because its start check compared a `C:\` path
 with a file URL; fixed.)
 
-## Set it up
+## Install it (one line)
+
+On a PC that is already on the same network as the arms (no new hardware):
+
+- Windows, PowerShell as Administrator: `irm https://app.botlien.com/gateway/install.ps1 | iex`
+- Linux: `curl -fsSL https://app.botlien.com/gateway/install.sh | sudo sh`
+- Mac: `curl -fsSL https://app.botlien.com/gateway/install.sh | sh`
+
+It needs Node.js 18 or newer. It asks for the account's gateway key (made on
+Botlien's Connect robots step or Settings > Data sources) and each arm's IP,
+checks it can reach each arm on 30004, downloads these files from Botlien,
+keeps the key readable only by the system, and sets the gateway to start by
+itself and restart if it stops (systemd on Linux, a login agent on macOS, a
+startup task on Windows). Remove it with `sh -s -- --uninstall` (or
+`$env:BOTLIEN_UNINSTALL=1` before the Windows line).
+
+Scripted installs skip the questions:
+`BOTLIEN_API_KEY=blk_... BOTLIEN_ARMS="192.168.1.21,Loader 1,UR10e;192.168.1.22,Loader 2" sh install.sh`.
+
+## Set it up by hand
 
 1. In Botlien, Settings > Data sources > Make an API key. Copy it once.
 2. Copy `config.example.json` to `gateway.json` and list the arms: a stable
