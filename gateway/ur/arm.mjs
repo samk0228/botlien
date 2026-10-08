@@ -58,6 +58,11 @@ export function readSample(s, { cycleRegister = null } = {}) {
   };
 }
 
+// The heartbeats tick() sends: the arm's state again, unchanged. Everything
+// else an arm returns is a change, which the gateway sends at once.
+const HEARTBEATS = new WeakSet();
+export const isHeartbeat = (e) => HEARTBEATS.has(e);
+
 const keyOf = (r) => [r.missionState, r.stuck, r.eStop, r.errors.map((e) => e.code).join("+"), r.cycle].join("|");
 
 /**
@@ -194,7 +199,9 @@ export function createArm(cfg, { heartbeatMs = 15_000, holdMs = 2_000 } = {}) {
       // work at a time the pause may yet turn into waiting.
       if (pause || !online || !last || now - last.sentAt < heartbeatMs) return out;
       last.sentAt = now;
-      out.push(event({ ...last.sample, at: now }, last.read));
+      const beat = event({ ...last.sample, at: now }, last.read);
+      HEARTBEATS.add(beat);
+      out.push(beat);
       return out;
     },
     down(now, reason) {

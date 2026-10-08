@@ -22,7 +22,10 @@ export function createSender({ url, key, post = defaultPost, log = console.log, 
   let timer = null;
   const stats = { sent: 0, rejected: 0, dropped: 0 };
 
-  function enqueue(events) {
+  /** `now`: a change (a stop, a fault, the link lost, work turning to
+   *  waiting) goes out at once rather than with the next batch, so a stop
+   *  reaches the Stop Watcher within seconds. Heartbeats wait for the batch. */
+  function enqueue(events, { now = false } = {}) {
     if (!events.length) return;
     queue.push(...events);
     if (queue.length > maxQueue) {
@@ -31,7 +34,7 @@ export function createSender({ url, key, post = defaultPost, log = console.log, 
       dropped += over;
       stats.dropped += over;
     }
-    if (queue.length >= BATCH) flush();
+    if (queue.length >= BATCH || now) flush();
   }
 
   async function flush() {
