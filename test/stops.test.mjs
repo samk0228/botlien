@@ -210,3 +210,22 @@ test("the Team page's request shapes are accepted: since=0 before a cursor, and 
   fixStop(s, 1, { what: "Reset the machine it waits on" }, "dana@linelab.io", T0 + 17 * MIN);
   assert.equal(s.incident(1).fix_text, "Reset the machine it waits on");
 });
+
+test("an open stop says what it left waiting as it goes on, without waiting for the line job", () => {
+  const s = openStore(":memory:");
+  rewind(s, {}, T0);
+  // Only the replay, no line job at all.
+  for (let t = T0; t <= T0 + 8 * MIN; t += SEC) advance(s, t);
+  const now = T0 + 8 * MIN;
+  const [stop] = stopFeed(s, fleetContract(s, now, {}), now, null).stops;
+  assert.equal(stop.state, "open");
+  const waited = Object.fromEntries(stop.leftWaiting.map((w) => [w.name, w.minutes]));
+  assert.deepEqual(Object.keys(waited).sort(), ["Deburr", "Inspection"], "the twin loader is never counted");
+  assert.ok(waited.Deburr >= 5 && waited.Deburr <= 6, JSON.stringify(waited));
+  // A minute in, nobody has waited longer than a cycle's own wait yet.
+  const early = T0 + 2 * MIN + 60 * SEC;
+  const s2 = openStore(":memory:");
+  rewind(s2, {}, T0);
+  for (let t = T0; t <= early; t += SEC) advance(s2, t);
+  assert.deepEqual(stopFeed(s2, fleetContract(s2, early, {}), early, null).stops[0].leftWaiting, []);
+});
