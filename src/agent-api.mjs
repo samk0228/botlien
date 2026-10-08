@@ -93,6 +93,7 @@ export function lineStatus(store, contract, nowMs) {
   });
   return {
     asOf: nowMs,
+    tz: contract.tz,
     live: robots.length > 0 && robots.every((r) => r.live),
     robots,
     lines: contract.lineMap?.lines?.map((l) => ({ name: l.name, stations: l.stations.map((s) => ({ kind: s.kind, name: s.kind === "robot" ? robots.find((r) => r.id === s.robotId)?.name ?? `Robot ${s.robotId}` : s.name, robotId: s.robotId ?? null })) })) ?? [],

@@ -57,7 +57,7 @@ test("connecting Slack checks the token, seals it, and shows everything but the 
   assert.equal(publicSlackSettings(s), null, "a refused token is not saved");
 
   const out = await saveSlackSettings(s, vault, { botToken: "xoxb-not-a-real-token-tests-only", channel: "#botlien-alerts-test", lead: "<@U0LEAD01>", manager: "U0BOSS01" }, T0, { fetchImpl: slack.fetchImpl });
-  assert.deepEqual(out, { channel: "botlien-alerts-test", lead: "U0LEAD01", manager: "U0BOSS01", team: "Line Lab", botUserId: "UBOT", connectedAt: T0 });
+  assert.deepEqual(out, { channel: "botlien-alerts-test", lead: "U0LEAD01", manager: "U0BOSS01", dollars: true, team: "Line Lab", botUserId: "UBOT", connectedAt: T0 });
   assert.equal(slack.calls[0].auth, "Bearer xoxb-not-a-real-token-tests-only");
   assert.ok(!s.getKV(KV_SLACK).includes("xoxb-"), "the token is sealed, not stored in the clear");
   assert.equal(slackToken(s, vault), "xoxb-not-a-real-token-tests-only");

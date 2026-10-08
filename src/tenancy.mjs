@@ -32,7 +32,10 @@ import { createAgentApi } from "./agent-api.mjs";
 import { saveInputs } from "./inputs.mjs";
 import { addTicket, updateTicket } from "./tickets.mjs";
 import { defaultWorkFor, BUSINESS_TYPES, BENCHMARKS, businessPreview } from "./rates.mjs";
-import { normalizeEmail } from "./control.mjs";
+import { normalizeEmail, MemberError } from "./control.mjs";
+import { requestLink, validEmail } from "./auth.mjs";
+import { inviteEmail } from "./mailer.mjs";
+import { seesDollars, canManageTeam, redactDollars, INVITABLE } from "./roles.mjs";
 
 /** Parse the operator allowlist from a comma-separated string or an array into
  * a normalized Set. The ops board shows the operator's own fleet, so only these
@@ -142,6 +145,11 @@ export function createTenancy({
 
   function forAccount(account) {
     const store = tenants.get(account.id);
+    // Who is looking. A session made before team members existed is the owner's.
+    const viewer = account.viewer ?? { email: account.email, role: "owner" };
+    // Everything this account hands out passes through here for a viewer who
+    // may not see dollars. The router redacts JSON again on the way out.
+    const forViewer = (data) => (seesDollars(viewer.role) ? data : redactDollars(data));
     const bucketMs = config.engine?.rollup_bucket_ms ?? DEFAULT_BUCKET_MS;
 
     const getOwnerState = () => {
@@ -237,6 +245,7 @@ export function createTenancy({
       }
       const contract = {
         ...fleetContract(store, now(), config),
+        viewer,
         sources: [
           ...describeConnections(control, account.id, store),
           // Status pushed with an API key reads as a source once a key has been used.
@@ -249,16 +258,18 @@ export function createTenancy({
           })(),
         ],
         setup: setupState(),
-        // One sign-in per account today, so the account's own email is its
-        // only person. Team invites add rows here when they exist.
-        people: [{ email: account.email, role: "Owner", since: account.created_at }],
+        // The owner, then everyone they invited.
+        people: [
+          { email: account.email, role: "Owner", since: account.created_at },
+          ...control.listMembers(account.id).map((m) => ({ id: m.id, email: m.email, role: m.role === "manager" ? "Manager" : "Technician", since: m.created_at })),
+        ],
       };
       // The activation moment, now that /app is home: the same rule the old
       // statement page used (numbers saved, a real ratio behind them), fired
       // once when the dashboard's data is first served with it.
       const coverage = contract.robots.find((r) => r.coverage !== null)?.coverage ?? null;
-      if (onboardingStep(store) === "done" && coverage !== null) onceEvent(account.id, "activated", { coverage });
-      return contract;
+      if (onboardingStep(store) === "done" && coverage !== null && viewer.role === "owner") onceEvent(account.id, "activated", { coverage });
+      return forViewer(contract);
     };
 
     const connections = {
@@ -297,7 +308,7 @@ export function createTenancy({
         return gone;
       },
     };
-    const saveOwnerInputs = (changes) => saveInputs(store, changes, now(), account.email);
+    const saveOwnerInputs = (changes) => saveInputs(store, changes, now(), viewer.email);
     // Vendor tickets the owner logs by hand (the Vendors tab reads them).
     const tickets = {
       add: (body) => addTicket(store, body, now()),
@@ -355,9 +366,43 @@ export function createTenancy({
       return setupState();
     };
     // The agents' read-only questions (line, stops, costs, history), from the
-    // same contract the dashboard reads.
-    const agent = createAgentApi({ store, config, now });
-    return { store, account, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
+    // same contract the dashboard reads, with dollars out for a technician.
+    const askAgent = createAgentApi({ store, config, now });
+    const agent = {
+      line: () => forViewer(askAgent.line()),
+      stops: (q) => forViewer(askAgent.stops(q)),
+      costs: () => forViewer(askAgent.costs()),
+      history: (id, q) => forViewer(askAgent.history(id, q)),
+    };
+    // The team: the owner invites, changes roles and removes; anyone signed
+    // in can see who is on it.
+    const memberOut = (m) => ({ id: m.id, email: m.email, role: m.role, invitedBy: m.invited_by, since: m.created_at });
+    const members = {
+      list: () => ({ owner: account.email, viewer, members: control.listMembers(account.id).map(memberOut) }),
+      async invite({ email, role } = {}) {
+        if (!canManageTeam(viewer.role)) throw new MemberError("Only the owner can add people.");
+        if (!INVITABLE.includes(role)) throw new MemberError("A role is manager or technician.");
+        if (!validEmail(email)) throw new MemberError("That does not look like an email address.");
+        // On the account first, so the link can only ever land here.
+        const m = control.insertMember({ accountId: account.id, email, role, invitedBy: viewer.email }, now());
+        const link = requestLink(control, m.email, now());
+        const sent = link.ok ? await ctx.mailer.send({ to: m.email, ...inviteEmail({ url: `${baseUrl}/signin/${link.token}`, signinUrl: `${baseUrl}/signin`, invitedBy: account.email, role }) }) : { ok: false };
+        log(`account ${account.id} added ${role} ${m.email}${sent.ok ? "" : " (invite email not sent)"}`);
+        return { member: memberOut(m), emailed: Boolean(sent.ok) };
+      },
+      setRole(id, role) {
+        if (!canManageTeam(viewer.role)) throw new MemberError("Only the owner can change roles.");
+        const m = control.setMemberRole(account.id, Number(id), role);
+        return m ? memberOut(m) : null;
+      },
+      remove(id) {
+        if (!canManageTeam(viewer.role)) throw new MemberError("Only the owner can remove people.");
+        const gone = control.removeMember(account.id, Number(id));
+        if (gone) log(`account ${account.id} removed member ${id}`);
+        return gone;
+      },
+    };
+    return { store, account, viewer, members, getOwnerState, getFleetContract, saveEconomics, saveOwnerInputs, onboarding, connections, step, setupState, saveSites, tickets, slack, agent };
   }
 
   /** Release every SQLite handle this owns: each account's store plus the

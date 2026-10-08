@@ -344,6 +344,7 @@ export function startBoard(port, {
       let tickets = null;
       let slack = null;
       let agent = null;
+      let members = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -364,9 +365,26 @@ export function startBoard(port, {
           // sufficient: only an allowlisted operator may see it. A non-operator
           // gets the same 404 as a route that does not exist, so the board's
           // existence is not advertised to customers.
-          if ((path === "/ops" || path === "/api/state") && !tenancy.ctx.isOperator(account.email)) {
+          const viewer = account.viewer ?? { email: account.email, role: "owner" };
+          if ((path === "/ops" || path === "/api/state") && !(viewer.role === "owner" && tenancy.ctx.isOperator(viewer.email))) {
             res.writeHead(404, { "Content-Type": "text/plain" });
             res.end("not found");
+            return;
+          }
+          // A technician reads times and causes and changes nothing. Every
+          // JSON answer is stripped of dollars on the way out, whichever
+          // route wrote it, and the old statement pages (all dollars) send
+          // them to the dashboard.
+          const { canWrite, seesDollars, redactJSONResponses } = await import("./roles.mjs");
+          if (!seesDollars(viewer.role)) redactJSONResponses(res);
+          if (!canWrite(viewer.role) && req.method !== "GET" && (path.startsWith("/api/v1/") || path.startsWith("/owner"))) {
+            res.writeHead(403, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Your role can look but not change anything. Ask the account's owner." }));
+            return;
+          }
+          if (!seesDollars(viewer.role) && (path === "/owner" || path.startsWith("/owner/") || path === "/api/owner")) {
+            res.writeHead(303, { Location: "/app" });
+            res.end();
             return;
           }
           const bound = tenancy.forAccount(account);
@@ -381,6 +399,7 @@ export function startBoard(port, {
           tickets = bound.tickets ?? null;
           slack = bound.slack ?? null;
           agent = bound.agent ?? null;
+          members = bound.members ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -512,6 +531,43 @@ export function startBoard(port, {
           }
         }
         return reply(404, { error: "not a ticket route" });
+      }
+
+      // ---- the team: the owner adds managers and technicians ----
+      if (members && (path === "/api/v1/members" || path.startsWith("/api/v1/members/"))) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        const { MemberError } = await import("./control.mjs");
+        try {
+          if (path === "/api/v1/members" && req.method === "GET") return reply(200, members.list());
+          if (path === "/api/v1/members" && req.method === "POST") {
+            let body;
+            try {
+              body = JSON.parse((await readBody(req, 4096)) || "{}");
+            } catch {
+              return reply(400, { error: "Send JSON: { email, role }." });
+            }
+            return reply(200, { ok: true, ...(await members.invite(body)) });
+          }
+          const one = /^\/api\/v1\/members\/(\d+)$/.exec(path);
+          if (one && req.method === "PATCH") {
+            let body;
+            try {
+              body = JSON.parse((await readBody(req, 4096)) || "{}");
+            } catch {
+              return reply(400, { error: "Send JSON: { role }." });
+            }
+            const m = members.setRole(one[1], body.role);
+            return m ? reply(200, { ok: true, member: m }) : reply(404, { error: "Nobody with that id is on this account." });
+          }
+          if (one && req.method === "DELETE") return members.remove(one[1]) ? reply(200, { ok: true }) : reply(404, { error: "Nobody with that id is on this account." });
+        } catch (err) {
+          if (err instanceof MemberError) return reply(/^Only the owner/.test(err.message) ? 403 : 400, { error: err.message });
+          throw err;
+        }
+        return reply(405, { error: "GET or POST /api/v1/members; PATCH or DELETE /api/v1/members/:id." });
       }
 
       // ---- the agents' questions: read only, one question per call ----
@@ -658,12 +714,27 @@ export function startBoard(port, {
         // Operators only for now: its Line page, Integrations and rules are
         // not wired to an account yet, and the page says so. Anyone else who
         // asks for it gets the usual page, so it is not advertised.
-        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && !!signedIn && !!tenancy?.ctx?.isOperator?.(signedIn.email);
+        const viewerIsOperator = !!signedIn && (signedIn.viewer?.role ?? "owner") === "owner" && !!tenancy?.ctx?.isOperator?.(signedIn.viewer?.email ?? signedIn.email);
+        const mfg = !demo && /[?&]page=mfg(&|$)/.test(req.url ?? "") && viewerIsOperator;
         // An account with no fleet yet has nothing to show here: send it to
         // the first-run step that gets it one (business, then connect or
         // upload, then confirm). Numbers is not a gate; /app has its own.
         const step = !demo && setupStep ? setupStep() : "done";
         const { pageRunsFirstRun } = await import("./app.mjs");
+        // A technician gets the floor page: times and causes, never dollars.
+        if (!demo && agent && signedIn?.viewer?.role === "technician" && (step === "setup" || step === "done")) {
+          const { renderTechnicianHTML } = await import("./tech-page.mjs");
+          const line = agent.line();
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(renderTechnicianHTML({ line, stops: agent.stops(new URLSearchParams()), viewer: signedIn.viewer, owner: signedIn.email, tz: line.tz }));
+          return;
+        }
+        // Setting up the fleet is the owner's job; someone they invited waits.
+        if ((step === "business" || step === "import" || step === "confirm") && signedIn?.viewer && signedIn.viewer.role !== "owner") {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(`<!doctype html><meta charset="utf-8"><title>Botlien</title><p style="font:16px system-ui;margin:48px">${esc(signedIn.email)} is still setting up this account's robots. Check back once they have.</p>`);
+          return;
+        }
         if ((step === "business" || step === "import" || step === "confirm") && !pageRunsFirstRun()) {
           res.writeHead(303, { Location: `/owner/${step}` });
           res.end();
