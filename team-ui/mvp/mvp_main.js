@@ -68,14 +68,24 @@ var _OURS=null;function ours(){try{return _OURS||(_OURS=sam().eval('OURS'))}catc
 var FD=null,FDt=0;
 function feed(){var nw=Date.now();if(FD&&nw-FDt<400)return FD;FD=feed0();FDt=nw;return FD}
 function feed0(){
+ if(HOSTED)return HFEED||{ok:false,state:'connecting',robots:null};
  var o=ours();
  if(!o||!o.live||!Array.isArray(o.live.robots))return{ok:false,state:'connecting',robots:null};
  var lag=(isFinite(o.lag)&&isFinite(o.lagAt))?o.lag+(Date.now()-o.lagAt)/1000:null;
  var fresh=!!(o.ok&&(o.live.live===true||(o.live.live==null&&lag!=null&&lag<=30)));
  return{ok:fresh,state:o.state||'offline',robots:o.live.robots,lag:lag,line:o.line,updated:o.live.updated};
 }
-function samGo(view){try{var el=sam().document.querySelector('[data-act="go"][data-view="'+view+'"]');if(el)el.click()}catch(e){}}
-function tabView(t){return{ov:'dashv2',dash:'dashv2',line:'line',fleet:'robots',inc:'incidents'}[t]}
+function samGo(view){try{var el=sam().document.querySelector('[data-act="go"][data-view="'+view+'"]');if(el)el.click();else if(typeof sam().goView==='function')sam().goView(view)}catch(e){}}
+function tabView(t){return{ov:'dashv2',dash:'dashv2',line:'line',fleet:'robots',inc:'incidents',costs:'costs',pay:'payback',trends:'trends'}[t]}
+/* Hosted, the right side is the account's own dashboard: the tabs that run on its data. Line, Line value and
+   Built for you run on the sample run for now and come back when they read real data. A viewer the server
+   sends no dollars to gets Robots right now only. */
+var SAM_TABS=['ov','line','fleet','inc','costs','pay','trends'];
+function tabsList(){
+ if(!HOSTED)return TABS.concat(cvTabs());
+ if(window.__BOTLIEN_HOSTED.dollars===false)return[['ov','Overview']];
+ return[['ov','Overview'],['fleet','Fleet'],['inc','Incidents'],['costs','Costs'],['pay','Payback'],['trends','Trends']];
+}
 
 /* ===== motion helpers (the Dev motion spec: expo out, quiet, only transform and opacity) ===== */
 function reduced(){return matchMedia('(prefers-reduced-motion: reduce)').matches}
@@ -263,8 +273,8 @@ function cellLive(th){return th.r!=null?cellState(th.r):null}
 /* ===== right panel ===== */
 var TABS=[['ov','Overview'],['line','Line'],['val','Line value'],['fleet','Fleet'],['inc','Incidents'],['built','Built for you']];
 function renderRight(){
-var TIPS={val:'What the line earns and where it is held back',ov:'The brief, cost and working time, and every robot right now',int:'What is connected and where alerts go',built:'Views Mara builds when you ask',line:'What each station is doing',fleet:'Robots ranked by working time',inc:'Every stall and error'};
- var h='';TABS.concat(cvTabs()).forEach(function(t){h+='<button type="button" role="tab" id="tab_'+t[0]+'" tabindex="'+(S.tab===t[0]?0:-1)+'" aria-selected="'+(S.tab===t[0])+'" class="tab'+(S.tab===t[0]?' on':'')+'" data-t="'+t[0]+'"'+(TIPS[t[0]]?' title="'+TIPS[t[0]]+'"':'')+'>'+esc(t[1])+'</button>'+(t[0]==='inc'?'<span class="tabsep" aria-hidden="true"></span>':'')});
+var TIPS={costs:'What each robot costs to own and run, and how it is worked out',pay:'When the robots pay for themselves',trends:'Working time and stops over the months',val:'What the line earns and where it is held back',ov:'The brief, cost and working time, and every robot right now',int:'What is connected and where alerts go',built:'Views Mara builds when you ask',line:'What each station is doing',fleet:'Robots ranked by working time',inc:'Every stall and error'};
+ var h='';tabsList().forEach(function(t){h+='<button type="button" role="tab" id="tab_'+t[0]+'" tabindex="'+(S.tab===t[0]?0:-1)+'" aria-selected="'+(S.tab===t[0])+'" class="tab'+(S.tab===t[0]?' on':'')+'" data-t="'+t[0]+'"'+(TIPS[t[0]]?' title="'+TIPS[t[0]]+'"':'')+'>'+esc(t[1])+'</button>'+(t[0]==='inc'?'<span class="tabsep" aria-hidden="true"></span>':'')});
  var rt=$('rtabs'),fa=document.activeElement,fid=fa&&fa.closest&&fa.closest('#rtabs')?fa.getAttribute('data-t'):null;rt.innerHTML=h;
  [].forEach.call(rt.querySelectorAll('.tab'),function(b){b.addEventListener('click',function(){setTab(b.getAttribute('data-t'))})});
  var ind=document.createElement('i');ind.id='tabind';rt.appendChild(ind);
@@ -273,7 +283,7 @@ var TIPS={val:'What the line earns and where it is held back',ov:'The brief, cos
   if(pv&&!reduced()){ind.style.transition='none';ind.style.transform='translateX('+pv.x+'px)';ind.style.width=pv.w+'px';void ind.offsetWidth;ind.style.transition=''}
   ind.style.transform='translateX('+ox+'px)';ind.style.width=ow+'px';S._ind={x:ox,w:ow}}
  if(fid){var nb=rt.querySelector('[data-t="'+fid+'"]');if(nb)nb.focus()}
- var isSam=['ov','line','fleet','inc'].indexOf(S.tab)>=0,isBuilt=(S.tab==='built'||S.tab.indexOf('pin_')===0);
+ var isSam=SAM_TABS.indexOf(S.tab)>=0&&!(HOSTED&&window.__BOTLIEN_HOSTED.dollars===false),isBuilt=(S.tab==='built'||S.tab.indexOf('pin_')===0);
  if(S.tab.indexOf('pin_')===0){var pp=CV.pins.filter(function(p){return p.id===S.tab})[0];CV.tabSpec=pp?clone(pp.spec):null}else if(S.tab==='built')CV.tabSpec=null;
  $('livepanel').style.display=S.tab==='ov'?'block':'none';$('rbody').classList.toggle('ov',S.tab==='ov');try{sam().document.body.classList.toggle('ov',S.tab==='ov')}catch(e){}
  $('builtpanel').style.display=isBuilt?'block':'none';$('valpanel').style.display=S.tab==='val'?'block':'none';if(S.tab==='val')renderValue();
@@ -427,7 +437,7 @@ function revealFrame(){
 }
 function setTab(t){
  if(t==='dash'||t==='live')t='ov';
- var was=S.tab,isSamT=['ov','line','fleet','inc'].indexOf(t)>=0,fw=$('framewrap'),hide=isSamT&&was!==t&&!reduced();
+ var was=S.tab,isSamT=SAM_TABS.indexOf(t)>=0,fw=$('framewrap'),hide=isSamT&&was!==t&&!reduced();
  S.tab=t;S._ovh=0;
  if(hide){fw.style.transition='none';fw.style.opacity='0'}
  var v=tabView(t);if(v){samGo(v);if(window.__depillDoc)depillSoon(window.__depillDoc,900)}
@@ -521,7 +531,7 @@ function renderLive(){
    '<div class="bar"><i style="width:'+(pct!=null&&fd.ok?Math.min(100,pct):0)+'%"></i></div><div class="cm"><span>'+(pct!=null?(fd.ok?f1(pct)+'% working, last 10 min':'Last reading '+ago+', not live'):'No reading')+'</span><span>'+(money()?usd(r.cph)+'/hr to own and run':'')+'</span></div></button>';
  });
  h+='</div>';
- h+='<div class="strip"><b>The line</b> Loader 1 and 2, then CNC mills A and B (machines, not robots), then Deburr, then Inspection.'+(line?' Making about '+Math.round(line.perHourNow)+' parts an hour against about '+Math.round(line.perHourNormal)+' normally.':' Making about 262 parts an hour against about 275 normally (sample).')+' <a href="#" data-go="line">Open the line</a></div>';
+ h+=HOSTED?'<div class="strip"><b>The line</b> '+(HFEED&&HFEED.lineText?esc(HFEED.lineText):'Your robots, as they report.')+(HFEED&&HFEED.replay?' A recorded replay, not live.':'')+'</div>':'<div class="strip"><b>The line</b> Loader 1 and 2, then CNC mills A and B (machines, not robots), then Deburr, then Inspection.'+(line?' Making about '+Math.round(line.perHourNow)+' parts an hour against about '+Math.round(line.perHourNormal)+' normally.':' Making about 262 parts an hour against about 275 normally (sample).')+' <a href="#" data-go="line">Open the line</a></div>';
  if(S.sim&&!S.sim.fixed)h+='<div class="strip alert"><b>Demo stop on '+R[S.sim.r].name+'.</b> This stop is injected by the demo and is not in the recording, so the Line page will not show it.</div>';
  patch(box,h);
 }
@@ -605,7 +615,7 @@ function seed(){
   var id=r.id,mine=INC.filter(function(x){return x.r===i}),mins=mine.reduce(function(a,x){return a+x.min},0);
   stamp(id,'Setup');
   pushRec(id,{k:'ai',quiet:true,short:'Today',html:'Hi, I am the '+r.name+' Watcher. I watch the '+r.model+' and tell the Stop Watcher when it stops. I only read data.'});
-  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minutes down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
+  if(!HOSTED)pushRec(id,{k:'ai',quiet:true,short:'Today',html:mine.length?'This sample period: <b>'+mine.length+' incident'+(mine.length>1?'s':'')+', '+mins+' minute'+(mins===1?'':'s')+' down</b>. The most recent: '+mine[mine.length-1].d+', '+mine[mine.length-1].t+', '+mine[mine.length-1].min+' minutes, '+mine[mine.length-1].err+'.':'No incidents this sample period.'});
  });
  stamp('stop','Setup');
  pushRec('stop',{k:'ai',quiet:true,short:'Today',html:'Hi, I am the Stop Watcher. When a cell stays stopped past your limit I tell the right person, with what it is holding up. If nobody answers, I use the backup.'});
@@ -675,7 +685,7 @@ function fix(){
  say('stop',handledCard(simD),{wait:700,tag:'Demo, how it was handled'});
 }
 function logFix(r,mins,what,auto){
- var row='<b>Logged.</b> '+R[r].name+', '+mins+' minutes down'+(what?'. What fixed it: '+what:'')+'. (Demo stop, not part of the sample history.)';
+ var row='<b>Logged.</b> '+R[r].name+', '+mins+' minute'+(mins===1?'':'s')+' down'+(what?'. What fixed it: '+what:'')+'. (Demo stop, not part of the sample history.)';
  if(auto){pushRec('log',{k:'ai',html:row,short:nowShort(),quiet:false,tag:'Demo, new entry'});return}
  pushRec('log',{k:'ai',html:'<b>Updated.</b> Added "what fixed it": '+what+'.',short:nowShort(),tag:'Demo, note added'});
  if(S.sim)sl('Technician','tapped what fixed it: '+what);

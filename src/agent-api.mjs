@@ -12,7 +12,7 @@
 // role rules can take every one of them out in one place.
 import { fleetContract, dateKey, localMidnightMs } from "./contract.mjs";
 import { incidentView, KINDS } from "./incidents.mjs";
-import { stateOf, lineEventOut, STEP_MS } from "./line.mjs";
+import { stateOf, lineEventOut, timeline, STEP_MS, MAX_GAP_MS } from "./line.mjs";
 import { COST_DEFAULTS } from "./robot-cost.mjs";
 
 export class AgentQueryError extends Error {}
@@ -26,6 +26,19 @@ export const LIVE_LAG_MS = 2 * STEP_MS;
 export const JAM_LOOKBACK_MS = 10 * MIN;
 export const MAX_HISTORY_DAYS = 92;
 export const MAX_STOPS = 500;
+// "Right now" on the Team page: the share of the last ten minutes a robot spent working.
+export const RECENT_MS = 10 * MIN;
+
+/** The share of the last ten minutes this robot was working, from its own
+ *  samples on the line's 15-second timeline. Null with no sample in it. */
+function recentWorkingPct(store, robotId, nowMs) {
+  const to = Math.floor(nowMs / STEP_MS) * STEP_MS;
+  const from = to - RECENT_MS;
+  const tl = timeline({ [robotId]: store.snapshotsBetween(robotId, from - MAX_GAP_MS, to) }, from, to);
+  const known = (tl.states[robotId] ?? []).filter((s) => s !== null);
+  if (!known.length) return null;
+  return Math.round((known.filter((s) => s === "working").length / known.length) * 1000) / 10;
+}
 
 const dollars = (cents) => `$${(cents / 100).toFixed(2)}`;
 const figure = (value, unit, basis, math) => ({ value, unit, basis, math });
@@ -89,6 +102,7 @@ export function lineStatus(store, contract, nowMs) {
       lagSeconds: lagMs === null ? null : Math.round(lagMs / 1000),
       live: lagMs !== null && lagMs <= LIVE_LAG_MS,
       openStopId: open?.id ?? null,
+      workingPct10: recentWorkingPct(store, r.id, nowMs),
     };
   });
   return {
