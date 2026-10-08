@@ -17,6 +17,7 @@ Sam's vault (`Claude/Projects/operating_systems/botlien/`), not here.
 | [`product/walkthrough.md`](product/walkthrough.md) | Tour of the served app screen by screen, as of Aug 7 |
 | [`product/owner-walkthrough-v2.md`](product/owner-walkthrough-v2.md) | The owner statement: what each figure means and how it is computed |
 | [`product/onboarding-spec-v1.md`](product/onboarding-spec-v1.md) | Import → confirm → setup → statement, and why the step is derived from data |
+| [`product/agent-api-v1.md`](product/agent-api-v1.md) | The agents' read-only data API (line, stops, stop feed, costs, history), the figure shape, and answers to Antonio's 10/7 data questions |
 | [`product/dashboard-roadmap.md`](product/dashboard-roadmap.md) | Eleven dashboard ideas in three tiers, grounded in a field-by-field audit of the schema. Payback tracker is first. |
 | [`product/calculations/calculations.typ`](product/calculations/calculations.typ) | Every formula on the statement, worked by hand against the demo fleet (Typst source; figures in `figs/`) |
 

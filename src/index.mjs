@@ -214,8 +214,8 @@ async function main() {
       }
     }, 60_000);
     if (!alertsSend) console.log("alert emails are logged, not sent (set BOTLIEN_ALERTS_SEND=1 to send)");
-    // Stop alerts in Slack, for accounts that connected a channel, checked
-    // every half minute. Posted only with BOTLIEN_SLACK_SEND=1; the buttons
+    // Stop records for every account, and stop alerts in Slack for those that
+    // connected a channel, checked every half minute. Posted only with BOTLIEN_SLACK_SEND=1; the buttons
     // need the app's signing secret in BOTLIEN_SLACK_SIGNING_SECRET.
     const { createSlackAlertsJob } = await import("./slack-job.mjs");
     const slackSend = process.env.BOTLIEN_SLACK_SEND === "1";

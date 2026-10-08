@@ -343,6 +343,7 @@ export function startBoard(port, {
       let connections = null;
       let tickets = null;
       let slack = null;
+      let agent = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -379,6 +380,7 @@ export function startBoard(port, {
           connections = bound.connections ?? null;
           tickets = bound.tickets ?? null;
           slack = bound.slack ?? null;
+          agent = bound.agent ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -510,6 +512,29 @@ export function startBoard(port, {
           }
         }
         return reply(404, { error: "not a ticket route" });
+      }
+
+      // ---- the agents' questions: read only, one question per call ----
+      if (agent && path.startsWith("/api/v1/agent/")) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        // There is no write here and never will be: Botlien does not control robots.
+        if (req.method !== "GET") return reply(405, { error: "The agents' API is read only. GET only." });
+        const params = new URL(req.url ?? path, "http://x").searchParams;
+        const { AgentQueryError } = await import("./agent-api.mjs");
+        try {
+          if (path === "/api/v1/agent/line") return reply(200, agent.line());
+          if (path === "/api/v1/agent/stops") return reply(200, agent.stops(params));
+          if (path === "/api/v1/agent/costs") return reply(200, agent.costs());
+          const h = /^\/api\/v1\/agent\/robots\/(\d+)\/history$/.exec(path);
+          if (h) return reply(200, agent.history(Number(h[1]), params));
+        } catch (err) {
+          if (err instanceof AgentQueryError) return reply(400, { error: err.message });
+          throw err;
+        }
+        return reply(404, { error: "Ask one of: /api/v1/agent/line, /api/v1/agent/stops, /api/v1/agent/costs, /api/v1/agent/robots/:id/history." });
       }
 
       // ---- Slack: where stop alerts go, and the stops so far ----
