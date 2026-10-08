@@ -27,6 +27,7 @@ import { createEngine } from "./engine.mjs";
 import { toEpochMs } from "./normalize.mjs";
 import { computeRollups } from "./rollup.mjs";
 import { BENCHMARKS, defaultWorkFor } from "./rates.mjs";
+import { reconcile } from "./incidents.mjs";
 
 export const PUSH_CONNECTOR = "push";
 export const MAX_EVENTS = 1000;
@@ -99,7 +100,7 @@ export function normalizePushEvent(e) {
 
 /** Land a batch for one account. Returns what was accepted and, per index,
  *  why anything was not. */
-export function pushEvents(store, body, nowMs, config = {}) {
+export function pushEvents(store, body, nowMs, config = {}, { source = null } = {}) {
   const list = Array.isArray(body) ? body : body?.events;
   if (!Array.isArray(list)) return { error: "Send { \"events\": [ ... ] }." };
   if (list.length > MAX_EVENTS) return { error: `At most ${MAX_EVENTS} events per request.` };
@@ -123,7 +124,7 @@ export function pushEvents(store, body, nowMs, config = {}) {
     }
     const engine = createEngine({ store, connectors: [], config });
     // raw: the event as sent, archived so fields not read yet are kept.
-    engine.ingest(PUSH_CONNECTOR, good.map((g) => g.event), nowMs);
+    engine.ingest(PUSH_CONNECTOR, good.map((g) => g.event), nowMs, { source });
     // Refresh only the hourly buckets these events fall in, aligned to the
     // bucket so a bucket is never overwritten from part of its samples.
     const bucketMs = config.engine?.rollup_bucket_ms ?? 3_600_000;
@@ -133,5 +134,12 @@ export function pushEvents(store, body, nowMs, config = {}) {
       for (const r of computeRollups(store.snapshotsBetween(id, a, b), bucketMs)) store.upsertRollup({ robotId: id, ...r });
     }
   });
+  // A stop is recorded the moment the sample saying so arrives, not on the
+  // next job tick, so a dashboard polling the stop feed sees it within
+  // seconds. The job's tick still runs for robots that go silent.
+  for (const id of touched.keys()) {
+    const robot = store.listRobots().find((r) => r.id === id);
+    if (robot) reconcile(store, robot, nowMs);
+  }
   return { accepted: good.length, rejected, robots: touched.size };
 }

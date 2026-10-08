@@ -121,6 +121,7 @@ async function main() {
   let alertsInterval = null;
   let slackInterval = null;
   let lineInterval = null;
+  let replayInterval = null;
   let backupInterval = null;
   if (!demo) {
     const [{ openControl }, { TenantStores }, { createMailer }, { createTenancy }] = await Promise.all([
@@ -234,6 +235,17 @@ async function main() {
       }
     }, 30_000);
     if (!slackSend) console.log("Slack alerts are logged, not sent (set BOTLIEN_SLACK_SEND=1 to send)");
+    // Replays: a recorded run played into a demo account (BOTLIEN_DEMO_EMAILS)
+    // with today's timestamps, a sample at a time, every second.
+    const { createReplayJob } = await import("./replay.mjs");
+    const replayJob = createReplayJob({ control, tenants, config, log: genesisLog });
+    replayInterval = setInterval(() => {
+      try {
+        replayJob.tick(clock.now());
+      } catch (err) {
+        genesisLog(`replay job error: ${String(err).slice(0, 200)}`, "warning");
+      }
+    }, 1000);
     // The line: machine jams and what each stop left waiting, for accounts
     // with a confirmed line map, every two minutes. Jams go to Slack under
     // the same flag as stop alerts.
@@ -363,6 +375,7 @@ async function main() {
     if (alertsInterval) clearInterval(alertsInterval);
     if (slackInterval) clearInterval(slackInterval);
     if (lineInterval) clearInterval(lineInterval);
+    if (replayInterval) clearInterval(replayInterval);
     if (backupInterval) clearInterval(backupInterval);
     if (tenantSync) await tenantSync.stop();
     server.close();

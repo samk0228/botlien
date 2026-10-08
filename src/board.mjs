@@ -345,6 +345,8 @@ export function startBoard(port, {
       let slack = null;
       let agent = null;
       let members = null;
+      let stops = null;
+      let replay = null;
       let saveEconomics = baseSaveEconomics;
       let onboarding = baseOnboarding;
 
@@ -377,7 +379,10 @@ export function startBoard(port, {
           // them to the dashboard.
           const { canWrite, seesDollars, redactJSONResponses } = await import("./roles.mjs");
           if (!seesDollars(viewer.role)) redactJSONResponses(res);
-          if (!canWrite(viewer.role) && req.method !== "GET" && (path.startsWith("/api/v1/") || path.startsWith("/owner"))) {
+          // Acknowledging a stop and saying what fixed it are the
+          // technician's job, so those two stay open to them.
+          const stopAction = req.method === "POST" && /^\/api\/v1\/stops\/\d+\/(ack|fix)$/.test(path);
+          if (!canWrite(viewer.role) && !stopAction && req.method !== "GET" && (path.startsWith("/api/v1/") || path.startsWith("/owner"))) {
             res.writeHead(403, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "Your role can look but not change anything. Ask the account's owner." }));
             return;
@@ -400,6 +405,8 @@ export function startBoard(port, {
           slack = bound.slack ?? null;
           agent = bound.agent ?? null;
           members = bound.members ?? null;
+          stops = bound.stops ?? null;
+          replay = bound.replay ?? null;
           saveEconomics = bound.saveEconomics;
           onboarding = bound.onboarding;
         }
@@ -531,6 +538,57 @@ export function startBoard(port, {
           }
         }
         return reply(404, { error: "not a ticket route" });
+      }
+
+      // ---- stops in the dashboard: the feed, acknowledge, what fixed it ----
+      if (stops && (path === "/api/v1/stops" || path.startsWith("/api/v1/stops/"))) {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        const { StopError } = await import("./stops.mjs");
+        try {
+          if (path === "/api/v1/stops" && req.method === "GET") return reply(200, stops.feed(new URL(req.url ?? path, "http://x").searchParams.get("since")));
+          const act = /^\/api\/v1\/stops\/(\d+)\/(ack|fix)$/.exec(path);
+          if (act && req.method === "POST") {
+            let body;
+            try {
+              body = JSON.parse((await readBody(req, 4096)) || "{}");
+            } catch {
+              return reply(400, { error: act[2] === "ack" ? "Send JSON: { kind: on | look | snooze, minutes }." : "Send JSON: { text }." });
+            }
+            return reply(200, { ok: true, stop: act[2] === "ack" ? stops.ack(act[1], body) : stops.fix(act[1], body) });
+          }
+        } catch (err) {
+          if (err instanceof StopError) return reply(/^No stop/.test(err.message) ? 404 : 400, { error: err.message });
+          throw err;
+        }
+        return reply(405, { error: "GET /api/v1/stops?since=<cursor>, POST /api/v1/stops/:id/ack or /fix." });
+      }
+
+      // ---- the replay: a recorded run played into a demo account, now ----
+      if (replay && path === "/api/v1/replay") {
+        const reply = (code, body) => {
+          res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method === "GET") return reply(200, replay.status());
+        if (req.method === "POST") {
+          const { ReplayError } = await import("./replay.mjs");
+          let body;
+          try {
+            body = JSON.parse((await readBody(req, 4096)) || "{}");
+          } catch {
+            return reply(400, { error: "Send JSON: { action: rewind | stop, recording, speed }." });
+          }
+          try {
+            return reply(200, replay.control(String(body.action ?? ""), body));
+          } catch (err) {
+            if (err instanceof ReplayError) return reply(replay.allowed ? 400 : 403, { error: err.message });
+            throw err;
+          }
+        }
+        return reply(405, { error: "GET or POST." });
       }
 
       // ---- the team: the owner adds managers and technicians ----
