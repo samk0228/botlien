@@ -85,11 +85,11 @@ test("the whole story: escalates unanswered, one person acknowledges, it closes,
   assert.equal(loader.state, "closed");
   assert.equal(loader.repeatCount, 2, "it stopped again within ten minutes: the same stop, twice");
   assert.equal(loader.escalation.level, 1, "claimed before the manager was due");
-  // Deburr and Inspection starved the whole time. Loader 1 kept cycling and
-  // its ordinary half-minute waits count too, as the line rule stands today.
+  // Deburr and Inspection starved the whole time. Loader 1 is Loader 2's twin
+  // and kept cycling: it was never held, so it is not counted.
   const waited = Object.fromEntries(loader.leftWaiting.map((w) => [w.name, w.minutes]));
+  assert.deepEqual(Object.keys(waited).sort(), ["Deburr", "Inspection"]);
   assert.ok(waited.Deburr >= 13 && waited.Inspection >= 13, JSON.stringify(waited));
-  assert.ok(!waited["Loader 1"] || waited["Loader 1"] < 6, JSON.stringify(waited));
   const perHour = fleetContract(s, T0 + 41 * MIN, {}).robots.find((r) => r.name === "Loader 2").cost.perHourCents;
   assert.equal(loader.robotTimeCost.cents, Math.round((perHour * loader.minutes) / 60));
   assert.equal(loader.robotTimeCost.basis, "estimated");

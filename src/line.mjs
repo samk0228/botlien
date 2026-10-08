@@ -189,16 +189,33 @@ export function findJams(line, tl, { minMs = JAM_MIN_MS } = {}) {
  *  startedAt to endedAt (null while open), the other robots on its line in
  *  the waiting state during it, and for how long. */
 export function stopImpacts(line, tl, stops) {
-  const robotIds = line.stations.filter((s) => s.kind === "robot").map((s) => s.robotId);
+  const robotStations = line.stations.filter((s) => s.kind === "robot");
+  const robotIds = robotStations.map((s) => s.robotId);
+  const twinOf = new Map(robotStations.map((s) => [s.robotId, s.twin ?? null]));
   return stops
     .filter((s) => robotIds.includes(s.robotId))
     .map((s) => {
       const end = s.endedAt ?? tl.times[tl.times.length - 1] + tl.stepMs;
+      const twin = twinOf.get(s.robotId);
       const idle = {};
-      for (let k = 0; k < tl.times.length; k++) {
-        const t = tl.times[k];
-        if (t < s.startedAt || t >= end) continue;
-        for (const id of robotIds) if (id !== s.robotId && tl.states[id]?.[k] === "waiting") idle[id] = (idle[id] ?? 0) + tl.stepMs;
+      // Only the robots the stop really held: never its twin, which does the
+      // same job beside it and is not waiting on it, and only a wait that
+      // lasts longer than a cycle's own (JAM_MIN_MS), so a robot's normal
+      // half-minute pauses never count against the stop (Antonio, 10/7).
+      for (const id of robotIds) {
+        if (id === s.robotId || (twin !== null && twinOf.get(id) === twin)) continue;
+        let run = 0;
+        const close = () => {
+          if (run >= JAM_MIN_MS) idle[id] = (idle[id] ?? 0) + run;
+          run = 0;
+        };
+        for (let k = 0; k < tl.times.length; k++) {
+          const t = tl.times[k];
+          if (t < s.startedAt || t >= end) continue;
+          if (tl.states[id]?.[k] === "waiting") run += tl.stepMs;
+          else close();
+        }
+        close();
       }
       return { robotId: s.robotId, startedAt: s.startedAt, endedAt: s.endedAt ?? null, open: s.endedAt == null, idle };
     });

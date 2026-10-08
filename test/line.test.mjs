@@ -137,6 +137,19 @@ test("a stop's impact is the other robots on its line waiting while it lasted", 
   assert.deepEqual(idleCost({ 2: 60 * MIN }, { 2: 338 }), { minutes: 60, cents: 338, priced: true });
 });
 
+test("a stop counts only the robots it really held: never its twin, never a pause shorter than a cycle's wait", () => {
+  // 1 and 2 are twin loaders; 3 is downstream of the mill. 1 stops for 10 steps.
+  const line = { name: "L", stations: [{ kind: "robot", robotId: 1, twin: "loaders" }, { kind: "robot", robotId: 2, twin: "loaders" }, { kind: "machine", name: "Mill A" }, { kind: "robot", robotId: 3 }, { kind: "robot", robotId: 4 }] };
+  const tl = tlOf({
+    1: runs(["working", 2], ["stopped", 10], ["working", 4]),
+    2: runs(["working", 2], ["waiting", 10], ["working", 4]), // its twin, idle beside it: not held by it
+    3: runs(["working", 2], ["waiting", 10], ["working", 4]), // starved the whole stop
+    4: runs(["working", 2], ["waiting", 2], ["working", 2], ["waiting", 2], ["working", 8]), // two half-minute pauses
+  });
+  const [impact] = stopImpacts(line, tl, stopsIn(tl, [1, 2, 3, 4]).filter((x) => x.robotId === 1));
+  assert.deepEqual(impact.idle, { 3: 10 * STEP });
+});
+
 test("the line job records a jam, tells Slack once and again when it ends, records a stop's impact, and the contract sums the period", async () => {
   const c = cell();
   saveInputs(c.s, { account: { lineMap: c.map } }, T0 - MIN);

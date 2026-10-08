@@ -68,7 +68,9 @@ export function stopStory() {
   for (const t of [...times].filter((x) => x >= 0 && x <= END).sort((a, b) => a - b)) {
     for (const arm of ARMS) events.push({ offsetMs: t, event: sample(arm, t) });
   }
-  return { name: "stop-story", durationMs: END, events, lineMap: { stations: ["loader-1", "loader-2", { machine: "CNC mill A" }, { machine: "CNC mill B" }, "deburr", "inspection"] } };
+  // The two loaders do the same job side by side, so they are twins: one
+  // stopping never counts as holding the other.
+  return { name: "stop-story", durationMs: END, events, lineMap: { stations: [{ robot: "loader-1", twin: "loaders" }, { robot: "loader-2", twin: "loaders" }, { machine: "CNC mill A" }, { machine: "CNC mill B" }, "deburr", "inspection"] } };
 }
 
 /** A gateway recording, rebased to offsets from its first sample. */
@@ -111,7 +113,9 @@ export function rewind(store, { recording = "stop-story", speed = 1, by = null }
     ids.set(event.robot_id, store.upsertRobot({ connector: "push", externalId: event.robot_id, displayName: event.name ?? null, brand: "Universal Robots", model: event.model ?? null, category: event.category ?? "machine_tending" }, nowMs));
   }
   if (rec.lineMap) {
-    const stations = rec.lineMap.stations.map((s) => (typeof s === "string" ? { kind: "robot", robotId: ids.get(s) } : { kind: "machine", name: s.machine }));
+    const stations = rec.lineMap.stations.map((s) =>
+      typeof s === "string" ? { kind: "robot", robotId: ids.get(s) } : s.robot ? { kind: "robot", robotId: ids.get(s.robot), ...(s.twin ? { twin: s.twin } : {}) } : { kind: "machine", name: s.machine },
+    );
     saveInputs(store, { account: { lineMap: { lines: [{ name: "Cell 1", stations }] } } }, nowMs, by);
   }
   store.setKV(KV_CONFIRMED, "1");
