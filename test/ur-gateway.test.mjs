@@ -4,7 +4,7 @@ import { openStore } from "../src/store.mjs";
 import { pushEvents } from "../src/push.mjs";
 import { fleetContract } from "../src/contract.mjs";
 import { packet, createFramer, encodeData, decodeData, connectRtde, TYPE, DEFAULT_FIELDS } from "../gateway/ur/rtde.mjs";
-import { readSample, createArm } from "../gateway/ur/arm.mjs";
+import { readSample, createArm, isHeartbeat } from "../gateway/ur/arm.mjs";
 import { createSender } from "../gateway/ur/sender.mjs";
 import { loadConfig, runGateway } from "../gateway/ur/gateway.mjs";
 import { startFakeUrsim, simulateCell } from "../gateway/ur/fake-ursim.mjs";
@@ -232,6 +232,37 @@ test("the sender batches, holds through outages in order, and treats 400 and 401
   } finally {
     s.stop();
   }
+});
+
+test("a change is sent at once and a heartbeat waits for the batch, so a stop reaches Botlien within seconds", async () => {
+  const posts = [];
+  const post = async (url, key, body) => {
+    posts.push(body.events.map((e) => e.kind));
+    return { status: 200, body: { accepted: body.events.length, rejected: [] } };
+  };
+  const s = createSender({ url: "https://x", key: "blk_test", post, flushMs: 1e9 });
+  try {
+    s.enqueue([{ robot_id: "a", kind: "beat" }]);
+    await sleep(10);
+    assert.equal(posts.length, 0, "a heartbeat waits for the next batch");
+    s.enqueue([{ robot_id: "a", kind: "stop" }], { now: true });
+    await sleep(10);
+    assert.deepEqual(posts, [["beat", "stop"]], "the change goes now, with what was waiting, in order");
+  } finally {
+    s.stop();
+  }
+
+  // Only the arm's own heartbeats are marked as heartbeats; a protective stop is a change.
+  const arm = createArm({ id: "l1" }, { heartbeatMs: 15_000 });
+  const t0 = 1_790_000_000_000;
+  const run = { at: t0, robot_mode: 7, safety_mode: 1, runtime_state: 2, actual_qd: [0.5, 0, 0, 0, 0, 0] };
+  const [first] = arm.feed(run);
+  assert.equal(isHeartbeat(first), false);
+  const [beat] = arm.tick(t0 + 15_000);
+  assert.equal(isHeartbeat(beat), true);
+  const [stop] = arm.feed({ ...run, at: t0 + 16_000, safety_mode: 3, runtime_state: 3, actual_qd: [0, 0, 0, 0, 0, 0] });
+  assert.equal(stop.stuck, true);
+  assert.equal(isHeartbeat(stop), false, "a stop is sent at once, with no hold");
 });
 
 // ---- end to end ----

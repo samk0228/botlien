@@ -13,7 +13,7 @@
 import { readFileSync, openSync, writeSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { connectRtde, DEFAULT_FIELDS, RTDE_PORT, FORBIDDEN_PORTS } from "./rtde.mjs";
-import { createArm } from "./arm.mjs";
+import { createArm, isHeartbeat } from "./arm.mjs";
 import { createSender } from "./sender.mjs";
 
 export function loadConfig(text) {
@@ -39,9 +39,10 @@ export function loadConfig(text) {
  *  JSONL log that scripts/benchmark-replay.mjs can play back. */
 export function runGateway(config, { key, connect = connectRtde, sender = null, log = console.log, now = Date.now, record = null } = {}) {
   const out = sender ?? createSender({ url: config.botlien, key, log });
+  // A change goes out at once; a heartbeat waits for the next batch.
   const send = (events) => {
     if (record && events.length) record(events);
-    out.enqueue(events);
+    out.enqueue(events, { now: events.some((e) => !isHeartbeat(e)) });
   };
   const arms = config.arms.map((a) => {
     const arm = createArm({ ...a, cycleRegister: a.cycleRegister ?? null }, { heartbeatMs: config.heartbeatSeconds * 1000, holdMs: config.holdSeconds * 1000 });
