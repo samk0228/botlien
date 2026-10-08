@@ -69,7 +69,7 @@ function fixDash(doc){
 }
 var depillT;function depillSoon(doc,ms){clearTimeout(depillT);depillT=setTimeout(function(){depill(doc)},ms||250)}
 /* pages of the embedded dashboard the demo may show */
-function okViews(){return S.role==='Owner'?{dashv2:1,line:1,robots:1,robot:1,incidents:1}:{dashv2:1,line:1,robots:1,incidents:1}}
+function okViews(){var v=S.role==='Owner'?{dashv2:1,line:1,robots:1,robot:1,incidents:1}:{dashv2:1,line:1,robots:1,incidents:1};if(HOSTED&&S.role==='Owner'){v.costs=1;v.payback=1;v.trends=1}return v}
 function syncScreen(){var a=$('app'),n=matchMedia('(max-width:1180px)').matches;$('screenBtn').setAttribute('aria-pressed',(n?a.classList.contains('rshow'):!a.classList.contains('noscreen'))?'true':'false')}
 
 var SAM_CSS=['html{color-scheme:light only}',
@@ -228,10 +228,13 @@ function boot(){
  /* the dashboard is started after the chat has painted */
  var started=false;
  function start(){if(started)return;started=true;
+  /* Hosted: the account's own dashboard, live, instead of the sample snapshot; none for a viewer the server
+     sends no dollars to (the dashboard is all dollars). */
+  if(HOSTED){$('samsrc').textContent='';if(window.__BOTLIEN_HOSTED.dollars!==false)F.src='/app?page=mfg';return}
   try{var raw=$('samsrc').textContent.replace(/<\/scr@@ipt/g,'<'+'/script').replace(/<!@@--/g,'<'+'!--');F.srcdoc=raw;$('samsrc').textContent=''}
   catch(e){S.frameErr=1;renderChip();renderRight()}}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(start,60)});else setTimeout(start,60);
- setTimeout(function(){if(!S.frameLoaded||!ours()){S.frameErr=1;renderChip();renderRight()}},45000);
+ setTimeout(function(){if(HOSTED&&window.__BOTLIEN_HOSTED.dollars===false)return;if(!S.frameLoaded||(!HOSTED&&!ours())){S.frameErr=1;renderChip();renderRight()}},45000);
  setInterval(function(){if(!document.hidden)poll()},2000);
  setInterval(function(){if(!document.hidden)depill(document)},8000);setTimeout(function(){depill(document)},2500);
  $('demoBtn').addEventListener('click',function(e){e.stopPropagation();openMore(false);openMenu($('demoMenu').className!=='open')});

@@ -2,7 +2,24 @@
    Turns on only when an API base is given (window.__BOTLIEN_API, or ?api=https://host/path in the page URL).
    Without it the page behaves exactly as the scripted demo. Contract: LIVE_STOPS_API_CONTRACT.md */
 var LIVE={api:null,cursor:0,seen:{},t:0,fails:0,on:false,epoch:undefined};
+/* Hosted: Robots right now and the cells read the account's own robots from /api/v1/agent/line every 3 seconds,
+   matched to the team by name, in the shape the sample feed had (state, workingPct10 for the last 10 minutes). */
+var HFEED=null;
+function hostedFeedTick(){
+ fetch('/api/v1/agent/line',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+  if(!j||!Array.isArray(j.robots))return;
+  var byName={};j.robots.forEach(function(x){byName[x.name]=x});
+  var rob=R.map(function(r,i){var m=byName[r.name];return m?{i:i,name:m.name,role:m.name,model:m.model,state:m.state,workingPct10:m.workingPct10==null?0:m.workingPct10}:null});
+  var lags=j.robots.map(function(x){return x.lagSeconds}).filter(function(x){return x!=null});
+  var line=(j.lines||[])[0];
+  HFEED={ok:!!j.live,state:j.live?'live':(lags.length?'stale':'offline'),robots:rob,lag:lags.length?Math.max.apply(null,lags):null,line:null,
+   lineText:line?line.stations.map(function(s){return s.name+(s.kind==='machine'?' (a machine, not a robot)':'')}).join(', then '):null,
+   replay:LIVE.epoch!=null};
+  FD=null;renderSide();renderHead();renderChip();if(S.tab==='ov')renderLive();
+ }).catch(function(){});
+}
 function liveInit(){
+ if(HOSTED){hostedFeedTick();setInterval(function(){if(!document.hidden)hostedFeedTick()},3000)}
  var q=(location.search.match(/[?&]api=([^&]+)/)||[])[1];
  LIVE.api=window.__BOTLIEN_API||(q?decodeURIComponent(q):null);
  if(!LIVE.api)return;

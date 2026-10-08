@@ -70,14 +70,24 @@ var _OURS=null;function ours(){try{return _OURS||(_OURS=sam().eval('OURS'))}catc
 var FD=null,FDt=0;
 function feed(){var nw=Date.now();if(FD&&nw-FDt<400)return FD;FD=feed0();FDt=nw;return FD}
 function feed0(){
+ if(HOSTED)return HFEED||{ok:false,state:'connecting',robots:null};
  var o=ours();
  if(!o||!o.live||!Array.isArray(o.live.robots))return{ok:false,state:'connecting',robots:null};
  var lag=(isFinite(o.lag)&&isFinite(o.lagAt))?o.lag+(Date.now()-o.lagAt)/1000:null;
  var fresh=!!(o.ok&&(o.live.live===true||(o.live.live==null&&lag!=null&&lag<=30)));
  return{ok:fresh,state:o.state||'offline',robots:o.live.robots,lag:lag,line:o.line,updated:o.live.updated};
 }
-function samGo(view){try{var el=sam().document.querySelector('[data-act="go"][data-view="'+view+'"]');if(el)el.click()}catch(e){}}
-function tabView(t){return{ov:'dashv2',dash:'dashv2',line:'line',fleet:'robots',inc:'incidents'}[t]}
+function samGo(view){try{var el=sam().document.querySelector('[data-act="go"][data-view="'+view+'"]');if(el)el.click();else if(typeof sam().goView==='function')sam().goView(view)}catch(e){}}
+function tabView(t){return{ov:'dashv2',dash:'dashv2',line:'line',fleet:'robots',inc:'incidents',costs:'costs',pay:'payback',trends:'trends'}[t]}
+/* Hosted, the right side is the account's own dashboard: the tabs that run on its data. Line, Line value and
+   Built for you run on the sample run for now and come back when they read real data. A viewer the server
+   sends no dollars to gets Robots right now only. */
+var SAM_TABS=['ov','line','fleet','inc','costs','pay','trends'];
+function tabsList(){
+ if(!HOSTED)return TABS.concat(cvTabs());
+ if(window.__BOTLIEN_HOSTED.dollars===false)return[['ov','Overview']];
+ return[['ov','Overview'],['fleet','Fleet'],['inc','Incidents'],['costs','Costs'],['pay','Payback'],['trends','Trends']];
+}
 
 /* ===== motion helpers (the Dev motion spec: expo out, quiet, only transform and opacity) ===== */
 function reduced(){return matchMedia('(prefers-reduced-motion: reduce)').matches}
@@ -265,8 +275,8 @@ function cellLive(th){return th.r!=null?cellState(th.r):null}
 /* ===== right panel ===== */
 var TABS=[['ov','Overview'],['line','Line'],['val','Line value'],['fleet','Fleet'],['inc','Incidents'],['built','Built for you']];
 function renderRight(){
-var TIPS={val:'What the line earns and where it is held back',ov:'The brief, cost and working time, and every robot right now',int:'What is connected and where alerts go',built:'Views Mara builds when you ask',line:'What each station is doing',fleet:'Robots ranked by working time',inc:'Every stall and error'};
- var h='';TABS.concat(cvTabs()).forEach(function(t){h+='<button type="button" role="tab" id="tab_'+t[0]+'" tabindex="'+(S.tab===t[0]?0:-1)+'" aria-selected="'+(S.tab===t[0])+'" class="tab'+(S.tab===t[0]?' on':'')+'" data-t="'+t[0]+'"'+(TIPS[t[0]]?' title="'+TIPS[t[0]]+'"':'')+'>'+esc(t[1])+'</button>'+(t[0]==='inc'?'<span class="tabsep" aria-hidden="true"></span>':'')});
+var TIPS={costs:'What each robot costs to own and run, and how it is worked out',pay:'When the robots pay for themselves',trends:'Working time and stops over the months',val:'What the line earns and where it is held back',ov:'The brief, cost and working time, and every robot right now',int:'What is connected and where alerts go',built:'Views Mara builds when you ask',line:'What each station is doing',fleet:'Robots ranked by working time',inc:'Every stall and error'};
+ var h='';tabsList().forEach(function(t){h+='<button type="button" role="tab" id="tab_'+t[0]+'" tabindex="'+(S.tab===t[0]?0:-1)+'" aria-selected="'+(S.tab===t[0])+'" class="tab'+(S.tab===t[0]?' on':'')+'" data-t="'+t[0]+'"'+(TIPS[t[0]]?' title="'+TIPS[t[0]]+'"':'')+'>'+esc(t[1])+'</button>'+(t[0]==='inc'?'<span class="tabsep" aria-hidden="true"></span>':'')});
  var rt=$('rtabs'),fa=document.activeElement,fid=fa&&fa.closest&&fa.closest('#rtabs')?fa.getAttribute('data-t'):null;rt.innerHTML=h;
  [].forEach.call(rt.querySelectorAll('.tab'),function(b){b.addEventListener('click',function(){setTab(b.getAttribute('data-t'))})});
  var ind=document.createElement('i');ind.id='tabind';rt.appendChild(ind);
@@ -275,7 +285,7 @@ var TIPS={val:'What the line earns and where it is held back',ov:'The brief, cos
   if(pv&&!reduced()){ind.style.transition='none';ind.style.transform='translateX('+pv.x+'px)';ind.style.width=pv.w+'px';void ind.offsetWidth;ind.style.transition=''}
   ind.style.transform='translateX('+ox+'px)';ind.style.width=ow+'px';S._ind={x:ox,w:ow}}
  if(fid){var nb=rt.querySelector('[data-t="'+fid+'"]');if(nb)nb.focus()}
- var isSam=['ov','line','fleet','inc'].indexOf(S.tab)>=0,isBuilt=(S.tab==='built'||S.tab.indexOf('pin_')===0);
+ var isSam=SAM_TABS.indexOf(S.tab)>=0&&!(HOSTED&&window.__BOTLIEN_HOSTED.dollars===false),isBuilt=(S.tab==='built'||S.tab.indexOf('pin_')===0);
  if(S.tab.indexOf('pin_')===0){var pp=CV.pins.filter(function(p){return p.id===S.tab})[0];CV.tabSpec=pp?clone(pp.spec):null}else if(S.tab==='built')CV.tabSpec=null;
  $('livepanel').style.display=S.tab==='ov'?'block':'none';$('rbody').classList.toggle('ov',S.tab==='ov');try{sam().document.body.classList.toggle('ov',S.tab==='ov')}catch(e){}
  $('builtpanel').style.display=isBuilt?'block':'none';$('valpanel').style.display=S.tab==='val'?'block':'none';if(S.tab==='val')renderValue();
@@ -429,7 +439,7 @@ function revealFrame(){
 }
 function setTab(t){
  if(t==='dash'||t==='live')t='ov';
- var was=S.tab,isSamT=['ov','line','fleet','inc'].indexOf(t)>=0,fw=$('framewrap'),hide=isSamT&&was!==t&&!reduced();
+ var was=S.tab,isSamT=SAM_TABS.indexOf(t)>=0,fw=$('framewrap'),hide=isSamT&&was!==t&&!reduced();
  S.tab=t;S._ovh=0;
  if(hide){fw.style.transition='none';fw.style.opacity='0'}
  var v=tabView(t);if(v){samGo(v);if(window.__depillDoc)depillSoon(window.__depillDoc,900)}
@@ -523,7 +533,7 @@ function renderLive(){
    '<div class="bar"><i style="width:'+(pct!=null&&fd.ok?Math.min(100,pct):0)+'%"></i></div><div class="cm"><span>'+(pct!=null?(fd.ok?f1(pct)+'% working, last 10 min':'Last reading '+ago+', not live'):'No reading')+'</span><span>'+(money()?usd(r.cph)+'/hr to own and run':'')+'</span></div></button>';
  });
  h+='</div>';
- h+='<div class="strip"><b>The line</b> Loader 1 and 2, then CNC mills A and B (machines, not robots), then Deburr, then Inspection.'+(line?' Making about '+Math.round(line.perHourNow)+' parts an hour against about '+Math.round(line.perHourNormal)+' normally.':' Making about 262 parts an hour against about 275 normally (sample).')+' <a href="#" data-go="line">Open the line</a></div>';
+ h+=HOSTED?'<div class="strip"><b>The line</b> '+(HFEED&&HFEED.lineText?esc(HFEED.lineText):'Your robots, as they report.')+(HFEED&&HFEED.replay?' A recorded replay, not live.':'')+'</div>':'<div class="strip"><b>The line</b> Loader 1 and 2, then CNC mills A and B (machines, not robots), then Deburr, then Inspection.'+(line?' Making about '+Math.round(line.perHourNow)+' parts an hour against about '+Math.round(line.perHourNormal)+' normally.':' Making about 262 parts an hour against about 275 normally (sample).')+' <a href="#" data-go="line">Open the line</a></div>';
  if(S.sim&&!S.sim.fixed)h+='<div class="strip alert"><b>Demo stop on '+R[S.sim.r].name+'.</b> This stop is injected by the demo and is not in the recording, so the Line page will not show it.</div>';
  patch(box,h);
 }
@@ -1262,7 +1272,24 @@ function onbHostClick(b){
    Turns on only when an API base is given (window.__BOTLIEN_API, or ?api=https://host/path in the page URL).
    Without it the page behaves exactly as the scripted demo. Contract: LIVE_STOPS_API_CONTRACT.md */
 var LIVE={api:null,cursor:0,seen:{},t:0,fails:0,on:false,epoch:undefined};
+/* Hosted: Robots right now and the cells read the account's own robots from /api/v1/agent/line every 3 seconds,
+   matched to the team by name, in the shape the sample feed had (state, workingPct10 for the last 10 minutes). */
+var HFEED=null;
+function hostedFeedTick(){
+ fetch('/api/v1/agent/line',{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+  if(!j||!Array.isArray(j.robots))return;
+  var byName={};j.robots.forEach(function(x){byName[x.name]=x});
+  var rob=R.map(function(r,i){var m=byName[r.name];return m?{i:i,name:m.name,role:m.name,model:m.model,state:m.state,workingPct10:m.workingPct10==null?0:m.workingPct10}:null});
+  var lags=j.robots.map(function(x){return x.lagSeconds}).filter(function(x){return x!=null});
+  var line=(j.lines||[])[0];
+  HFEED={ok:!!j.live,state:j.live?'live':(lags.length?'stale':'offline'),robots:rob,lag:lags.length?Math.max.apply(null,lags):null,line:null,
+   lineText:line?line.stations.map(function(s){return s.name+(s.kind==='machine'?' (a machine, not a robot)':'')}).join(', then '):null,
+   replay:LIVE.epoch!=null};
+  FD=null;renderSide();renderHead();renderChip();if(S.tab==='ov')renderLive();
+ }).catch(function(){});
+}
 function liveInit(){
+ if(HOSTED){hostedFeedTick();setInterval(function(){if(!document.hidden)hostedFeedTick()},3000)}
  var q=(location.search.match(/[?&]api=([^&]+)/)||[])[1];
  LIVE.api=window.__BOTLIEN_API||(q?decodeURIComponent(q):null);
  if(!LIVE.api)return;
@@ -1453,7 +1480,7 @@ function fixDash(doc){
 }
 var depillT;function depillSoon(doc,ms){clearTimeout(depillT);depillT=setTimeout(function(){depill(doc)},ms||250)}
 /* pages of the embedded dashboard the demo may show */
-function okViews(){return S.role==='Owner'?{dashv2:1,line:1,robots:1,robot:1,incidents:1}:{dashv2:1,line:1,robots:1,incidents:1}}
+function okViews(){var v=S.role==='Owner'?{dashv2:1,line:1,robots:1,robot:1,incidents:1}:{dashv2:1,line:1,robots:1,incidents:1};if(HOSTED&&S.role==='Owner'){v.costs=1;v.payback=1;v.trends=1}return v}
 function syncScreen(){var a=$('app'),n=matchMedia('(max-width:1180px)').matches;$('screenBtn').setAttribute('aria-pressed',(n?a.classList.contains('rshow'):!a.classList.contains('noscreen'))?'true':'false')}
 
 var SAM_CSS=['html{color-scheme:light only}',
@@ -1612,10 +1639,13 @@ function boot(){
  /* the dashboard is started after the chat has painted */
  var started=false;
  function start(){if(started)return;started=true;
+  /* Hosted: the account's own dashboard, live, instead of the sample snapshot; none for a viewer the server
+     sends no dollars to (the dashboard is all dollars). */
+  if(HOSTED){$('samsrc').textContent='';if(window.__BOTLIEN_HOSTED.dollars!==false)F.src='/app?page=mfg';return}
   try{var raw=$('samsrc').textContent.replace(/<\/scr@@ipt/g,'<'+'/script').replace(/<!@@--/g,'<'+'!--');F.srcdoc=raw;$('samsrc').textContent=''}
   catch(e){S.frameErr=1;renderChip();renderRight()}}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(start,60)});else setTimeout(start,60);
- setTimeout(function(){if(!S.frameLoaded||!ours()){S.frameErr=1;renderChip();renderRight()}},45000);
+ setTimeout(function(){if(HOSTED&&window.__BOTLIEN_HOSTED.dollars===false)return;if(!S.frameLoaded||(!HOSTED&&!ours())){S.frameErr=1;renderChip();renderRight()}},45000);
  setInterval(function(){if(!document.hidden)poll()},2000);
  setInterval(function(){if(!document.hidden)depill(document)},8000);setTimeout(function(){depill(document)},2500);
  $('demoBtn').addEventListener('click',function(e){e.stopPropagation();openMore(false);openMenu($('demoMenu').className!=='open')});

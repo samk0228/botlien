@@ -169,6 +169,8 @@ test("line status says what each robot is doing now, how fresh that is, and whic
   const by = Object.fromEntries(out.robots.map((r) => [r.name, r]));
   assert.deepEqual([by["Loader 2"].state, by["Loader 2"].live, by["Loader 2"].openStopId], ["stopped", true, 1]);
   assert.deepEqual([by.Deburr.state, by.Deburr.lagSeconds, by.Deburr.openStopId], ["working", 10, null]);
+  assert.equal(by["Loader 2"].workingPct10, 0, "stopped the last 20 seconds and silent before: no working time in the last ten minutes");
+  assert.equal(by.Deburr.workingPct10, 100);
   const later = lineStatus(lab.s, fleetContract(lab.s, T0 + 5 * MIN, {}), T0 + 5 * MIN);
   assert.equal(later.live, false, "five minutes without a sample is not live");
 });
