@@ -388,20 +388,28 @@ test("reaching a real coverage ratio fires activated exactly once", async () => 
 test("/app sends a brand-new account to first run, and old pages forward once it has a fleet", async () => {
   const app = await boot();
   try {
+    // A brand-new account is a robot-arm shop: the team page, on the first of
+    // its five onboarding steps, with no industry picker.
+    const fresh = await app.signIn("arms@example.com");
+    const team = await (await app.get("/app", fresh)).text();
+    assert.match(team, /<title>Botlien · Team<\/title>/);
+    assert.match(team, /"onboarding":"account"/);
+    // An account that already picked another business under the old first
+    // run keeps it.
     const cookie = await app.signIn("new@example.com");
-    // The built page runs first run itself (it declares LIVE_FIRST_RUN), so a
-    // brand-new account is served /app, opening on its first-run step, rather
-    // than redirected to the plain server pages.
+    await fetch(`${app.base}/api/v1/setup/business`, { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ business: "restaurant" }) });
+    // The built page runs first run itself (it declares LIVE_FIRST_RUN), so it
+    // is served /app on its first-run step, not redirected to plain pages.
     const { pageRunsFirstRun } = await import("../src/app.mjs");
     const first = await app.get("/app", cookie);
     if (pageRunsFirstRun()) {
       assert.equal(first.status, 200);
       const html = await first.text();
       assert.match(html, /window\.BOTLIEN_LIVE=/);
-      assert.match(html, /"step":"business"/, "no business chosen yet");
+      assert.match(html, /"step":"import"/, "a restaurant with no data yet");
     } else {
       assert.equal(first.status, 303);
-      assert.equal(first.headers.get("location"), "/owner/business", "no business chosen yet");
+      assert.equal(first.headers.get("location"), "/owner/import", "a restaurant with no data yet");
     }
     const demo = await app.get("/app?demo=1", cookie);
     assert.equal(demo.status, 200, "the demo is always reachable");
@@ -506,8 +514,11 @@ test("/app?page=mfg serves the manufacturing page to an operator only, on their 
     assert.ok(mfg.indexOf("window.BOTLIEN_LIVE=") < mfg.indexOf("const LIVE = (typeof window"), "before the script that reads it");
     // Without the parameter the operator gets the usual page.
     assert.doesNotMatch(await (await app.get("/app", op)).text(), /Botlien · Manufacturing/);
-    // A customer who asks for it gets the usual page too, not an error: it is not advertised.
+    // A customer in another business who asks for it gets the usual page,
+    // not an error: it is not advertised. (A robot-arm shop gets it beside
+    // the team page; see team.test.mjs.)
     const outsider = await app.signIn("alice@othergrill.com");
+    await fetch(`${app.base}/api/v1/setup/business`, { method: "POST", headers: { Cookie: outsider, "Content-Type": "application/json" }, body: JSON.stringify({ business: "restaurant" }) });
     const res = await app.get("/app?page=mfg", outsider);
     assert.equal(res.status, 200);
     assert.doesNotMatch(await res.text(), /Botlien · Manufacturing/);

@@ -133,19 +133,20 @@ test("the team page is built, and served to operators and the demo account only"
     tenants.get(control.accountByEmail("demo@botlien.com").id).setKV("owner.business_type", "manufacturing");
     const html = await page("/app?layout=team", demo);
     assert.match(html, /<title>Botlien · Team<\/title>/);
-    assert.deepEqual(team(html), { replay: true, dashboard: true });
+    assert.deepEqual(team(html), { replay: true, dashboard: true, onboarding: "account" });
     assert.match(await page("/app?page=mfg", demo), /Manufacturing/, "the dashboard pane loads for the demo account");
 
     const b = sent.length;
     await fetch(`${base}/api/v1/members`, { method: "POST", headers: { Cookie: demo }, body: JSON.stringify({ email: "dana@demo.io", role: "technician" }) });
     const dana = await redeem(sent.slice(b).join("\n").match(/\/signin\/([A-Za-z0-9_-]+)/)[1]);
-    assert.deepEqual(team(await page("/app?layout=team", dana)), { replay: false, dashboard: false }, "a technician gets the stops and Mara, not the dollar dashboard or the rewind");
+    assert.deepEqual(team(await page("/app?layout=team", dana)), { replay: false, dashboard: false, onboarding: "account" }, "a technician gets the stops and Mara, not the dollar dashboard or the rewind");
     assert.doesNotMatch(await page("/app?page=mfg", dana), /<title>Botlien · Manufacturing/);
 
     const ops = await signIn("ops@botlien.com");
-    assert.deepEqual(team(await page("/app?layout=team", ops)), { replay: false, dashboard: true });
+    assert.deepEqual(team(await page("/app?layout=team", ops)), { replay: false, dashboard: true, onboarding: "account" });
     const customer = await signIn("sam@linelab.io");
-    assert.equal(team(await page("/app?layout=team", customer)), null, "a customer still gets the usual page");
+    await fetch(`${base}/api/v1/setup/business`, { method: "POST", headers: { Cookie: customer, "Content-Type": "application/json" }, body: JSON.stringify({ business: "restaurant" }) });
+    assert.equal(team(await page("/app?layout=team", customer)), null, "a customer in another business still gets the usual page");
 
     const feed = await (await fetch(`${base}/api/v1/stops`, { headers: { Cookie: demo } })).json();
     assert.ok("epoch" in feed, "the feed says which replay it belongs to");

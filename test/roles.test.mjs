@@ -150,11 +150,11 @@ test("over HTTP: the owner invites a technician, who sees times and causes, no d
     }
     const stopsSeen = await json("/api/v1/agent/stops?since=0", dana);
     assert.deepEqual([stopsSeen.stops[0].code, stopsSeen.stops[0].minutes.value, stopsSeen.stops[0].cost.stopCents.value], ["C153", 12, null]);
+    // A robot-arm shop's technician gets the team page without the dollar
+    // dashboard; it carries no account data, only who is looking.
     const page = await (await api("/app", dana)).text();
-    assert.match(page, /<title>Botlien · Floor<\/title>/, "a technician gets the floor page, not the dollar dashboard");
-    assert.match(page, /C153/);
-    assert.match(page, /Loader 2/);
-    assert.doesNotMatch(page, /\$\s?\d/);
+    assert.match(page, /<title>Botlien · Team<\/title>/);
+    assert.match(page, /"dashboard":false/);
     assert.doesNotMatch(page, /BOTLIEN_LIVE/);
 
     // Looks, never touches.

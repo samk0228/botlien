@@ -29,9 +29,9 @@ export function mfgPageHTML() {
 }
 
 /** The team page, told who is looking and what they may do there. */
-export function renderTeamHTML({ account, replay = false, dashboard = true, html = pageHTML(APP_TEAM_HTML_PATH) }) {
+export function renderTeamHTML({ account, replay = false, dashboard = true, onboarding = "done", html = pageHTML(APP_TEAM_HTML_PATH) }) {
   const viewer = account.viewer ?? { email: account.email, role: "owner" };
-  const inject = `<script>window.BOTLIEN_ACCOUNT=${scriptJSON({ email: viewer.email, role: viewer.role, owner: account.email })};window.BOTLIEN_TEAM=${scriptJSON({ replay, dashboard })};</script>\n`;
+  const inject = `<script>window.BOTLIEN_ACCOUNT=${scriptJSON({ email: viewer.email, role: viewer.role, owner: account.email })};window.BOTLIEN_TEAM=${scriptJSON({ replay, dashboard, onboarding })};</script>\n`;
   const at = html.indexOf("<script");
   if (at < 0) throw new Error("team page has no script to inject before");
   return html.slice(0, at) + inject + html.slice(at);
