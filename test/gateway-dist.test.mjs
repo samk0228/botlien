@@ -23,7 +23,7 @@ test("over HTTP the gateway downloads need no session", async () => {
   try {
     const sh = await fetch(`${base}/gateway/install.sh`);
     assert.equal(sh.status, 200);
-    assert.match(await sh.text(), /Read only\. It can never move or change an arm\./);
+    assert.match(await sh.text(), /Read only\. It can never move or change a robot\./);
     assert.equal((await fetch(`${base}/gateway/files/gateway.mjs`)).status, 200);
     assert.equal((await fetch(`${base}/gateway/files/store.mjs`)).status, 404);
   } finally {

@@ -1,11 +1,13 @@
 #!/bin/sh
-# Botlien UR gateway installer, for Linux and macOS.
+# Botlien gateway installer (UR arms and MiR robots), for Linux and macOS.
 #
 #   curl -fsSL __BOTLIEN__/gateway/install.sh | sh
 #   curl -fsSL __BOTLIEN__/gateway/install.sh | sh -s -- --uninstall
 #
 # For a scripted install (an integrator setting up several PCs), skip the
 # questions: BOTLIEN_API_KEY=blk_... BOTLIEN_ARMS="192.168.1.21,Loader 1,UR10e;192.168.1.22,Loader 2"
+# and for MiRs BOTLIEN_MIR="192.168.12.20,Tugger 1,MiR250;fleet 10.0.0.5" BOTLIEN_MIR_AUTH=user:password
+# (BOTLIEN_ARMS=none or BOTLIEN_MIR=none to skip a kind).
 # BOTLIEN_GATEWAY_NO_SERVICE=1 installs the files without starting a service.
 #
 # Runs on a PC that is already on the same network as the arms. It asks for
@@ -14,11 +16,12 @@
 # a systemd service on Linux (run as root), a login agent on macOS.
 #
 # Read only. The gateway reads RTDE on port 30004 and refuses every port that
-# can move an arm. It opens no port of its own; it only sends out to Botlien.
+# can move an arm, and asks a MiR only GET questions. It opens no port of its
+# own; it only sends out to Botlien.
 set -eu
 
 BOTLIEN="__BOTLIEN__"
-FILES="gateway.mjs arm.mjs rtde.mjs sender.mjs"
+FILES="gateway.mjs arm.mjs rtde.mjs sender.mjs mir.mjs"
 NAME="botlien-gateway"
 TTY=/dev/tty
 
@@ -46,8 +49,8 @@ if [ "${1:-}" = "--uninstall" ]; then
   exit 0
 fi
 
-say "Botlien UR gateway: reads your Universal Robots arms and sends their status to Botlien."
-say "Read only. It can never move or change an arm."
+say "Botlien gateway: reads your Universal Robots arms and MiR robots and sends their status to Botlien."
+say "Read only. It can never move or change a robot."
 say ""
 
 # ---- Node 18 or newer ----
@@ -68,13 +71,18 @@ fi
 case "$KEY" in blk_*) ;; *) fail "That is not a gateway key. Make one in Botlien (Connect robots, or Settings > Data sources)." ;; esac
 
 # ---- the arms ----
+# A scripted install that names only one kind of robot skips the other, so
+# it never stops to ask.
+if [ -n "${BOTLIEN_ARMS:-}" ] && [ -z "${BOTLIEN_MIR:-}" ]; then BOTLIEN_MIR=none; fi
+if [ -n "${BOTLIEN_MIR:-}" ] && [ -z "${BOTLIEN_ARMS:-}" ]; then BOTLIEN_ARMS=none; fi
 ARMS=""
 N=0
 # Given up front ("ip,name,model;ip,name,model"), or asked one by one.
 PRESET="${BOTLIEN_ARMS:-}"
+[ "$PRESET" = none ] && PRESET=""
 say ""
-[ -z "$PRESET" ] && say "Now the arms. For each one, its IP address on your network (on the teach pendant: Settings > System > Network)."
-while :; do
+[ -z "${BOTLIEN_ARMS:-}" ] && say "First the Universal Robots arms. For each one, its IP address on your network (on the teach pendant: Settings > System > Network). Leave blank if you have none."
+while [ "${BOTLIEN_ARMS:-}" != none ]; do
   if [ -n "$PRESET" ]; then
     ENTRY=${PRESET%%;*}
     [ "$ENTRY" = "$PRESET" ] && PRESET="" || PRESET=${PRESET#*;}
@@ -103,20 +111,87 @@ while :; do
 "
   [ -n "${BOTLIEN_ARMS:-}" ] && [ -z "$PRESET" ] && break
 done
-[ "$N" -gt 0 ] || fail "No arms given. Run this again with at least one arm's IP address."
+
+# ---- the MiRs ----
+MIRS=""
+M=0
+PRESET="${BOTLIEN_MIR:-}"
+[ "$PRESET" = none ] && PRESET=""
+if [ -z "${BOTLIEN_MIR:-}" ]; then
+  say ""
+  say "Now the MiR robots. For each one, its IP address (in the MiR web interface: System > Settings > WiFi)."
+  say "If a MiR Fleet server runs them, type fleet and its address instead, like: fleet 10.0.0.5"
+fi
+while [ "${BOTLIEN_MIR:-}" != none ]; do
+  if [ -n "$PRESET" ]; then
+    ENTRY=${PRESET%%;*}
+    [ "$ENTRY" = "$PRESET" ] && PRESET="" || PRESET=${PRESET#*;}
+    [ -z "$ENTRY" ] && { [ -z "$PRESET" ] && break; continue; }
+    IP=$(printf '%s' "$ENTRY" | cut -d, -f1)
+    MNAME=$(printf '%s' "$ENTRY" | cut -s -d, -f2)
+    MMODEL=$(printf '%s' "$ENTRY" | cut -s -d, -f3)
+  else
+    [ -n "${BOTLIEN_MIR:-}" ] && break
+    ask "MiR $((M + 1)) IP address (leave blank when done): "
+    IP=$REPLY
+    MNAME=""; MMODEL=""
+  fi
+  FLEET=0
+  case "$IP" in fleet*) FLEET=1; IP=${IP#fleet} ;; esac
+  IP=$(printf '%s' "$IP" | tr -d ' ')
+  [ -z "$IP" ] && { [ -z "$PRESET" ] && break; continue; }
+  if ! printf '%s' "$IP" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]+)?$'; then
+    [ -n "${BOTLIEN_MIR:-}" ] && fail "$IP is not an IP address like 192.168.12.20."
+    say "  That is not an IP address like 192.168.12.20. Try again."; continue
+  fi
+  if [ "$FLEET" = 0 ] && [ -z "${BOTLIEN_MIR:-}" ]; then
+    ask "  Name for $IP (like Tugger 1): "; MNAME=$REPLY
+    ask "  Model [MiR250]: "; MMODEL=$REPLY
+  fi
+  [ "$FLEET" = 1 ] && MNAME=${MNAME:-MiR}
+  MNAME=${MNAME:-MiR $((M + 1))}; MMODEL=${MMODEL:-MiR250}
+  HOSTONLY=${IP%%:*}; PORT=80; case "$IP" in *:*) PORT=${IP##*:} ;; esac
+  if node -e 'const s=require("net").connect({host:process.argv[1],port:+process.argv[2],timeout:3000});s.on("connect",()=>process.exit(0));s.on("timeout",()=>process.exit(1));s.on("error",()=>process.exit(1))' "$HOSTONLY" "$PORT"; then
+    say "  Reached $IP."
+  else
+    say "  Could not reach $IP yet. Check it is on and on this network. It will keep trying once installed."
+  fi
+  M=$((M + 1))
+  MIRS="$MIRS$IP	$MNAME	$MMODEL	$FLEET
+"
+done
+[ $((N + M)) -gt 0 ] || fail "No robots given. Run this again with at least one arm's or MiR's IP address."
+MIRAUTH="${BOTLIEN_MIR_AUTH:-}"
+if [ "$M" -gt 0 ] && [ -z "$MIRAUTH" ]; then
+  ask "MiR login user (an API user from the MiR web interface, like distributor): "; MUSER=$REPLY
+  printf 'Its password: ' > "$TTY"
+  stty -echo < "$TTY" 2>/dev/null || true
+  IFS= read -r MPASS < "$TTY" || MPASS=""
+  stty echo < "$TTY" 2>/dev/null || true
+  printf '\n' > "$TTY"
+  MIRAUTH="$MUSER:$MPASS"
+fi
 
 # ---- download and configure ----
 mkdir -p "$DIR"
 for f in $FILES; do
   curl -fsSL "$BOTLIEN/gateway/files/$f" -o "$DIR/$f" || fail "Could not download $f from $BOTLIEN."
 done
-printf '%s' "$ARMS" | BOTLIEN="$BOTLIEN" node -e '
-  const lines = require("fs").readFileSync(0, "utf8").split("\n").filter(Boolean);
-  const arms = lines.map((l, i) => { const [host, name, model] = l.split("\t"); return { id: "arm-" + host.replace(/\./g, "-"), host, name, model, category: "machine_tending" }; });
-  process.stdout.write(JSON.stringify({ botlien: process.env.BOTLIEN, heartbeatSeconds: 15, frequency: 10, arms }, null, 2));
+printf '%s\036%s' "$ARMS" "$MIRS" | BOTLIEN="$BOTLIEN" node -e '
+  const [armText, mirText] = require("fs").readFileSync(0, "utf8").split("\x1e");
+  const rows = (t) => (t || "").split("\n").filter(Boolean).map((l) => l.split("\t"));
+  const arms = rows(armText).map(([host, name, model]) => ({ id: "arm-" + host.replace(/\./g, "-"), host, name, model, category: "machine_tending" }));
+  const mir = rows(mirText).map(([addr, name, model, fleet]) => {
+    const [host, port] = addr.split(":");
+    const id = (fleet === "1" ? "mirfleet-" : "mir-") + host.replace(/\./g, "-");
+    return { id, host, ...(port ? { port: Number(port) } : {}), name, ...(fleet === "1" ? { fleet: true } : { model }) };
+  });
+  process.stdout.write(JSON.stringify({ botlien: process.env.BOTLIEN, heartbeatSeconds: 15, frequency: 10, arms, mir }, null, 2));
 ' > "$DIR/gateway.json"
 umask 077
 printf 'BOTLIEN_API_KEY=%s\n' "$KEY" > "$DIR/key.env"
+# Single-quoted so a password with spaces or $ in it is read back as typed.
+[ -n "$MIRAUTH" ] && printf "BOTLIEN_MIR_AUTH='%s'\n" "$(printf '%s' "$MIRAUTH" | sed "s/'/'\\\\''/g")" >> "$DIR/key.env"
 chmod 600 "$DIR/key.env"
 cat > "$DIR/run.sh" <<EOF
 #!/bin/sh
@@ -129,7 +204,7 @@ chmod 700 "$DIR/run.sh"
 if [ "$MODE" = systemd ]; then
   cat > "$UNIT" <<EOF
 [Unit]
-Description=Botlien UR gateway (read only)
+Description=Botlien gateway (read only)
 After=network-online.target
 Wants=network-online.target
 
