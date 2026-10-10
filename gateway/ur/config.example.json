@@ -19,5 +19,19 @@
       "model": "UR16e",
       "category": "welding"
     }
+  ],
+  "mir": [
+    {
+      "id": "mir-tugger1",
+      "host": "192.168.12.20",
+      "name": "Tugger 1",
+      "model": "MiR250"
+    },
+    {
+      "id": "mirfleet-plant",
+      "host": "10.0.0.5",
+      "name": "MiR",
+      "fleet": true
+    }
   ]
 }

@@ -1,4 +1,4 @@
-// Handing out the UR gateway to a PC on a shop floor (gateway/ur/). The
+// Handing out the gateway (UR arms and MiRs) to a PC on a shop floor (gateway/ur/). The
 // installer scripts get this server's address written in, so
 //   curl -fsSL https://app.botlien.com/gateway/install.sh | sh
 // installs a gateway that sends to the same Botlien it came from. The files
@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { ROOT } from "./infra.mjs";
 
 const DIR = join(ROOT, "gateway", "ur");
-export const GATEWAY_FILES = ["gateway.mjs", "arm.mjs", "rtde.mjs", "sender.mjs"];
+export const GATEWAY_FILES = ["gateway.mjs", "arm.mjs", "rtde.mjs", "sender.mjs", "mir.mjs"];
 const SCRIPTS = { "install.sh": "text/x-shellscript; charset=utf-8", "install.ps1": "text/plain; charset=utf-8" };
 
 /** The asset for a /gateway/... path, or null. */

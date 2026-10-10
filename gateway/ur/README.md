@@ -1,7 +1,7 @@
-# Botlien UR gateway
+# Botlien gateway (UR arms and MiR robots)
 
-Reads Universal Robots arms on the shop network and sends their status to
-Botlien. One small program, no dependencies, Node 18 or newer. It runs on any
+Reads Universal Robots arms and MiR mobile robots on the shop network and
+sends their status to Botlien. One small program, no dependencies, Node 18 or newer. It runs on any
 box that can reach the arms: a mini PC, a Raspberry Pi 5, the cell's own
 industrial PC.
 
@@ -11,6 +11,47 @@ It reads RTDE on port 30004 and sets up outputs only. It has no code that
 sends RTDE inputs, and it refuses to connect to 29999 (dashboard server) or
 30001-30003 (URScript). It cannot move an arm, load a program, or change a
 setting. It opens no port of its own; every connection goes out.
+
+## MiR robots
+
+MiR100/250/500/600/1350 serve a REST API on the robot (`http://<robot
+ip>/api/v2.0.0/`), and MiR Fleet serves the same API for all its robots on a
+server at the site. Neither is on the internet, so the gateway reads them on
+the local network, next to the arms.
+
+- **Read only.** The MiR client can only send GET (`/status`, and on Fleet
+  `/robots` and `/robots/{id}`). It has no code that queues missions or writes
+  registers.
+- **Login.** MiR's API needs a user. Make one in the MiR web interface (System >
+  Users) with the lowest group that can read, and give it to the gateway as
+  `BOTLIEN_MIR_AUTH=user:password`, the same environment-only rule as the key.
+  The gateway sends it the way MiR asks (`Basic` of user and the password's
+  SHA-256).
+- **One robot:** `{ "id": "mir-tugger1", "host": "192.168.12.20", "name":
+  "Tugger 1", "model": "MiR250" }` under `"mir"`.
+- **A Fleet server:** `{ "id": "mirfleet-plant", "host": "10.0.0.5", "fleet":
+  true }`. Every robot on it shows up as `mirfleet-plant-<fleet id>`, and robots
+  added to Fleet later are picked up within a minute.
+
+What a MiR sends:
+
+| Botlien field | From MiR |
+|---|---|
+| `mission_state` `active` | Executing and moving, or parked for less than `mirHoldSeconds` (10 by default) |
+| `mission_state` `waiting` | Executing and parked longer than that (a mission step waiting on a machine or a person), dated from when it stopped |
+| `mission_state` `idle`, `paused`, `off` | Ready, Completed, Aborted, Docked, Docking, Manual control; Pause; Starting and shutting down |
+| `e_stop`, `errors` | EmergencyStop (state 10), Error (state 12) and MiR's own error list, as `MIR-<code>` |
+| `mission_id` | the mission queue id, so each mission counts once |
+| `battery_pct`, `pose` | `battery_percentage`, `position` |
+
+It polls every second (`mirPollSeconds`). MiRs come in as `putaway` work
+(moving material, priced per move) unless their entry sets `category`.
+
+`fake-mir.mjs` stands in for a MiR or a Fleet server when testing:
+
+```
+node gateway/ur/fake-mir.mjs --port 8080 --fleet 3 --stop-every 3
+```
 
 ## Windows
 
@@ -27,7 +68,8 @@ On a PC that is already on the same network as the arms (no new hardware):
 - Mac: `curl -fsSL https://app.botlien.com/gateway/install.sh | sh`
 
 It needs Node.js 18 or newer. It asks for the account's gateway key (made on
-Botlien's Connect robots step or Settings > Data sources) and each arm's IP,
+Botlien's Connect robots step or Settings > Data sources), each arm's IP and
+each MiR's IP (or the MiR Fleet server's) with a MiR login,
 checks it can reach each arm on 30004, downloads these files from Botlien,
 keeps the key readable only by the system, and sets the gateway to start by
 itself and restart if it stops (systemd on Linux, a login agent on macOS, a
@@ -35,7 +77,9 @@ startup task on Windows). Remove it with `sh -s -- --uninstall` (or
 `$env:BOTLIEN_UNINSTALL=1` before the Windows line).
 
 Scripted installs skip the questions:
-`BOTLIEN_API_KEY=blk_... BOTLIEN_ARMS="192.168.1.21,Loader 1,UR10e;192.168.1.22,Loader 2" sh install.sh`.
+`BOTLIEN_API_KEY=blk_... BOTLIEN_ARMS="192.168.1.21,Loader 1,UR10e;192.168.1.22,Loader 2" sh install.sh`,
+and for MiRs `BOTLIEN_MIR="192.168.12.20,Tugger 1,MiR250;fleet 10.0.0.5" BOTLIEN_MIR_AUTH=user:password`.
+Naming only one kind skips the other.
 
 ## Set it up by hand
 
